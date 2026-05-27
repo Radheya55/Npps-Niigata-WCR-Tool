@@ -1,9 +1,7 @@
 /* ═══════════════════════════════════════════════════════
-   NPPS WCR TOOL — app.js
-   Phase 1: Auth, Base Data, Drafts, Project Lookup
+   NPPS WCR TOOL — app.js  (Phase 1 Enhanced)
 ═══════════════════════════════════════════════════════ */
 
-// ── CONFIG ─────────────────────────────────────────────
 const CONFIG = {
   GOOGLE_CLIENT_ID: "190605798710-5cashes032781tifqemjuvsm6rvon10c.apps.googleusercontent.com",
   WORKER_URL: "https://polished-lake-4911.radheya-supnekar.workers.dev",
@@ -11,9 +9,9 @@ const CONFIG = {
   BASE_DATA_SHEET_NAME: "NPPS_WCR_BaseData",
   DRAFT_EXPIRY_DAYS: 15,
   MAX_DRAFTS: 10,
+  EMPLOYEES_URL: "https://raw.githubusercontent.com/Radheya55/Npps-Niigata-WCR-Tool/main/employees.json",
 };
 
-// ── STATE ──────────────────────────────────────────────
 const State = {
   currentUser: null,
   googleToken: null,
@@ -23,9 +21,10 @@ const State = {
   drafts: [],
   currentProject: null,
   currentDraft: null,
+  employees: [],
+  vesselImageBase64: null,
 };
 
-// ── SCREEN MANAGER ─────────────────────────────────────
 const Screen = {
   show(id) {
     document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
@@ -34,8 +33,60 @@ const Screen = {
   }
 };
 
-// ── APP ────────────────────────────────────────────────
 const App = {
+
+  // ── Init ────────────────────────────────────────────
+
+  async init() {
+    await App.loadEmployees();
+  },
+
+  async loadEmployees() {
+    try {
+      const resp = await fetch(CONFIG.EMPLOYEES_URL + "?t=" + Date.now());
+      State.employees = await resp.json();
+      App.populateNameDropdown();
+    } catch (err) {
+      console.error("loadEmployees:", err);
+      Toast.show("Could not load employee list. Check your connection.", "error");
+    }
+  },
+
+  populateNameDropdown() {
+    const select = document.getElementById("emp-name-select");
+    select.innerHTML = '<option value="">— Select your name —</option>';
+    const sorted = [...State.employees].sort((a, b) => a.name.localeCompare(b.name));
+    sorted.forEach(emp => {
+      const opt = document.createElement("option");
+      opt.value = emp.empNo;
+      opt.textContent = emp.name;
+      select.appendChild(opt);
+    });
+  },
+
+  // ── Login validation ────────────────────────────────
+
+  onNameSelect() {
+    document.getElementById("emp-input").value = "";
+    document.getElementById("emp-error").textContent = "";
+    App.updateContinueBtn();
+  },
+
+  onEmpInput() {
+    document.getElementById("emp-error").textContent = "";
+    App.updateContinueBtn();
+  },
+
+  updateContinueBtn() {
+    const selectedEmpNo = document.getElementById("emp-name-select").value;
+    const typedEmpNo = document.getElementById("emp-input").value.trim();
+    const btn = document.getElementById("continue-btn");
+    const match = selectedEmpNo && typedEmpNo &&
+      selectedEmpNo.toLowerCase() === typedEmpNo.toLowerCase();
+    btn.disabled = !match;
+    btn.style.opacity = match ? "1" : "0.5";
+    btn.style.cursor = match ? "pointer" : "not-allowed";
+  },
 
   // ── Navigation ──────────────────────────────────────
 
@@ -48,7 +99,9 @@ const App = {
     const title = flow === "basedata" ? "Service Manager Login" : "Sign In";
     document.getElementById("login-title").textContent = title;
     document.getElementById("emp-input").value = "";
+    document.getElementById("emp-name-select").value = "";
     document.getElementById("emp-error").textContent = "";
+    App.updateContinueBtn();
     Screen.show("login");
   },
 
@@ -56,6 +109,7 @@ const App = {
     State.currentUser = null;
     State.googleToken = null;
     State.drafts = [];
+    State.vesselImageBase64 = null;
     Screen.show("home");
     Toast.show("Signed out successfully.");
   },
@@ -63,29 +117,36 @@ const App = {
   // ── Employee Verification ───────────────────────────
 
   verifyEmployee() {
-    const val = document.getElementById("emp-input").value.trim().toUpperCase();
+    const selectedEmpNo = document.getElementById("emp-name-select").value;
+    const typedEmpNo = document.getElementById("emp-input").value.trim();
     const errorEl = document.getElementById("emp-error");
 
-    if (!val) {
-      errorEl.textContent = "Please enter your employee number.";
+    if (!selectedEmpNo || !typedEmpNo) {
+      errorEl.textContent = "Please select your name and enter your employee number.";
       return;
     }
 
-    if (!/^EMP\d{3,6}$/i.test(val) && !/^[A-Z]{2,4}\d{3,6}$/i.test(val)) {
-      errorEl.textContent = "Enter a valid employee number (e.g. EMP001).";
+    if (selectedEmpNo.toLowerCase() !== typedEmpNo.toLowerCase()) {
+      errorEl.textContent = "Employee number does not match the selected name.";
+      return;
+    }
+
+    const emp = State.employees.find(e => e.empNo.toLowerCase() === typedEmpNo.toLowerCase());
+    if (!emp) {
+      errorEl.textContent = "Employee not found. Contact your manager.";
       return;
     }
 
     errorEl.textContent = "";
-    State.currentUser = { empNo: val };
-    Toast.show("Employee verified. Connect Google Drive to continue.");
+    State.currentUser = { empNo: emp.empNo, name: emp.name };
+    Toast.show(`Welcome, ${emp.name}. Connect Google Drive to continue.`);
   },
 
   // ── Google OAuth ────────────────────────────────────
 
   connectGoogle() {
     if (!State.currentUser) {
-      document.getElementById("emp-error").textContent = "Please enter your employee number first.";
+      document.getElementById("emp-error").textContent = "Please verify your employee number first.";
       return;
     }
 
@@ -117,11 +178,11 @@ const App = {
     await App.loadDrafts();
 
     if (State.pendingFlow === "basedata") {
-      document.getElementById("user-pill-bd").textContent = State.currentUser.empNo;
+      document.getElementById("user-pill-bd").textContent = State.currentUser.name;
       await App.loadProjectsTable();
       Screen.show("basedata");
     } else {
-      document.getElementById("user-pill").textContent = State.currentUser.empNo;
+      document.getElementById("user-pill").textContent = State.currentUser.name;
       App.renderDrafts();
       Screen.show("dashboard");
     }
@@ -135,46 +196,64 @@ const App = {
         `https://www.googleapis.com/drive/v3/files?q=name='${CONFIG.BASE_DATA_SHEET_NAME}' and '${CONFIG.DRIVE_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&fields=files(id,name)`
       );
       const data = await resp.json();
-
       if (data.files && data.files.length > 0) {
         State.baseSheetId = data.files[0].id;
         return;
       }
-
-      const createResp = await gapi_fetch(
-        "https://www.googleapis.com/drive/v3/files",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: CONFIG.BASE_DATA_SHEET_NAME,
-            mimeType: "application/vnd.google-apps.spreadsheet",
-            parents: [CONFIG.DRIVE_FOLDER_ID],
-          }),
-        }
-      );
+      const createResp = await gapi_fetch("https://www.googleapis.com/drive/v3/files", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: CONFIG.BASE_DATA_SHEET_NAME,
+          mimeType: "application/vnd.google-apps.spreadsheet",
+          parents: [CONFIG.DRIVE_FOLDER_ID],
+        }),
+      });
       const created = await createResp.json();
       State.baseSheetId = created.id;
-
       const headers = [
         "ProjectCode","CustomerName","ContractNo","StartDate","EndDate",
         "OverhaulType","EngineModel","EngineSerial","EngineArrangement",
         "RPMCapacity","RunningHours","CustomerIncharge","TeamLeader",
-        "Members","Vessel","Location","CreatedDate"
+        "Members","Vessel","Location","VesselImageBase64","CreatedDate"
       ];
       await gapi_fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A1:Q1?valueInputOption=RAW`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A1:R1?valueInputOption=RAW`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ values: [headers] }),
         }
       );
-
     } catch (err) {
       console.error("ensureBaseSheet:", err);
       Toast.show("Could not access Drive. Check folder ID in config.", "error");
     }
+  },
+
+  // ── Vessel Image ────────────────────────────────────
+
+  onVesselImageSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      State.vesselImageBase64 = e.target.result;
+      document.getElementById("bd-image-preview").src = e.target.result;
+      document.getElementById("bd-image-preview").classList.remove("hidden");
+      document.getElementById("bd-image-placeholder").classList.add("hidden");
+      document.getElementById("bd-image-clear").classList.remove("hidden");
+    };
+    reader.readAsDataURL(file);
+  },
+
+  clearVesselImage() {
+    State.vesselImageBase64 = null;
+    document.getElementById("bd-image-input").value = "";
+    document.getElementById("bd-image-preview").src = "";
+    document.getElementById("bd-image-preview").classList.add("hidden");
+    document.getElementById("bd-image-placeholder").classList.remove("hidden");
+    document.getElementById("bd-image-clear").classList.add("hidden");
   },
 
   // ── Project Lookup ───────────────────────────────────
@@ -182,10 +261,8 @@ const App = {
   async lookupProject() {
     const code = document.getElementById("project-code-input").value.trim().toUpperCase();
     if (!code) { Toast.show("Enter a project code.", "error"); return; }
-
     document.getElementById("project-details").classList.add("hidden");
     document.getElementById("project-not-found").classList.add("hidden");
-
     try {
       const resp = await gapi_fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1`
@@ -196,19 +273,15 @@ const App = {
         document.getElementById("project-not-found").classList.remove("hidden");
         return;
       }
-
       const headers = rows[0];
       const match = rows.slice(1).find(r => r[0] && r[0].toUpperCase() === code);
-
       if (!match) {
         document.getElementById("project-not-found").classList.remove("hidden");
         return;
       }
-
       const project = {};
       headers.forEach((h, i) => { project[h] = match[i] || "—"; });
       State.currentProject = project;
-
       const labels = {
         CustomerName: "Customer", ContractNo: "Contract No.",
         StartDate: "Start Date", EndDate: "Est. Completion",
@@ -216,7 +289,6 @@ const App = {
         EngineSerial: "Serial No.", Vessel: "Vessel / Rig",
         Location: "Location", TeamLeader: "Team Leader",
       };
-
       const grid = document.getElementById("project-info-grid");
       grid.innerHTML = Object.entries(labels).map(([key, label]) => `
         <div class="project-info-item">
@@ -224,9 +296,7 @@ const App = {
           <span>${project[key] || "—"}</span>
         </div>
       `).join("");
-
       document.getElementById("project-details").classList.remove("hidden");
-
     } catch (err) {
       console.error("lookupProject:", err);
       Toast.show("Could not read project data.", "error");
@@ -236,16 +306,15 @@ const App = {
   startWCR() {
     if (!State.currentProject) return;
     const code = State.currentProject.ProjectCode;
-
     const myDrafts = State.drafts.filter(d => d.empNo === State.currentUser.empNo);
     if (myDrafts.length >= CONFIG.MAX_DRAFTS) {
       Toast.show(`You have ${CONFIG.MAX_DRAFTS} drafts. Delete one to continue.`, "error");
       return;
     }
-
     const draft = {
       id: "draft_" + Date.now(),
       empNo: State.currentUser.empNo,
+      authorName: State.currentUser.name,
       projectCode: code,
       projectData: State.currentProject,
       status: "draft",
@@ -253,11 +322,10 @@ const App = {
       updatedAt: new Date().toISOString(),
       sections: {},
     };
-
     State.drafts.unshift(draft);
     App.saveDrafts();
     App.renderDrafts();
-    Toast.show(`WCR started for project ${code}. Sections coming in Phase 2!`, "success");
+    Toast.show(`WCR started for project ${code}.`, "success");
   },
 
   // ── Drafts ──────────────────────────────────────────
@@ -269,24 +337,19 @@ const App = {
         `https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and '${CONFIG.DRIVE_FOLDER_ID}' in parents and trashed=false&fields=files(id,name)`
       );
       const data = await resp.json();
-
       if (!data.files || data.files.length === 0) {
         State.drafts = [];
         State.draftsFileId = null;
         return;
       }
-
       State.draftsFileId = data.files[0].id;
-
       const fileResp = await gapi_fetch(
         `https://www.googleapis.com/drive/v3/files/${State.draftsFileId}?alt=media`
       );
       const text = await fileResp.text();
       const parsed = JSON.parse(text);
-
       const cutoff = Date.now() - CONFIG.DRAFT_EXPIRY_DAYS * 86400000;
       State.drafts = parsed.filter(d => new Date(d.createdAt).getTime() > cutoff);
-
     } catch (err) {
       console.error("loadDrafts:", err);
       State.drafts = [];
@@ -298,22 +361,16 @@ const App = {
       const fileName = `NPPS_WCR_Drafts_${State.currentUser.empNo}.json`;
       const content = JSON.stringify(State.drafts, null, 2);
       const blob = new Blob([content], { type: "application/json" });
-
       if (State.draftsFileId) {
         await gapi_fetch(
           `https://www.googleapis.com/upload/drive/v3/files/${State.draftsFileId}?uploadType=media`,
           { method: "PATCH", body: blob }
         );
       } else {
-        const meta = {
-          name: fileName,
-          parents: [CONFIG.DRIVE_FOLDER_ID],
-          mimeType: "application/json",
-        };
+        const meta = { name: fileName, parents: [CONFIG.DRIVE_FOLDER_ID], mimeType: "application/json" };
         const form = new FormData();
         form.append("metadata", new Blob([JSON.stringify(meta)], { type: "application/json" }));
         form.append("file", blob);
-
         const resp = await gapi_fetch(
           "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
           { method: "POST", body: form }
@@ -328,15 +385,12 @@ const App = {
 
   renderDrafts() {
     const myDrafts = State.drafts.filter(d => d.empNo === State.currentUser.empNo);
-    const countEl = document.getElementById("draft-count");
-    countEl.textContent = `${myDrafts.length} / ${CONFIG.MAX_DRAFTS}`;
-
+    document.getElementById("draft-count").textContent = `${myDrafts.length} / ${CONFIG.MAX_DRAFTS}`;
     const list = document.getElementById("drafts-list");
     if (myDrafts.length === 0) {
       list.innerHTML = `<div class="empty-state">No drafts yet. Start a new report above.</div>`;
       return;
     }
-
     list.innerHTML = myDrafts.map(d => `
       <div class="draft-card" onclick="App.openDraft('${d.id}')">
         <div class="draft-card-left">
@@ -374,14 +428,12 @@ const App = {
 
   async saveBaseData() {
     const getValue = id => document.getElementById(id).value.trim();
-
     const projectCode = getValue("bd-project-code").toUpperCase();
     if (!projectCode) {
       document.getElementById("bd-error").textContent = "Project Code is required.";
       document.getElementById("bd-error").classList.remove("hidden");
       return;
     }
-
     document.getElementById("bd-success").classList.add("hidden");
     document.getElementById("bd-error").classList.add("hidden");
 
@@ -402,43 +454,32 @@ const App = {
       getValue("bd-members"),
       getValue("bd-vessel"),
       getValue("bd-location"),
+      State.vesselImageBase64 || "",
       new Date().toISOString(),
     ];
 
     try {
       const existing = await App.findProjectRow(projectCode);
-
       if (existing.rowIndex !== -1) {
         const rangeRow = existing.rowIndex + 2;
         await gapi_fetch(
-          `https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A${rangeRow}:Q${rangeRow}?valueInputOption=RAW`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ values: [row] }),
-          }
+          `https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A${rangeRow}:R${rangeRow}?valueInputOption=RAW`,
+          { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values: [row] }) }
         );
       } else {
         await gapi_fetch(
-          `https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A:Q:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ values: [row] }),
-          }
+          `https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A:R:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values: [row] }) }
         );
       }
-
       document.getElementById("bd-success").classList.remove("hidden");
       Toast.show("Project data saved.", "success");
       App.clearBaseDataForm();
       await App.loadProjectsTable();
-
     } catch (err) {
       console.error("saveBaseData:", err);
-      const errEl = document.getElementById("bd-error");
-      errEl.textContent = "Save failed. Check your Drive connection.";
-      errEl.classList.remove("hidden");
+      document.getElementById("bd-error").textContent = "Save failed. Check your Drive connection.";
+      document.getElementById("bd-error").classList.remove("hidden");
     }
   },
 
@@ -464,6 +505,7 @@ const App = {
       const el = document.getElementById(id);
       if (el) el.value = "";
     });
+    App.clearVesselImage();
   },
 
   async loadProjectsTable() {
@@ -474,16 +516,13 @@ const App = {
       );
       const data = await resp.json();
       const rows = data.values || [];
-
       if (rows.length < 2) {
         wrap.innerHTML = `<div class="empty-state">No projects in database yet.</div>`;
         document.getElementById("project-count").textContent = "0";
         return;
       }
-
       const projectRows = rows.slice(1);
       document.getElementById("project-count").textContent = projectRows.length;
-
       wrap.innerHTML = `
         <table class="data-table">
           <thead>
@@ -514,7 +553,6 @@ const App = {
           </tbody>
         </table>
       `;
-
     } catch (err) {
       wrap.innerHTML = `<div class="empty-state">Could not load projects. Check Drive connection.</div>`;
     }
@@ -523,23 +561,28 @@ const App = {
   async editProject(rowIndex) {
     try {
       const resp = await gapi_fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A${rowIndex+1}:Q${rowIndex+1}`
+        `https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A${rowIndex+1}:R${rowIndex+1}`
       );
       const data = await resp.json();
       const row = (data.values || [[]])[0];
-
       const fields = [
         "bd-project-code","bd-customer","bd-contract-no","bd-start-date","bd-end-date",
         "bd-overhaul-type","bd-engine-model","bd-engine-serial","bd-engine-arrangement",
         "bd-rpm","bd-running-hours","bd-customer-incharge","bd-team-leader",
         "bd-members","bd-vessel","bd-location"
       ];
-
       fields.forEach((id, i) => {
         const el = document.getElementById(id);
         if (el && row[i] !== undefined) el.value = row[i];
       });
-
+      // Load image if exists (index 16)
+      if (row[16]) {
+        State.vesselImageBase64 = row[16];
+        document.getElementById("bd-image-preview").src = row[16];
+        document.getElementById("bd-image-preview").classList.remove("hidden");
+        document.getElementById("bd-image-placeholder").classList.add("hidden");
+        document.getElementById("bd-image-clear").classList.remove("hidden");
+      }
       window.scrollTo({ top: 0, behavior: "smooth" });
       Toast.show("Project loaded for editing. Make changes and save.");
     } catch (err) {
@@ -548,7 +591,7 @@ const App = {
   },
 };
 
-// ── GOOGLE API FETCH HELPER ─────────────────────────────
+// ── GOOGLE API FETCH HELPER ──────────────────────────────
 async function gapi_fetch(url, options = {}) {
   const headers = {
     "Authorization": `Bearer ${State.googleToken}`,
@@ -557,7 +600,7 @@ async function gapi_fetch(url, options = {}) {
   return fetch(url, { ...options, headers });
 }
 
-// ── DATE HELPERS ────────────────────────────────────────
+// ── DATE HELPERS ─────────────────────────────────────────
 function formatDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -569,7 +612,7 @@ function expiryDate(iso, days) {
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-// ── TOAST ───────────────────────────────────────────────
+// ── TOAST ────────────────────────────────────────────────
 const Toast = {
   timer: null,
   show(msg, type = "default") {
@@ -580,3 +623,6 @@ const Toast = {
     Toast.timer = setTimeout(() => { el.classList.remove("show"); }, 3500);
   }
 };
+
+// ── START ────────────────────────────────────────────────
+App.init();
