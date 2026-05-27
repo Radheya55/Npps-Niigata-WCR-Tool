@@ -940,3 +940,9 @@ html, body {
   .sfi-row { grid-template-columns: 1fr; }
   .palette-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ── Expiry pill in projects table ── */
+.expiry-pill {
+  font-size: 11px; color: var(--white-dim);
+  white-space: nowrap;
+}
