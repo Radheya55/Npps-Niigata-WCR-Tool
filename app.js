@@ -4,36 +4,25 @@
 ═══════════════════════════════════════════════════════ */
 
 // ── CONFIG ─────────────────────────────────────────────
-// REPLACE these values before deploying
 const CONFIG = {
-  // Your Google Cloud OAuth Client ID
-  // Get from: console.cloud.google.com → APIs → Credentials
-  GOOGLE_CLIENT_ID: "YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com",
-
-  // Your Cloudflare Worker URL (where Gemini calls are proxied)
-  WORKER_URL: "https://your-worker.your-account.workers.dev",
-
-  // Google Drive folder ID where all data is stored
-  // Create a folder in your Drive, right-click → Get link → extract the ID from the URL
-  DRIVE_FOLDER_ID: "YOUR_DRIVE_FOLDER_ID_HERE",
-
-  // Name of the Google Sheet that holds base project data
+  GOOGLE_CLIENT_ID: "190605798710-5cashes032781tifqemjuvsm6rvon10c.apps.googleusercontent.com",
+  WORKER_URL: "https://polished-lake-4911.radheya-supnekar.workers.dev",
+  DRIVE_FOLDER_ID: "1fqfq-efMq5KsDpYHc-9TJ3-yc8l3GKc1",
   BASE_DATA_SHEET_NAME: "NPPS_WCR_BaseData",
-
-  // Draft auto-delete after this many days
   DRAFT_EXPIRY_DAYS: 15,
-
-  // Max drafts per user
   MAX_DRAFTS: 10,
 };
 
 // ── STATE ──────────────────────────────────────────────
 const State = {
-  currentUser: null,      // { empNo, name }
-  googleToken: null,      // OAuth access token
-  pendingFlow: null,      // 'wcr' or 'basedata' — where to go after login
-  baseSheetId: null,      // Google Sheet ID for base data
-  drafts: [],             // Current user's drafts
+  currentUser: null,
+  googleToken: null,
+  pendingFlow: null,
+  baseSheetId: null,
+  draftsFileId: null,
+  drafts: [],
+  currentProject: null,
+  currentDraft: null,
 };
 
 // ── SCREEN MANAGER ─────────────────────────────────────
@@ -82,7 +71,6 @@ const App = {
       return;
     }
 
-    // Basic format check — adjust pattern to match your actual format
     if (!/^EMP\d{3,6}$/i.test(val) && !/^[A-Z]{2,4}\d{3,6}$/i.test(val)) {
       errorEl.textContent = "Enter a valid employee number (e.g. EMP001).";
       return;
@@ -117,8 +105,6 @@ const App = {
         btn.classList.add("connected");
         btn.innerHTML = `✓ Google Drive Connected`;
         Toast.show("Google Drive connected!", "success");
-
-        // Proceed after short delay
         setTimeout(() => App.proceedAfterAuth(), 800);
       },
     });
@@ -127,13 +113,9 @@ const App = {
   },
 
   async proceedAfterAuth() {
-    // Ensure base sheet exists in Drive
     await App.ensureBaseSheet();
-
-    // Load drafts for this user
     await App.loadDrafts();
 
-    // Go to the right screen
     if (State.pendingFlow === "basedata") {
       document.getElementById("user-pill-bd").textContent = State.currentUser.empNo;
       await App.loadProjectsTable();
@@ -148,7 +130,6 @@ const App = {
   // ── Base Data Sheet ─────────────────────────────────
 
   async ensureBaseSheet() {
-    // Search for the sheet in the designated folder
     try {
       const resp = await gapi_fetch(
         `https://www.googleapis.com/drive/v3/files?q=name='${CONFIG.BASE_DATA_SHEET_NAME}' and '${CONFIG.DRIVE_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&fields=files(id,name)`
@@ -160,7 +141,6 @@ const App = {
         return;
       }
 
-      // Create the sheet
       const createResp = await gapi_fetch(
         "https://www.googleapis.com/drive/v3/files",
         {
@@ -176,7 +156,6 @@ const App = {
       const created = await createResp.json();
       State.baseSheetId = created.id;
 
-      // Write header row
       const headers = [
         "ProjectCode","CustomerName","ContractNo","StartDate","EndDate",
         "OverhaulType","EngineModel","EngineSerial","EngineArrangement",
@@ -226,14 +205,10 @@ const App = {
         return;
       }
 
-      // Build a key-value object
       const project = {};
       headers.forEach((h, i) => { project[h] = match[i] || "—"; });
-
-      // Store for later
       State.currentProject = project;
 
-      // Render
       const labels = {
         CustomerName: "Customer", ContractNo: "Contract No.",
         StartDate: "Start Date", EndDate: "Est. Completion",
@@ -262,14 +237,12 @@ const App = {
     if (!State.currentProject) return;
     const code = State.currentProject.ProjectCode;
 
-    // Check draft limit
     const myDrafts = State.drafts.filter(d => d.empNo === State.currentUser.empNo);
     if (myDrafts.length >= CONFIG.MAX_DRAFTS) {
       Toast.show(`You have ${CONFIG.MAX_DRAFTS} drafts. Delete one to continue.`, "error");
       return;
     }
 
-    // Create new draft object
     const draft = {
       id: "draft_" + Date.now(),
       empNo: State.currentUser.empNo,
@@ -284,15 +257,12 @@ const App = {
     State.drafts.unshift(draft);
     App.saveDrafts();
     App.renderDrafts();
-
     Toast.show(`WCR started for project ${code}. Sections coming in Phase 2!`, "success");
-    // Phase 2: App.openWCRBuilder(draft);
   },
 
   // ── Drafts ──────────────────────────────────────────
 
   async loadDrafts() {
-    // Drafts are stored as a JSON file in Drive
     try {
       const fileName = `NPPS_WCR_Drafts_${State.currentUser.empNo}.json`;
       const resp = await gapi_fetch(
@@ -308,14 +278,12 @@ const App = {
 
       State.draftsFileId = data.files[0].id;
 
-      // Download content
       const fileResp = await gapi_fetch(
         `https://www.googleapis.com/drive/v3/files/${State.draftsFileId}?alt=media`
       );
       const text = await fileResp.text();
       const parsed = JSON.parse(text);
 
-      // Filter out expired drafts
       const cutoff = Date.now() - CONFIG.DRAFT_EXPIRY_DAYS * 86400000;
       State.drafts = parsed.filter(d => new Date(d.createdAt).getTime() > cutoff);
 
@@ -332,13 +300,11 @@ const App = {
       const blob = new Blob([content], { type: "application/json" });
 
       if (State.draftsFileId) {
-        // Update existing
         await gapi_fetch(
           `https://www.googleapis.com/upload/drive/v3/files/${State.draftsFileId}?uploadType=media`,
           { method: "PATCH", body: blob }
         );
       } else {
-        // Create new
         const meta = {
           name: fileName,
           parents: [CONFIG.DRIVE_FOLDER_ID],
@@ -394,7 +360,6 @@ const App = {
     if (!draft) return;
     State.currentDraft = draft;
     Toast.show(`Opening ${draft.projectCode}… (WCR builder coming in Phase 2)`);
-    // Phase 2: App.openWCRBuilder(draft);
   },
 
   deleteDraft(id) {
@@ -441,12 +406,10 @@ const App = {
     ];
 
     try {
-      // Check if project code already exists — if so, find the row and update it
       const existing = await App.findProjectRow(projectCode);
 
       if (existing.rowIndex !== -1) {
-        // Update existing row
-        const rangeRow = existing.rowIndex + 2; // 1-indexed + header
+        const rangeRow = existing.rowIndex + 2;
         await gapi_fetch(
           `https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A${rangeRow}:Q${rangeRow}?valueInputOption=RAW`,
           {
@@ -456,7 +419,6 @@ const App = {
           }
         );
       } else {
-        // Append new row
         await gapi_fetch(
           `https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A:Q:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
           {
