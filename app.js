@@ -888,35 +888,106 @@ const App = {
 
   async loadProjectsTable() {
     const wrap = document.getElementById("projects-table-wrap");
-    wrap.innerHTML = `<div class="empty-state">Loading...</div>`;
+    wrap.innerHTML = `<div class="empty-state">Loading projects...</div>`;
     try {
       const resp = await gapi_fetch(`https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1`);
       const data = await resp.json();
       const rows = data.values || [];
+
       if (rows.length < 2) {
         wrap.innerHTML = `<div class="empty-state">No projects in database yet.</div>`;
         document.getElementById("project-count").textContent = "0";
         return;
       }
-      const projectRows = rows.slice(1);
-      document.getElementById("project-count").textContent = projectRows.length;
+
+      const headers = rows[0];
+      const createdDateIndex = headers.indexOf("CreatedDate");
+      const cutoff = Date.now() - 1000 * 86400000; // 1000 days
+
+      // Separate expired and valid rows (row indices are 1-based in sheet, 0-based in array slice)
+      const allDataRows = rows.slice(1);
+      const expiredSheetRows = []; // 1-based sheet row numbers to delete
+      const validRows = [];
+
+      allDataRows.forEach((r, i) => {
+        const createdAt = createdDateIndex >= 0 ? r[createdDateIndex] : null;
+        const isExpired = createdAt && new Date(createdAt).getTime() < cutoff;
+        if (isExpired) {
+          expiredSheetRows.push(i + 2); // +1 for header, +1 for 1-based
+        } else {
+          validRows.push(r);
+        }
+      });
+
+      // Purge expired rows from sheet (delete in reverse order to preserve indices)
+      if (expiredSheetRows.length > 0) {
+        const deleteRequests = expiredSheetRows.reverse().map(rowIndex => ({
+          deleteDimension: {
+            range: { sheetId: 0, dimension: "ROWS", startIndex: rowIndex - 1, endIndex: rowIndex }
+          }
+        }));
+        await gapi_fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}:batchUpdate`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ requests: deleteRequests }),
+          }
+        );
+        Toast.show(`${expiredSheetRows.length} expired project(s) removed from database.`);
+      }
+
+      if (validRows.length === 0) {
+        wrap.innerHTML = `<div class="empty-state">No projects in database yet.</div>`;
+        document.getElementById("project-count").textContent = "0";
+        return;
+      }
+
+      document.getElementById("project-count").textContent = validRows.length;
+
       wrap.innerHTML = `
         <table class="data-table">
-          <thead><tr><th>Code</th><th>Customer</th><th>Engine Model</th><th>Type</th><th>Team Leader</th><th>Location</th><th>Start Date</th><th></th></tr></thead>
-          <tbody>${projectRows.map((r, i) => `
+          <thead>
             <tr>
-              <td><strong>${r[0]||"—"}</strong></td>
-              <td>${r[1]||"—"}</td>
-              <td>${r[6]||"—"}</td>
-              <td>${r[5]||"—"}</td>
-              <td>${r[12]||"—"}</td>
-              <td>${r[15]||"—"}</td>
-              <td>${r[3]||"—"}</td>
-              <td><button class="edit-btn" onclick="App.editProject(${i+1})">Edit</button></td>
-            </tr>`).join("")}
+              <th>Project Code</th>
+              <th>Customer</th>
+              <th>Engine Model</th>
+              <th>Overhaul Type</th>
+              <th>Team Leader</th>
+              <th>Location</th>
+              <th>Start Date</th>
+              <th>Added</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${validRows.map((r, i) => {
+              const createdAt = createdDateIndex >= 0 ? r[createdDateIndex] : "";
+              const addedDate = createdAt ? new Date(createdAt).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "—";
+              const expiresDate = createdAt ? (() => { const d = new Date(createdAt); d.setDate(d.getDate()+1000); return d.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}); })() : "—";
+              return `
+              <tr>
+                <td><strong>${r[0]||"—"}</strong></td>
+                <td>${r[1]||"—"}</td>
+                <td>${r[6]||"—"}</td>
+                <td>${r[5]||"—"}</td>
+                <td>${r[12]||"—"}</td>
+                <td>${r[15]||"—"}</td>
+                <td>${r[3]||"—"}</td>
+                <td><span class="expiry-pill" title="Expires ${expiresDate}">${addedDate}</span></td>
+                <td><button class="edit-btn" onclick="App.editProject(${i+1})">Edit</button></td>
+              </tr>`;
+            }).join("")}
           </tbody>
         </table>`;
-    } catch (err) { wrap.innerHTML = `<div class="empty-state">Could not load projects.</div>`; }
+
+      // Scroll table into view after save
+      setTimeout(() => wrap.scrollIntoView({ behavior: "smooth", block: "start" }), 200);
+
+    } catch (err) {
+      console.error("loadProjectsTable:", err);
+      wrap.innerHTML = `<div class="empty-state">Could not load projects. Check Drive connection.</div>`;
+    }
   },
 
   async editProject(rowIndex) {
