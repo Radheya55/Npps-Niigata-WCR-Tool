@@ -11,9 +11,7 @@
 </head>
 <body>
 
-  <!-- ═══════════════════════════════════════════
-       SCREEN 1 — HOME
-  ═══════════════════════════════════════════ -->
+  <!-- SCREEN 1 — HOME -->
   <div id="screen-home" class="screen active">
     <div class="home-bg"></div>
     <div class="home-wrap">
@@ -24,12 +22,10 @@
           <span class="brand-tagline">The Machine Reliability Expert</span>
         </div>
       </div>
-
       <div class="home-hero">
         <h1 class="hero-title">Work Completion<br /><em>Report Builder</em></h1>
         <p class="hero-sub">Niigata Engine Series &nbsp;·&nbsp; Version 1.0</p>
       </div>
-
       <div class="home-actions">
         <button class="btn-primary" onclick="App.goToLogin('wcr')">
           <span class="btn-icon">＋</span>
@@ -39,7 +35,6 @@
           </span>
           <span class="btn-arrow">→</span>
         </button>
-
         <button class="btn-secondary" onclick="App.goToLogin('basedata')">
           <span class="btn-icon">⚙</span>
           <span class="btn-label">
@@ -49,7 +44,6 @@
           <span class="btn-arrow">→</span>
         </button>
       </div>
-
       <div class="home-footer">
         Neptunus Power Plant Services Pvt. Ltd. &nbsp;·&nbsp;
         A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai – 400 710
@@ -57,21 +51,24 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════
-       SCREEN 2 — LOGIN
-  ═══════════════════════════════════════════ -->
+  <!-- SCREEN 2 — LOGIN -->
   <div id="screen-login" class="screen">
     <div class="modal-wrap">
       <button class="back-btn" onclick="App.goHome()">← Back</button>
-
       <div class="modal-card">
         <div class="modal-brand">
           <div class="brand-mark sm">N</div>
           <span>NPPS</span>
         </div>
-
         <h2 class="modal-title" id="login-title">Sign In</h2>
-        <p class="modal-sub">Enter your employee number to continue</p>
+        <p class="modal-sub">Select your name and enter your employee number</p>
+
+        <div class="form-group">
+          <label class="form-label">Your Name</label>
+          <select id="emp-name-select" class="form-input" onchange="App.onNameSelect()">
+            <option value="">— Select your name —</option>
+          </select>
+        </div>
 
         <div class="form-group">
           <label class="form-label">Employee Number</label>
@@ -79,14 +76,14 @@
             type="text"
             id="emp-input"
             class="form-input"
-            placeholder="e.g. EMP001"
+            placeholder="Enter your employee number"
             autocomplete="off"
-            onkeydown="if(event.key==='Enter') App.verifyEmployee()"
+            oninput="App.onEmpInput()"
           />
           <div class="form-error" id="emp-error"></div>
         </div>
 
-        <button class="btn-full" onclick="App.verifyEmployee()">
+        <button class="btn-full" id="continue-btn" onclick="App.verifyEmployee()" disabled style="opacity:0.5;cursor:not-allowed;">
           Continue
         </button>
 
@@ -101,17 +98,12 @@
           </svg>
           Connect Google Drive
         </button>
-
-        <p class="oauth-note">
-          One-time permission. Allows saving drafts to your Drive.
-        </p>
+        <p class="oauth-note">One-time permission. Allows saving drafts to your Drive.</p>
       </div>
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════
-       SCREEN 3 — DASHBOARD
-  ═══════════════════════════════════════════ -->
+  <!-- SCREEN 3 — DASHBOARD -->
   <div id="screen-dashboard" class="screen">
     <header class="app-header">
       <div class="app-header-left">
@@ -123,54 +115,36 @@
         <button class="logout-btn" onclick="App.logout()">Sign Out</button>
       </div>
     </header>
-
     <div class="dashboard-body">
-
       <div class="dash-section">
         <h2 class="dash-heading">Start a New Report</h2>
         <div class="project-start-card">
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Project Code</label>
-              <input
-                type="text"
-                id="project-code-input"
-                class="form-input"
-                placeholder="e.g. ABC1000"
-                autocomplete="off"
-              />
+              <input type="text" id="project-code-input" class="form-input" placeholder="e.g. ABC1000" autocomplete="off" />
             </div>
-            <button class="btn-lookup" onclick="App.lookupProject()">
-              Look Up →
-            </button>
+            <button class="btn-lookup" onclick="App.lookupProject()">Look Up →</button>
           </div>
-
           <div id="project-details" class="project-details hidden">
             <div class="project-info-grid" id="project-info-grid"></div>
-            <button class="btn-full mt" onclick="App.startWCR()">
-              Create WCR for This Project →
-            </button>
+            <button class="btn-full mt" onclick="App.startWCR()">Create WCR for This Project →</button>
           </div>
-
           <div id="project-not-found" class="project-not-found hidden">
             <p>No project found with that code. Ask your Service Manager to add it via <strong>Add Base Data</strong>.</p>
           </div>
         </div>
       </div>
-
       <div class="dash-section">
         <h2 class="dash-heading">Your Drafts <span class="draft-count" id="draft-count">0 / 10</span></h2>
         <div id="drafts-list" class="drafts-list">
           <div class="empty-state">No drafts yet. Start a new report above.</div>
         </div>
       </div>
-
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════
-       SCREEN 4 — BASE DATA
-  ═══════════════════════════════════════════ -->
+  <!-- SCREEN 4 — BASE DATA -->
   <div id="screen-basedata" class="screen">
     <header class="app-header">
       <div class="app-header-left">
@@ -182,12 +156,13 @@
         <button class="logout-btn" onclick="App.logout()">Sign Out</button>
       </div>
     </header>
-
     <div class="dashboard-body">
       <div class="dash-section">
-        <h2 class="dash-heading">Add / Edit Project Base Data</h2>
+        <div class="dash-heading-row">
+          <h2 class="dash-heading">Add / Edit Project Base Data</h2>
+          <button class="btn-home" onclick="App.goHome()">← Home</button>
+        </div>
         <p class="dash-sub">This data auto-fills when an engineer enters the project code.</p>
-
         <div class="basedata-card">
           <div class="form-grid">
             <div class="form-group">
@@ -260,31 +235,42 @@
               <label class="form-label">Location</label>
               <input type="text" id="bd-location" class="form-input" placeholder="e.g. Mumbai" />
             </div>
+            <div class="form-group form-group-full">
+              <label class="form-label">Vessel / Customer Image</label>
+              <div class="image-upload-box" id="bd-image-box" onclick="document.getElementById('bd-image-input').click()">
+                <div class="image-upload-placeholder" id="bd-image-placeholder">
+                  <span class="image-upload-icon">📷</span>
+                  <span>Click to upload vessel or customer image</span>
+                  <small>This will appear at the top of the WCR report</small>
+                </div>
+                <img id="bd-image-preview" class="image-preview hidden" alt="Vessel image" />
+              </div>
+              <input type="file" id="bd-image-input" accept="image/*" style="display:none" onchange="App.onVesselImageSelect(event)" />
+              <button class="btn-clear-image hidden" id="bd-image-clear" onclick="App.clearVesselImage()">✕ Remove image</button>
+            </div>
           </div>
-
           <div class="form-actions">
             <button class="btn-full" onclick="App.saveBaseData()">Save to Database →</button>
           </div>
-
-          <div id="bd-success" class="success-msg hidden">✓ Project data saved successfully.</div>
+          <div id="bd-success" class="success-msg hidden">
+            ✓ Project data saved successfully.
+            <button class="btn-home-inline" onclick="App.goHome()">← Back to Home</button>
+          </div>
           <div id="bd-error" class="error-msg hidden"></div>
         </div>
       </div>
-
       <div class="dash-section">
         <h2 class="dash-heading">All Projects <span class="draft-count" id="project-count">0</span></h2>
         <div id="projects-table-wrap" class="table-scroll">
           <div class="empty-state">No projects in database yet.</div>
         </div>
       </div>
-
     </div>
   </div>
 
   <!-- TOAST -->
   <div id="toast" class="toast"></div>
 
-  <!-- Google API client -->
   <script src="https://apis.google.com/js/api.js"></script>
   <script src="https://accounts.google.com/gsi/client"></script>
   <script src="app.js"></script>
