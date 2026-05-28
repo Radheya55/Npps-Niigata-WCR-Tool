@@ -1094,3 +1094,9 @@ html, body {
   .dwr-controls { flex-direction:column; }
   .parts-paste-grid { grid-template-columns:1fr; }
 }
+
+/* ── Editable Key-Value Rows (History, Deviations) ── */
+.editable-kv-list { display:flex; flex-direction:column; gap:8px; }
+.editable-kv-row { display:grid; grid-template-columns:1fr 2fr 36px; gap:8px; align-items:start; }
+.editable-kv-label { font-size:12px; font-weight:600; background:var(--navy-light); border-color:var(--amber-dim); color:var(--amber); }
+.editable-kv-value { min-height:38px; resize:vertical; }
