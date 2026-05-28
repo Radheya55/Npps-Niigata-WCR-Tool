@@ -1002,8 +1002,8 @@ const App = {
 
   insertTable(templateKey) {
     const tmpl = TABLE_TEMPLATES[templateKey];
-    const builtinImg = tmpl.builtinImage && DIAGRAMS[templateKey] ? DIAGRAMS[templateKey] : null;
-    const table = { id:"tbl_"+Date.now(), name:tmpl.name, note:tmpl.note, hasImage:tmpl.hasImage||false, imageBase64:builtinImg, imageSrc:null, headers:[...tmpl.headers], rows:tmpl.rows.map(r=>[...r]) };
+    const builtinImg = (typeof DIAGRAMS !== 'undefined') && DIAGRAMS[templateKey] ? DIAGRAMS[templateKey] : null;
+    const table = { id:"tbl_"+Date.now(), templateKey, name:tmpl.name, note:tmpl.note, hasImage:tmpl.hasImage||false, imageBase64:builtinImg, imageSrc:null, headers:[...tmpl.headers], rows:tmpl.rows.map(r=>[...r]) };
     const prev = State.currentDraft.wcr.calibrationTables.map(t => ({...t, rows:t.rows.map(r=>[...r]), headers:[...t.headers]}));
     Undo.push(() => { State.currentDraft.wcr.calibrationTables = prev; App.renderCalibrationTables(); });
     State.currentDraft.wcr.calibrationTables.push(table);
@@ -1404,231 +1404,259 @@ const App = {
     const w = d.wcr;
     const p = d.projectData;
 
-    const FOOTER_TEXT = `Neptunus Power Plant Services Pvt. Ltd. &nbsp; A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai – 400 710, India &nbsp;|&nbsp; Tel: +91 22 41410707 &nbsp;|&nbsp; Website: www.neptunus-power.com &nbsp;|&nbsp; Email: info@neptunus-power.com`;
-    const LOGO_SRC = typeof LOGO_B64 !== 'undefined' ? LOGO_B64 : '';
+    const LOGO = (typeof LOGO_B64 !== 'undefined') ? LOGO_B64 : '';
+    const DGRAMS = (typeof DIAGRAMS !== 'undefined') ? DIAGRAMS : {};
 
-    let docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <title>WCR — ${d.projectCode}</title>
-    <style>
-      @page { margin: 20mm 15mm 30mm 15mm; }
-      body { font-family: Arial, sans-serif; font-size: 10.5pt; color: #000; }
-      /* ── Running header on every page ── */
-      .page-header {
-        position: fixed; top: 0; left: 0; right: 0;
+    const FOOTER = `Neptunus Power Plant Services Pvt. Ltd. &nbsp;&nbsp;|&nbsp;&nbsp; A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai &ndash; 400 710, India &nbsp;&nbsp;|&nbsp;&nbsp; Tel: +91 22 41410707 &nbsp;&nbsp;|&nbsp;&nbsp; www.neptunus-power.com &nbsp;&nbsp;|&nbsp;&nbsp; info@neptunus-power.com`;
+
+    // ── Helper: wrap every page with header + footer table ──────────
+    // We use CSS @page with named strings for true running header/footer
+    // This works in Chrome print-to-PDF and Word when opened via browser
+    const CSS = `
+      @charset "UTF-8";
+      @page {
+        size: A4;
+        margin: 28mm 15mm 28mm 15mm;
+        @top-right { content: element(running-header); }
+        @bottom-center { content: element(running-footer); }
+      }
+      #running-header {
+        position: running(running-header);
         display: flex; align-items: center; justify-content: space-between;
-        border-bottom: 2px solid #003366;
-        padding: 4px 0 6px;
-        background: white;
+        border-bottom: 2px solid #003366; padding-bottom: 5px;
+        width: 100%;
       }
-      .page-header-title { font-size: 13pt; font-weight: bold; color: #003366; }
-      .page-header-logo { height: 36px; }
-      /* ── Running footer on every page ── */
-      .page-footer {
-        position: fixed; bottom: 0; left: 0; right: 0;
-        border-top: 1px solid #003366;
-        padding: 5px 0 3px;
-        font-size: 7.5pt; color: #555; text-align: center;
-        background: white;
+      #running-footer {
+        position: running(running-footer);
+        border-top: 1px solid #003366; padding-top: 4px;
+        font-size: 7.5pt; color: #555; text-align: center; width: 100%;
       }
-      /* ── Content push-down for header/footer ── */
-      .content { margin-top: 60px; margin-bottom: 40px; }
-      /* ── Cover ── */
-      .cover-vessel-img { max-width: 100%; max-height: 220px; display: block; margin: 12px auto; object-fit: contain; }
-      h1 { text-align: center; font-size: 18pt; color: #003366; margin: 8px 0 4px; letter-spacing: 1px; }
-      h2 { font-size: 12pt; color: #003366; margin: 18px 0 5px; border-bottom: 2px solid #003366; padding-bottom: 2px; page-break-after: avoid; }
-      h3 { font-size: 10.5pt; font-weight: bold; margin: 10px 0 3px; color: #222; page-break-after: avoid; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 12px; page-break-inside: avoid; }
-      td, th { border: 1px solid #999; padding: 5px 8px; font-size: 9.5pt; vertical-align: top; }
-      th { background: #e8eef5; font-weight: bold; text-align: left; color: #003366; }
-      .label-col { background: #f5f5f5; font-weight: bold; width: 38%; }
-      ul { margin: 3px 0 8px 18px; }
-      li { margin-bottom: 2px; line-height: 1.5; }
-      ol { margin: 6px 0 10px 20px; }
-      ol li { margin-bottom: 5px; }
-      /* ── Photo Gallery ── */
-      .photo-gallery { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-      .photo-gallery td { border: 1px solid #999; padding: 8px; text-align: center; vertical-align: top; width: 50%; }
-      .photo-gallery img { width: 100%; max-height: 200px; object-fit: cover; display: block; margin-bottom: 6px; }
-      .photo-caption-title { font-size: 9pt; font-weight: bold; text-transform: uppercase; text-align: center; margin-top: 4px; }
-      .photo-caption-desc { font-size: 8pt; text-align: center; color: #555; margin-top: 2px; }
-      .photo-empty { background: #f5f5f5; color: #999; font-size: 9pt; padding: 30px; }
-      /* ── Calibration ── */
-      .cal-header-row { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
-      .cal-diagram { width: 130px; flex-shrink: 0; }
-      .cal-note { font-size: 8.5pt; color: #333; line-height: 1.6; flex: 1; }
-      /* ── Signoff ── */
-      .signoff-table { width: 100%; border-collapse: collapse; }
-      .signoff-table td, .signoff-table th { border: 1px solid #999; padding: 5px 8px; }
-      .signoff-table th { background: #e8eef5; color: #003366; }
-    </style></head><body>
+      body {
+        font-family: Arial, sans-serif; font-size: 10.5pt;
+        color: #000; margin: 0; padding: 0;
+      }
+      h1 { text-align: center; font-size: 17pt; color: #003366; margin: 8px 0 6px; letter-spacing: 0.5px; }
+      h2 { font-size: 12pt; color: #003366; margin: 20px 0 5px;
+           border-bottom: 2px solid #003366; padding-bottom: 3px;
+           page-break-after: avoid; }
+      h3 { font-size: 10.5pt; font-weight: bold; margin: 10px 0 3px;
+           page-break-after: avoid; color: #111; }
+      p  { margin: 4px 0 8px; line-height: 1.5; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 12px;
+              page-break-inside: avoid; font-size: 9.5pt; }
+      td, th { border: 1px solid #aaa; padding: 5px 7px; vertical-align: top; }
+      th { background: #dde4ef; font-weight: bold; text-align: left; color: #003366; }
+      .lc { background: #f5f5f5; font-weight: bold; width: 38%; }
+      ul { margin: 2px 0 8px 18px; padding: 0; }
+      li { margin-bottom: 3px; line-height: 1.6; }
+      ol { margin: 4px 0 10px 20px; }
+      ol li { margin-bottom: 5px; line-height: 1.5; }
+      .cal-wrap { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 6px; }
+      .cal-img { width: 140px; flex-shrink: 0; }
+      .cal-note { font-size: 8.5pt; line-height: 1.6; flex: 1; color: #222; }
+      .photo-tbl { width: 100%; border-collapse: collapse; }
+      .photo-tbl td { border: 1px solid #aaa; padding: 8px; text-align: center;
+                       vertical-align: top; width: 50%; }
+      .photo-tbl img { width: 100%; max-height: 210px; object-fit: cover; display: block; }
+      .pcap { font-size: 9pt; font-weight: bold; text-transform: uppercase;
+              text-align: center; margin-top: 5px; }
+      .pdesc { font-size: 8pt; text-align: center; color: #444; margin-top: 2px; }
+      .photo-empty { background: #f8f8f8; min-height: 180px; }
+      .signoff-wrap { display: flex; gap: 20px; }
+      .signoff-wrap table { flex: 1; }
+      @media screen {
+        body { max-width: 860px; margin: 0 auto; padding: 20px; }
+        #running-header { position: sticky; top: 0; background: white;
+                          z-index: 99; padding: 8px 0; }
+        #running-footer { position: fixed; bottom: 0; left: 0; right: 0;
+                          background: white; padding: 5px 20px; z-index: 99; }
+      }
+    `;
 
-    <!-- Running Header -->
-    <div class="page-header">
-      <span class="page-header-title">Work Completion Report</span>
-      ${LOGO_SRC ? `<img src="${LOGO_SRC}" class="page-header-logo" alt="NPPS Logo" />` : '<span style="font-size:9pt;color:#003366;font-weight:bold;">NEPTUNUS</span>'}
-    </div>
+    // ── Build document ──────────────────────────────────────────────
+    let H = `<!DOCTYPE html><html lang="en"><head>
+      <meta charset="UTF-8"/>
+      <title>WCR — ${d.projectCode}</title>
+      <style>${CSS}</style>
+    </head><body>`;
 
-    <!-- Running Footer -->
-    <div class="page-footer">${FOOTER_TEXT}</div>
+    // Running header (appears on every page)
+    H += `<div id="running-header">
+      <span style="font-size:12pt;font-weight:bold;color:#003366;">Work Completion Report &mdash; ${p.CustomerName||d.projectCode}</span>
+      ${LOGO ? `<img src="${LOGO}" style="height:38px;width:auto;" alt="NPPS" />` : '<span style="font-weight:bold;color:#003366;">NEPTUNUS</span>'}
+    </div>`;
 
-    <!-- Main Content -->
-    <div class="content">`;
+    // Running footer (appears on every page)
+    H += `<div id="running-footer">${FOOTER}</div>`;
 
-    // Cover
-    docHtml += `<h1>Work Completion Report</h1>`;
-    if (p.CustomerName) docHtml += `<div style="text-align:center;font-size:14pt;font-weight:bold;color:#003366;margin:4px 0 10px">${p.CustomerName}</div>`;
-    if (p.VesselImageBase64) docHtml += `<img src="${p.VesselImageBase64}" class="cover-vessel-img" />`;
-    docHtml += `<table>
-      <tr><td class="label-col">Customer Name</td><td><strong>${p.CustomerName||"—"}</strong></td><td class="label-col">Project / Contract Number</td><td><strong>${p.ContractNo||"—"}</strong></td></tr>
-      <tr><td class="label-col">Start Date of Job</td><td>${p.StartDate||"—"}</td><td class="label-col">Completion Date</td><td>${p.EndDate||"—"}</td></tr>
-      <tr><td class="label-col">Type of Overhaul</td><td>${p.OverhaulType||"—"}</td><td class="label-col">Engine Make and Model</td><td>${p.EngineModel||"—"}</td></tr>
-      <tr><td class="label-col">Engine Serial Number</td><td>${p.EngineSerial||"—"}</td><td class="label-col">Engine Arrangement No</td><td>${p.EngineArrangement||"—"}</td></tr>
-      <tr><td class="label-col">RPM and Capacity</td><td>${p.RPMCapacity||"—"}</td><td class="label-col">Current Running Hours</td><td>${p.RunningHours||"—"}</td></tr>
-      <tr><td class="label-col">Customer In-Charge</td><td>${p.CustomerIncharge||"—"}</td><td class="label-col">Neptunus Team Leader</td><td>${p.TeamLeader||"—"}</td></tr>
-      <tr><td class="label-col">Neptunus Members</td><td colspan="3">${p.Members||"—"}</td></tr>
+    // ── COVER ──────────────────────────────────────────────────────
+    H += `<h1>Work Completion Report</h1>`;
+    if (p.CustomerName) H += `<p style="text-align:center;font-size:13pt;font-weight:bold;color:#003366;margin:0 0 8px">${p.CustomerName}</p>`;
+    if (p.VesselImageBase64) H += `<div style="text-align:center;margin:10px 0"><img src="${p.VesselImageBase64}" style="max-width:90%;max-height:220px;object-fit:contain;" /></div>`;
+
+    H += `<table>
+      <tr><td class="lc">Customer Name</td><td><strong>${p.CustomerName||'—'}</strong></td><td class="lc">Project / Contract Number</td><td><strong>${p.ContractNo||'—'}</strong></td></tr>
+      <tr><td class="lc">Start Date of Job</td><td>${p.StartDate||'—'}</td><td class="lc">Completion Date</td><td>${p.EndDate||'—'}</td></tr>
+      <tr><td class="lc">Type of Overhaul</td><td>${p.OverhaulType||'—'}</td><td class="lc">Engine Make and Model</td><td>${p.EngineModel||'—'}</td></tr>
+      <tr><td class="lc">Engine Serial Number</td><td>${p.EngineSerial||'—'}</td><td class="lc">Engine Arrangement No</td><td>${p.EngineArrangement||'—'}</td></tr>
+      <tr><td class="lc">RPM and Capacity</td><td>${p.RPMCapacity||'—'}</td><td class="lc">Current Running Hours</td><td>${p.RunningHours||'—'}</td></tr>
+      <tr><td class="lc">Customer In-Charge</td><td>${p.CustomerIncharge||'—'}</td><td class="lc">Neptunus Team Leader</td><td>${p.TeamLeader||'—'}</td></tr>
+      <tr><td class="lc">Neptunus Members</td><td colspan="3">${p.Members||'—'}</td></tr>
     </table>`;
 
-    // History (new editable rows format)
+    // ── HISTORY ───────────────────────────────────────────────────
     if (w.historyActive && w.historyRows?.length) {
-      docHtml += `<h2>History</h2><table>`;
-      w.historyRows.forEach(r => {
-        docHtml += `<tr><td class="label-col">${r.label||"—"}</td><td>${r.value||"—"}</td></tr>`;
-      });
-      docHtml += `</table>`;
+      H += `<h2>History</h2><table>`;
+      w.historyRows.forEach(r => { H += `<tr><td class="lc">${r.label||'—'}</td><td>${r.value||'—'}</td></tr>`; });
+      H += `</table>`;
     }
 
-    // Scope of Work
+    // ── SCOPE OF WORK ─────────────────────────────────────────────
     if (w.scopeActive && w.scopeOfWork?.length) {
-      docHtml += `<h2>Scope of Work</h2><table><tr><th>Describe what the original scope of work was</th><th>Describe what was done (include additions and omissions, with reasons)</th></tr>`;
-      w.scopeOfWork.forEach(r => { docHtml += `<tr><td>${r.original||"—"}</td><td>${r.done||"—"}</td></tr>`; });
-      docHtml += `</table>`;
+      H += `<h2>Scope of Work</h2><table>
+        <tr><th>Describe what the original scope of work was</th><th>Describe what was done (include additions and omissions, with reasons)</th></tr>`;
+      w.scopeOfWork.forEach(r => { H += `<tr><td>${r.original||'—'}</td><td>${r.done||'—'}</td></tr>`; });
+      H += `</table>`;
     }
 
-    // Deviations
+    // ── DEVIATIONS ────────────────────────────────────────────────
     if (w.deviationsActive) {
-      docHtml += `<h2>Deviations and Reference Notes for Next Overhaul</h2><table>`;
+      H += `<h2>Deviations and Reference Notes for Next Overhaul</h2><table>`;
       if (w.deviationRows?.length) {
-        w.deviationRows.forEach(r => { docHtml += `<tr><td class="label-col">${r.label||"—"}</td><td>${r.value||"—"}</td></tr>`; });
+        w.deviationRows.forEach(r => { H += `<tr><td class="lc">${r.label||'—'}</td><td>${r.value||'—'}</td></tr>`; });
       } else {
-        docHtml += `<tr><td class="label-col">Next Maintenance Type and Tentative Due Date</td><td>${w.deviations?.nextMaintType||"—"} ${w.deviations?.nextMaintDate||""}</td></tr>`;
-        docHtml += `<tr><td class="label-col">Notes on Required Parts Renewal</td><td>${w.deviations?.partsRenewal||"—"}</td></tr>`;
+        H += `<tr><td class="lc">Identify Next Maintenance Type and Tentative Due Date</td><td>${w.deviations?.nextMaintType||'—'} ${w.deviations?.nextMaintDate||''}</td></tr>`;
+        H += `<tr><td class="lc">Notes on Required Parts Renewal in Next Maintenance</td><td>${w.deviations?.partsRenewal||'—'}</td></tr>`;
       }
-      docHtml += `</table>`;
+      H += `</table>`;
     }
 
-    // Maintenance Summary
-    docHtml += `<h2>Maintenance Summary</h2>`;
-    let currentUL = false;
-    w.maintItems.forEach(item => {
-      if (item.type === "heading") {
-        if (currentUL) { docHtml += `</ul>`; currentUL = false; }
-        docHtml += `<h3>${item.text}</h3>`;
+    // ── MAINTENANCE SUMMARY ───────────────────────────────────────
+    H += `<h2>Maintenance Summary</h2>`;
+    let inUL = false;
+    (w.maintItems||[]).forEach(item => {
+      if (item.type === 'heading') {
+        if (inUL) { H += `</ul>`; inUL = false; }
+        H += `<h3>${item.text}</h3>`;
       } else {
-        if (!currentUL) { docHtml += `<ul>`; currentUL = true; }
-        docHtml += `<li>${item.text}</li>`;
+        if (!inUL) { H += `<ul>`; inUL = true; }
+        H += `<li>${item.text}</li>`;
       }
     });
-    if (currentUL) docHtml += `</ul>`;
+    if (inUL) H += `</ul>`;
 
-    // Scope for Improvement
-    docHtml += `<h2>Scope for Improvement</h2><table><tr><th style="width:5%">Sr. No.</th><th>Area of Improvement</th><th>Observations</th><th>Recommendations</th></tr>`;
-    w.scopeForImprovement.forEach((r, i) => { docHtml += `<tr><td style="text-align:center">${i+1}</td><td>${r.area||"—"}</td><td>${r.observations||"—"}</td><td>${r.recommendations||"—"}</td></tr>`; });
-    docHtml += `</table>`;
+    // ── SCOPE FOR IMPROVEMENT ─────────────────────────────────────
+    H += `<h2>Scope for Improvement</h2>
+    <table><tr><th style="width:5%;text-align:center">Sr. No.</th><th>Area of Improvement</th><th>Observations</th><th>Recommendations</th></tr>`;
+    (w.scopeForImprovement||[]).forEach((r, i) => {
+      H += `<tr><td style="text-align:center">${i+1}</td><td>${r.area||'—'}</td><td>${r.observations||'—'}</td><td>${r.recommendations||'—'}</td></tr>`;
+    });
+    H += `</table>`;
 
-    // Recommendations
-    docHtml += `<h2>Recommendations</h2><p style="margin-bottom:6px">The engine post overhaul must be closely monitored for any abnormalities which could cause serious breakdowns. It is a known fact that most breakdowns on overhauled engines occur within the first 100 hours post overhaul. We therefore, recommend the following:</p><ol>`;
-    w.recommendations.forEach(r => { docHtml += `<li>${r}</li>`; });
-    docHtml += `</ol>`;
+    // ── RECOMMENDATIONS ───────────────────────────────────────────
+    H += `<h2>Recommendations</h2>
+    <p>The engine post overhaul must be closely monitored for any abnormalities which could cause serious breakdowns. It is a known fact that most breakdowns on overhauled engines occur within the first 100 hours post overhaul. We therefore, recommend the following:</p><ol>`;
+    (w.recommendations||[]).forEach(r => { H += `<li>${r}</li>`; });
+    H += `</ol>`;
 
-    // Calibration Tables
+    // ── CALIBRATION TABLES ────────────────────────────────────────
     if (w.calibrationTables?.length) {
-      docHtml += `<h2>Annexure 1 — Calibration Sheet</h2>`;
+      H += `<h2>Annexure 1 &mdash; Calibration Sheet</h2>`;
       w.calibrationTables.forEach(t => {
-        docHtml += `<h3>${t.name}</h3>`;
-        const imgSrc = t.imageBase64 || null;
+        H += `<h3>${t.name}</h3>`;
+        // Use imageBase64 (which is either builtin diagram or user-uploaded)
+        const imgSrc = t.imageBase64 || DGRAMS[t.templateKey] || null;
+        const noteText = (t.note||'').replace(/\n/g, '<br/>');
         if (t.hasImage && imgSrc) {
-          docHtml += `<div class="cal-header-row"><img src="${imgSrc}" class="cal-diagram" /><div class="cal-note">${(t.note||"").replace(/\n/g,"<br/>")}</div></div>`;
-        } else if (t.note) {
-          docHtml += `<p style="font-size:8.5pt;margin-bottom:6px;color:#333">${(t.note||"").replace(/\n/g,"<br/>")}</p>`;
+          H += `<div class="cal-wrap">
+            <img src="${imgSrc}" class="cal-img" />
+            <div class="cal-note">${noteText}</div>
+          </div>`;
+        } else if (noteText) {
+          H += `<p style="font-size:8.5pt;margin-bottom:6px">${noteText}</p>`;
         }
-        docHtml += `<table><thead><tr>${t.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`;
-        t.rows.forEach(row => { docHtml += `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`; });
-        docHtml += `</tbody></table>`;
+        H += `<table><thead><tr>${t.headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+        (t.rows||[]).forEach(row => { H += `<tr>${row.map(c => `<td>${c}</td>`).join('')}</tr>`; });
+        H += `</tbody></table>`;
       });
     }
 
-    // Parts Consumed
+    // ── PARTS CONSUMED ────────────────────────────────────────────
     if (w.partsColumns?.rows?.length) {
-      docHtml += `<h2>Parts Consumed List</h2><table><thead><tr>${w.partsColumns.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`;
-      w.partsColumns.rows.forEach(row => { docHtml += `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`; });
-      docHtml += `</tbody></table>`;
+      H += `<h2>Parts Consumed List</h2>
+      <table><thead><tr>${w.partsColumns.headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+      w.partsColumns.rows.forEach(row => { H += `<tr>${row.map(c => `<td>${c}</td>`).join('')}</tr>`; });
+      H += `</tbody></table>`;
     }
 
-    // Photo Gallery — 2 per row, bold ALL CAPS caption below each photo
+    // ── PHOTO GALLERY ─────────────────────────────────────────────
     const realPhotos = (w.photos||[]).filter(ph => ph.src);
     if (realPhotos.length > 0) {
-      docHtml += `<h2>Photo Gallery</h2><table class="photo-gallery"><tbody>`;
+      H += `<h2>Photo Gallery</h2><table class="photo-tbl"><tbody>`;
       for (let i = 0; i < realPhotos.length; i += 2) {
         const ph1 = realPhotos[i];
-        const ph2 = realPhotos[i+1];
-        docHtml += `<tr>
+        const ph2 = realPhotos[i+1] || null;
+        H += `<tr>
           <td>
             <img src="${ph1.src}" />
-            <div class="photo-caption-title">${(ph1.title||"").toUpperCase()}</div>
-            ${ph1.description ? `<div class="photo-caption-desc">${ph1.description}</div>` : ""}
+            <div class="pcap">${(ph1.title||'').toUpperCase()}</div>
+            ${ph1.description ? `<div class="pdesc">${ph1.description}</div>` : ''}
           </td>
-          <td>
+          <td ${ph2 ? '' : 'class="photo-empty"'}>
             ${ph2 ? `<img src="${ph2.src}" />
-            <div class="photo-caption-title">${(ph2.title||"").toUpperCase()}</div>
-            ${ph2.description ? `<div class="photo-caption-desc">${ph2.description}</div>` : ""}` : `<div class="photo-empty"></div>`}
+            <div class="pcap">${(ph2.title||'').toUpperCase()}</div>
+            ${ph2.description ? `<div class="pdesc">${ph2.description}</div>` : ''}` : ''}
           </td>
         </tr>`;
       }
-      docHtml += `</tbody></table>`;
+      H += `</tbody></table>`;
     }
 
-    // Sign-off
-    docHtml += `<h2>Sign-off</h2>
-    <table class="signoff-table">
+    // ── SIGN-OFF ──────────────────────────────────────────────────
+    H += `<h2>Sign-off</h2>
+    <table>
       <tr>
-        <th colspan="2" style="width:50%">On behalf of Neptunus</th>
-        <th colspan="2">On behalf of Customer</th>
+        <th colspan="2" style="width:50%;text-align:center">On behalf of Neptunus</th>
+        <th colspan="2" style="text-align:center">On behalf of Customer</th>
       </tr>
       <tr>
-        <td class="label-col" style="width:15%">Maker Name</td><td style="width:35%">${w.signoff?.makerName||"—"}</td>
-        <td class="label-col" style="width:15%">Name</td><td>${w.signoff?.customerName||"—"}</td>
+        <td class="lc" style="width:15%">Maker Name</td>
+        <td style="width:35%">${w.signoff?.makerName||'—'}</td>
+        <td class="lc" style="width:15%">Name</td>
+        <td>${w.signoff?.customerName||'—'}</td>
       </tr>
       <tr>
-        <td class="label-col">Checker Name</td><td>${w.signoff?.checkerName||"—"}</td>
-        <td class="label-col">Date</td><td>${w.signoff?.customerDate||"—"}</td>
+        <td class="lc">Checker Name</td><td>${w.signoff?.checkerName||'—'}</td>
+        <td class="lc">Date</td><td>${w.signoff?.customerDate||'—'}</td>
       </tr>
       <tr>
-        <td class="label-col">Approver Name</td><td>${w.signoff?.approverName||"—"}</td>
+        <td class="lc">Approver Name</td><td>${w.signoff?.approverName||'—'}</td>
         <td></td><td></td>
       </tr>
       <tr>
-        <td class="label-col">Date</td><td>${w.signoff?.makerDate||"—"}</td>
+        <td class="lc">Date</td><td>${w.signoff?.makerDate||'—'}</td>
         <td></td><td></td>
       </tr>
     </table>`;
 
-    docHtml += `</div></body></html>`;
+    H += `</body></html>`;
 
-    const blob = new Blob([docHtml], { type: "application/msword" });
+    // ── Download ──────────────────────────────────────────────────
+    const blob = new Blob([H], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
-    a.download = `WCR_${d.projectCode}_${new Date().toISOString().slice(0,10)}.doc`;
+    a.download = `WCR_${d.projectCode}_${new Date().toISOString().slice(0,10)}.html`;
     a.click();
     URL.revokeObjectURL(url);
 
     // Save to downloaded drafts
     const existing = State.downloadedDrafts.findIndex(dd => dd.id === d.id);
-    const downloadedCopy = { ...d, status:"complete", updatedAt:new Date().toISOString() };
+    const downloadedCopy = { ...d, status:'complete', updatedAt:new Date().toISOString() };
     if (existing >= 0) State.downloadedDrafts[existing] = downloadedCopy;
     else State.downloadedDrafts.unshift(downloadedCopy);
     App.saveDownloadedDrafts();
-    Toast.show("WCR downloaded. Open in Word or Google Docs.", "success");
+    Toast.show('WCR downloaded as HTML. Open in Chrome → File → Print → Save as PDF for the final document.', 'success');
   },
 };
 
