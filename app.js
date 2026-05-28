@@ -105,6 +105,7 @@ const TABLE_TEMPLATES = {
     note: "Indication Reading: (+ve) / (-ve) | Permissible Limit: 0.07 mm",
     hasImage: true,
     imageLabel: "Crankshaft diagram",
+    builtinImage: true,
     headers: ["Crankpin Position","1","2","3","4","5","6","7","8","Remarks"],
     rows: [["1","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],["2","","","","","","","","","OK"],["3","","","","","","","","","OK"],["4","","","","","","","","","OK"],["5","","","","","","","","","OK"]]
   },
@@ -113,6 +114,7 @@ const TABLE_TEMPLATES = {
     note: "1. Rocker Arm Bushing Inner Diameter = 55 +0.05/+0.12mm\n2. Rocker Arm Shaft Diameter = 55 -0.03/-0.05mm\n3. Clearance (Shaft – Bush) = 0.2mm",
     hasImage: true,
     imageLabel: "Rocker arm diagram",
+    builtinImage: true,
     headers: ["Cylinder No.","Valve Type","Shaft D1 (mm)","Shaft D2 (mm)","Remarks"],
     rows: [["1","IV","54.99","54.99","Ok"],["","EV","54.99","54.98","Ok"],["2","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],["3","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],["4","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],["5","IV","54.98","54.99","Ok"],["","EV","54.99","54.99","Ok"],["6","IV","54.99","54.98","Ok"],["","EV","54.99","54.99","Ok"],["7","IV","54.99","54.99","Ok"],["","EV","54.98","54.99","Ok"],["8","IV","54.99","54.99","Ok"],["","EV","54.98","54.99","Ok"]]
   },
@@ -135,13 +137,15 @@ const TABLE_TEMPLATES = {
     note: "A=70mm | B=280mm | C=490mm | D=615mm\nNormal Size: 280 +0.040mm | Permissible Limit: 280.5mm\nC: Cam Side | E: Exhaust Side | F: Free End | A: Alternator End (Flywheel End)",
     hasImage: true,
     imageLabel: "Liner calibration diagram",
+    builtinImage: true,
     headers: ["Unit No.","A C-E","A F-A","B C-E","B F-A","C C-E","C F-A","D C-E","D F-A","Remark"],
     rows: [["1","280.04","280.03","280.04","280.04","280.04","280.04","280.03","280.03","ok"],["2","280.04","280.05","280.04","280.04","280.04","280.04","280.02","280.03","ok"],["3","280.04","280.04","280.04","280.04","280.05","280.04","280.03","280.03","ok"],["4","280.05","280.04","280.04","280.04","280.04","280.04","280.03","280.02","ok"],["5","280.03","280.04","280.04","280.04","280.04","280.04","280.03","280.03","ok"],["6","280.05","280.04","280.04","280.03","280.05","280.04","280.02","280.02","ok"]]
   },
   valveStem: {
     name: "Valve Stem Diameter",
     note: "dX1: At Top Position | dX2: At Bottom Position\nInlet & Exhaust Valve Limit = 19.80mm | Valve Guide Limit = 20.40mm | Allowable Clearance = 0.06~0.10mm",
-    hasImage: false,
+    hasImage: true,
+    builtinImage: true,
     headers: ["Cylinder No.","Valve Type","Stem dX1 (mm)","Stem dX2 (mm)","Guide D1 (mm)","Guide D2 (mm)"],
     rows: [["1","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["2","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["3","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["4","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["5","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["6","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["7","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["8","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"]]
   },
@@ -813,9 +817,7 @@ const App = {
   saveWCRSection() {
     const d = State.currentDraft;
     const w = d.wcr;
-    if (w.historyActive) {
-      w.history = { lastOverhaulType: document.getElementById("h-lastType")?.value||"", lastOverhaulBy: document.getElementById("h-lastBy")?.value||"", runningHoursAtMaint: document.getElementById("h-runHours")?.value||"", observations: document.getElementById("h-obs")?.value||"", logLeakages: document.getElementById("h-leaks")?.value||"", bearingConRod: document.getElementById("h-bearingCon")?.value||"", bearingMainJournal: document.getElementById("h-bearingMain")?.value||"", turboDetails: document.getElementById("h-turbo")?.value||"", geislingerDetails: document.getElementById("h-geislinger")?.value||"", governorDetails: document.getElementById("h-governor")?.value||"", gaugeConditions: document.getElementById("h-gauges")?.value||"" };
-    }
+    // historyRows are saved live via oninput, no extra save needed here
     if (w.deviationsActive) {
       w.deviations = { nextMaintType: document.getElementById("dev-nextType")?.value||"", nextMaintDate: document.getElementById("dev-nextDate")?.value||"", partsRenewal: document.getElementById("dev-parts")?.value||"" };
     }
@@ -839,11 +841,46 @@ const App = {
     const body = document.getElementById("history-body");
     body.classList.toggle("hidden", !active);
     if (active) {
-      const h = State.currentDraft.wcr.history;
-      const fields = [["h-lastType","lastOverhaulType"],["h-lastBy","lastOverhaulBy"],["h-runHours","runningHoursAtMaint"],["h-obs","observations"],["h-leaks","logLeakages"],["h-bearingCon","bearingConRod"],["h-bearingMain","bearingMainJournal"],["h-turbo","turboDetails"],["h-geislinger","geislingerDetails"],["h-governor","governorDetails"],["h-gauges","gaugeConditions"]];
-      fields.forEach(([id, key]) => { const el = document.getElementById(id); if (el) el.value = h[key] || ""; });
+      // Migrate old format to new editable rows format
+      const w = State.currentDraft.wcr;
+      if (!w.historyRows) {
+        const h = w.history || {};
+        w.historyRows = [
+          { label:"Last Overhauling Type and Carried By", value: h.lastOverhaulType || "" },
+          { label:"Running Hours at Time of Last Maintenance", value: h.runningHoursAtMaint || "" },
+          { label:"Observations Recorded (Prior Dismantling)", value: h.observations || "" },
+          { label:"Log Leakages / Abnormalities (Prior Job Start)", value: h.logLeakages || "" },
+          { label:"Bearing Size – Con Rod Journal (Part No.)", value: h.bearingConRod || "" },
+          { label:"Bearing Size – Main Journal (Part No.)", value: h.bearingMainJournal || "" },
+          { label:"Turbo Details", value: h.turboDetails || "" },
+          { label:"Geislinger Coupling Details", value: h.geislingerDetails || "" },
+          { label:"Governor Details", value: h.governorDetails || "" },
+          { label:"Conditions of Gauges on Instrument Panel", value: h.gaugeConditions || "" },
+        ];
+      }
+      App.renderHistoryRows();
     }
   },
+
+  renderHistoryRows() {
+    const rows = State.currentDraft.wcr.historyRows || [];
+    document.getElementById("history-body").innerHTML = `
+      <div class="editable-kv-list">
+        ${rows.map((r, i) => `
+          <div class="editable-kv-row">
+            <input class="form-input editable-kv-label" value="${r.label}" placeholder="Field name..." oninput="App.updateHistoryRow(${i},'label',this.value)" />
+            <textarea class="form-input editable-kv-value" placeholder="Value..." oninput="App.updateHistoryRow(${i},'value',this.value)">${r.value}</textarea>
+            <button class="row-del-btn" onclick="App.deleteHistoryRow(${i})">✕</button>
+          </div>`).join("")}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="add-row-btn" onclick="App.addHistoryRow()">+ Add Row</button>
+      </div>`;
+  },
+
+  updateHistoryRow(i, field, val) { State.currentDraft.wcr.historyRows[i][field] = val; },
+  addHistoryRow() { if (!State.currentDraft.wcr.historyRows) State.currentDraft.wcr.historyRows = []; State.currentDraft.wcr.historyRows.push({label:"New Field",value:""}); App.renderHistoryRows(); },
+  deleteHistoryRow(i) { State.currentDraft.wcr.historyRows.splice(i,1); App.renderHistoryRows(); },
 
   // ── Scope of Work ──
   toggleScope() { State.currentDraft.wcr.scopeActive = !State.currentDraft.wcr.scopeActive; App.renderScopeSection(); },
@@ -965,7 +1002,8 @@ const App = {
 
   insertTable(templateKey) {
     const tmpl = TABLE_TEMPLATES[templateKey];
-    const table = { id:"tbl_"+Date.now(), name:tmpl.name, note:tmpl.note, hasImage:tmpl.hasImage||false, imageBase64:null, imageSrc:null, headers:[...tmpl.headers], rows:tmpl.rows.map(r=>[...r]) };
+    const builtinImg = tmpl.builtinImage && DIAGRAMS[templateKey] ? DIAGRAMS[templateKey] : null;
+    const table = { id:"tbl_"+Date.now(), name:tmpl.name, note:tmpl.note, hasImage:tmpl.hasImage||false, imageBase64:builtinImg, imageSrc:null, headers:[...tmpl.headers], rows:tmpl.rows.map(r=>[...r]) };
     const prev = State.currentDraft.wcr.calibrationTables.map(t => ({...t, rows:t.rows.map(r=>[...r]), headers:[...t.headers]}));
     Undo.push(() => { State.currentDraft.wcr.calibrationTables = prev; App.renderCalibrationTables(); });
     State.currentDraft.wcr.calibrationTables.push(table);
@@ -1366,83 +1404,215 @@ const App = {
     const w = d.wcr;
     const p = d.projectData;
 
-    // Build HTML document matching WCR template style
+    const FOOTER_TEXT = `Neptunus Power Plant Services Pvt. Ltd. &nbsp; A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai – 400 710, India &nbsp;|&nbsp; Tel: +91 22 41410707 &nbsp;|&nbsp; Website: www.neptunus-power.com &nbsp;|&nbsp; Email: info@neptunus-power.com`;
+    const LOGO_SRC = typeof LOGO_B64 !== 'undefined' ? LOGO_B64 : '';
+
     let docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
     <title>WCR — ${d.projectCode}</title>
     <style>
-      body{font-family:Arial,sans-serif;font-size:11pt;margin:40px;color:#000}
-      h1{text-align:center;font-size:16pt;margin-bottom:8px}
-      h2{font-size:13pt;margin:20px 0 6px;border-bottom:1px solid #000;padding-bottom:3px}
-      h3{font-size:11pt;margin:12px 0 4px;font-weight:bold}
-      table{width:100%;border-collapse:collapse;margin-bottom:14px}
-      td,th{border:1px solid #000;padding:5px 8px;font-size:10pt;vertical-align:top}
-      th{background:#f0f0f0;font-weight:bold;text-align:left}
-      .cover-img{width:100%;max-height:200px;object-fit:contain;margin-bottom:12px}
-      ul{margin:4px 0 8px 20px}
-      li{margin-bottom:3px}
-      .photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-      .photo-item img{width:100%;max-height:180px;object-fit:cover}
-      .photo-caption{text-align:center;font-size:9pt;font-weight:bold;margin-top:4px}
-      .signoff{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-      @media print{body{margin:20px}}
-    </style></head><body>`;
+      @page { margin: 20mm 15mm 30mm 15mm; }
+      body { font-family: Arial, sans-serif; font-size: 10.5pt; color: #000; }
+      /* ── Running header on every page ── */
+      .page-header {
+        position: fixed; top: 0; left: 0; right: 0;
+        display: flex; align-items: center; justify-content: space-between;
+        border-bottom: 2px solid #003366;
+        padding: 4px 0 6px;
+        background: white;
+      }
+      .page-header-title { font-size: 13pt; font-weight: bold; color: #003366; }
+      .page-header-logo { height: 36px; }
+      /* ── Running footer on every page ── */
+      .page-footer {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        border-top: 1px solid #003366;
+        padding: 5px 0 3px;
+        font-size: 7.5pt; color: #555; text-align: center;
+        background: white;
+      }
+      /* ── Content push-down for header/footer ── */
+      .content { margin-top: 60px; margin-bottom: 40px; }
+      /* ── Cover ── */
+      .cover-vessel-img { max-width: 100%; max-height: 220px; display: block; margin: 12px auto; object-fit: contain; }
+      h1 { text-align: center; font-size: 18pt; color: #003366; margin: 8px 0 4px; letter-spacing: 1px; }
+      h2 { font-size: 12pt; color: #003366; margin: 18px 0 5px; border-bottom: 2px solid #003366; padding-bottom: 2px; page-break-after: avoid; }
+      h3 { font-size: 10.5pt; font-weight: bold; margin: 10px 0 3px; color: #222; page-break-after: avoid; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 12px; page-break-inside: avoid; }
+      td, th { border: 1px solid #999; padding: 5px 8px; font-size: 9.5pt; vertical-align: top; }
+      th { background: #e8eef5; font-weight: bold; text-align: left; color: #003366; }
+      .label-col { background: #f5f5f5; font-weight: bold; width: 38%; }
+      ul { margin: 3px 0 8px 18px; }
+      li { margin-bottom: 2px; line-height: 1.5; }
+      ol { margin: 6px 0 10px 20px; }
+      ol li { margin-bottom: 5px; }
+      /* ── Photo Gallery ── */
+      .photo-gallery { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+      .photo-gallery td { border: 1px solid #999; padding: 8px; text-align: center; vertical-align: top; width: 50%; }
+      .photo-gallery img { width: 100%; max-height: 200px; object-fit: cover; display: block; margin-bottom: 6px; }
+      .photo-caption-title { font-size: 9pt; font-weight: bold; text-transform: uppercase; text-align: center; margin-top: 4px; }
+      .photo-caption-desc { font-size: 8pt; text-align: center; color: #555; margin-top: 2px; }
+      .photo-empty { background: #f5f5f5; color: #999; font-size: 9pt; padding: 30px; }
+      /* ── Calibration ── */
+      .cal-header-row { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
+      .cal-diagram { width: 130px; flex-shrink: 0; }
+      .cal-note { font-size: 8.5pt; color: #333; line-height: 1.6; flex: 1; }
+      /* ── Signoff ── */
+      .signoff-table { width: 100%; border-collapse: collapse; }
+      .signoff-table td, .signoff-table th { border: 1px solid #999; padding: 5px 8px; }
+      .signoff-table th { background: #e8eef5; color: #003366; }
+    </style></head><body>
 
+    <!-- Running Header -->
+    <div class="page-header">
+      <span class="page-header-title">Work Completion Report</span>
+      ${LOGO_SRC ? `<img src="${LOGO_SRC}" class="page-header-logo" alt="NPPS Logo" />` : '<span style="font-size:9pt;color:#003366;font-weight:bold;">NEPTUNUS</span>'}
+    </div>
+
+    <!-- Running Footer -->
+    <div class="page-footer">${FOOTER_TEXT}</div>
+
+    <!-- Main Content -->
+    <div class="content">`;
+
+    // Cover
     docHtml += `<h1>Work Completion Report</h1>`;
-    if (p.VesselImageBase64) docHtml += `<img src="${p.VesselImageBase64}" class="cover-img" />`;
+    if (p.CustomerName) docHtml += `<div style="text-align:center;font-size:14pt;font-weight:bold;color:#003366;margin:4px 0 10px">${p.CustomerName}</div>`;
+    if (p.VesselImageBase64) docHtml += `<img src="${p.VesselImageBase64}" class="cover-vessel-img" />`;
+    docHtml += `<table>
+      <tr><td class="label-col">Customer Name</td><td><strong>${p.CustomerName||"—"}</strong></td><td class="label-col">Project / Contract Number</td><td><strong>${p.ContractNo||"—"}</strong></td></tr>
+      <tr><td class="label-col">Start Date of Job</td><td>${p.StartDate||"—"}</td><td class="label-col">Completion Date</td><td>${p.EndDate||"—"}</td></tr>
+      <tr><td class="label-col">Type of Overhaul</td><td>${p.OverhaulType||"—"}</td><td class="label-col">Engine Make and Model</td><td>${p.EngineModel||"—"}</td></tr>
+      <tr><td class="label-col">Engine Serial Number</td><td>${p.EngineSerial||"—"}</td><td class="label-col">Engine Arrangement No</td><td>${p.EngineArrangement||"—"}</td></tr>
+      <tr><td class="label-col">RPM and Capacity</td><td>${p.RPMCapacity||"—"}</td><td class="label-col">Current Running Hours</td><td>${p.RunningHours||"—"}</td></tr>
+      <tr><td class="label-col">Customer In-Charge</td><td>${p.CustomerIncharge||"—"}</td><td class="label-col">Neptunus Team Leader</td><td>${p.TeamLeader||"—"}</td></tr>
+      <tr><td class="label-col">Neptunus Members</td><td colspan="3">${p.Members||"—"}</td></tr>
+    </table>`;
 
-    // Cover table
-    docHtml += `<table><tr><td><strong>Customer Name</strong></td><td>${p.CustomerName||"—"}</td><td><strong>Project/Contract Number</strong></td><td>${p.ContractNo||"—"}</td></tr><tr><td><strong>Start Date</strong></td><td>${p.StartDate||"—"}</td><td><strong>Completion Date</strong></td><td>${p.EndDate||"—"}</td></tr><tr><td><strong>Type of Overhaul</strong></td><td>${p.OverhaulType||"—"}</td><td><strong>Engine Make and Model</strong></td><td>${p.EngineModel||"—"}</td></tr><tr><td><strong>Engine Serial Number</strong></td><td>${p.EngineSerial||"—"}</td><td><strong>Engine Arrangement No</strong></td><td>${p.EngineArrangement||"—"}</td></tr><tr><td><strong>RPM and Capacity</strong></td><td>${p.RPMCapacity||"—"}</td><td><strong>Current Running Hours</strong></td><td>${p.RunningHours||"—"}</td></tr><tr><td><strong>Customer In-Charge</strong></td><td>${p.CustomerIncharge||"—"}</td><td><strong>Neptunus Team Leader</strong></td><td>${p.TeamLeader||"—"}</td></tr><tr><td><strong>Neptunus Members</strong></td><td colspan="3">${p.Members||"—"}</td></tr></table>`;
-
-    if (w.historyActive) {
-      const h = w.history;
+    // History (new editable rows format)
+    if (w.historyActive && w.historyRows?.length) {
       docHtml += `<h2>History</h2><table>`;
-      const hFields = [["Last Overhauling Type and Carried By",`${h.lastOverhaulType||"—"} ${h.lastOverhaulBy?"/ "+h.lastOverhaulBy:""}`],["Running Hours at Last Maintenance",h.runningHoursAtMaint||"—"],["Observations Recorded (Prior Dismantling)",h.observations||"—"],["Log Leakages / Abnormalities",h.logLeakages||"—"],["Bearing Size – Con Rod Journal",h.bearingConRod||"—"],["Bearing Size – Main Journal",h.bearingMainJournal||"—"],["Turbo Details",h.turboDetails||"—"],["Geislinger Coupling Details",h.geislingerDetails||"—"],["Governor Details",h.governorDetails||"—"],["Gauge Conditions",h.gaugeConditions||"—"]];
-      hFields.forEach(([k,v]) => { docHtml += `<tr><td width="40%"><strong>${k}</strong></td><td>${v}</td></tr>`; });
+      w.historyRows.forEach(r => {
+        docHtml += `<tr><td class="label-col">${r.label||"—"}</td><td>${r.value||"—"}</td></tr>`;
+      });
       docHtml += `</table>`;
     }
 
-    if (w.scopeActive && w.scopeOfWork.length) {
-      docHtml += `<h2>Scope of Work</h2><table><tr><th>Original Scope</th><th>What Was Done</th></tr>${w.scopeOfWork.map(r => `<tr><td>${r.original||"—"}</td><td>${r.done||"—"}</td></tr>`).join("")}</table>`;
+    // Scope of Work
+    if (w.scopeActive && w.scopeOfWork?.length) {
+      docHtml += `<h2>Scope of Work</h2><table><tr><th>Describe what the original scope of work was</th><th>Describe what was done (include additions and omissions, with reasons)</th></tr>`;
+      w.scopeOfWork.forEach(r => { docHtml += `<tr><td>${r.original||"—"}</td><td>${r.done||"—"}</td></tr>`; });
+      docHtml += `</table>`;
     }
 
+    // Deviations
     if (w.deviationsActive) {
-      docHtml += `<h2>Deviations & Reference Notes for Next Overhaul</h2><table><tr><td><strong>Next Maintenance Type and Due Date</strong></td><td>${w.deviations.nextMaintType||"—"} ${w.deviations.nextMaintDate||""}</td></tr><tr><td><strong>Parts Renewal Required</strong></td><td>${w.deviations.partsRenewal||"—"}</td></tr></table>`;
+      docHtml += `<h2>Deviations and Reference Notes for Next Overhaul</h2><table>`;
+      if (w.deviationRows?.length) {
+        w.deviationRows.forEach(r => { docHtml += `<tr><td class="label-col">${r.label||"—"}</td><td>${r.value||"—"}</td></tr>`; });
+      } else {
+        docHtml += `<tr><td class="label-col">Next Maintenance Type and Tentative Due Date</td><td>${w.deviations?.nextMaintType||"—"} ${w.deviations?.nextMaintDate||""}</td></tr>`;
+        docHtml += `<tr><td class="label-col">Notes on Required Parts Renewal</td><td>${w.deviations?.partsRenewal||"—"}</td></tr>`;
+      }
+      docHtml += `</table>`;
     }
 
+    // Maintenance Summary
     docHtml += `<h2>Maintenance Summary</h2>`;
+    let currentUL = false;
     w.maintItems.forEach(item => {
-      if (item.type === "heading") docHtml += `<h3>${item.text}</h3>`;
-      else docHtml += `<ul><li>${item.text}</li></ul>`;
+      if (item.type === "heading") {
+        if (currentUL) { docHtml += `</ul>`; currentUL = false; }
+        docHtml += `<h3>${item.text}</h3>`;
+      } else {
+        if (!currentUL) { docHtml += `<ul>`; currentUL = true; }
+        docHtml += `<li>${item.text}</li>`;
+      }
     });
+    if (currentUL) docHtml += `</ul>`;
 
-    docHtml += `<h2>Scope for Improvement</h2><table><tr><th>Sr. No.</th><th>Area of Improvement</th><th>Observations</th><th>Recommendations</th></tr>${w.scopeForImprovement.map((r,i) => `<tr><td>${i+1}</td><td>${r.area||"—"}</td><td>${r.observations||"—"}</td><td>${r.recommendations||"—"}</td></tr>`).join("")}</table>`;
+    // Scope for Improvement
+    docHtml += `<h2>Scope for Improvement</h2><table><tr><th style="width:5%">Sr. No.</th><th>Area of Improvement</th><th>Observations</th><th>Recommendations</th></tr>`;
+    w.scopeForImprovement.forEach((r, i) => { docHtml += `<tr><td style="text-align:center">${i+1}</td><td>${r.area||"—"}</td><td>${r.observations||"—"}</td><td>${r.recommendations||"—"}</td></tr>`; });
+    docHtml += `</table>`;
 
-    docHtml += `<h2>Recommendations</h2><p>The engine post overhaul must be closely monitored for any abnormalities which could cause serious breakdowns. We therefore, recommend the following:</p><ol>${w.recommendations.map(r => `<li>${r}</li>`).join("")}</ol>`;
+    // Recommendations
+    docHtml += `<h2>Recommendations</h2><p style="margin-bottom:6px">The engine post overhaul must be closely monitored for any abnormalities which could cause serious breakdowns. It is a known fact that most breakdowns on overhauled engines occur within the first 100 hours post overhaul. We therefore, recommend the following:</p><ol>`;
+    w.recommendations.forEach(r => { docHtml += `<li>${r}</li>`; });
+    docHtml += `</ol>`;
 
-    if (w.calibrationTables.length > 0) {
-      docHtml += `<h2>Annexure — Calibration Reports</h2>`;
+    // Calibration Tables
+    if (w.calibrationTables?.length) {
+      docHtml += `<h2>Annexure 1 — Calibration Sheet</h2>`;
       w.calibrationTables.forEach(t => {
         docHtml += `<h3>${t.name}</h3>`;
-        if (t.hasImage && t.imageBase64) docHtml += `<div style="display:flex;gap:12px;margin-bottom:8px"><img src="${t.imageBase64}" style="width:120px;height:auto" /><p style="font-size:9pt">${t.note||""}</p></div>`;
-        else if (t.note) docHtml += `<p style="font-size:9pt;margin-bottom:6px">${t.note}</p>`;
-        docHtml += `<table><thead><tr>${t.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${t.rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+        const imgSrc = t.imageBase64 || null;
+        if (t.hasImage && imgSrc) {
+          docHtml += `<div class="cal-header-row"><img src="${imgSrc}" class="cal-diagram" /><div class="cal-note">${(t.note||"").replace(/\n/g,"<br/>")}</div></div>`;
+        } else if (t.note) {
+          docHtml += `<p style="font-size:8.5pt;margin-bottom:6px;color:#333">${(t.note||"").replace(/\n/g,"<br/>")}</p>`;
+        }
+        docHtml += `<table><thead><tr>${t.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`;
+        t.rows.forEach(row => { docHtml += `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`; });
+        docHtml += `</tbody></table>`;
       });
     }
 
-    if (w.partsColumns.rows?.length) {
-      docHtml += `<h2>Parts Consumed List</h2><table><thead><tr>${w.partsColumns.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${w.partsColumns.rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    // Parts Consumed
+    if (w.partsColumns?.rows?.length) {
+      docHtml += `<h2>Parts Consumed List</h2><table><thead><tr>${w.partsColumns.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`;
+      w.partsColumns.rows.forEach(row => { docHtml += `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`; });
+      docHtml += `</tbody></table>`;
     }
 
-    const realPhotos = w.photos.filter(ph => ph.src);
+    // Photo Gallery — 2 per row, bold ALL CAPS caption below each photo
+    const realPhotos = (w.photos||[]).filter(ph => ph.src);
     if (realPhotos.length > 0) {
-      docHtml += `<h2>Photo Gallery</h2><div class="photo-grid">`;
-      realPhotos.forEach(ph => { docHtml += `<div class="photo-item"><img src="${ph.src}" /><div class="photo-caption">${ph.title||""}</div>${ph.description ? `<div style="text-align:center;font-size:8pt">${ph.description}</div>` : ""}</div>`; });
-      docHtml += `</div>`;
+      docHtml += `<h2>Photo Gallery</h2><table class="photo-gallery"><tbody>`;
+      for (let i = 0; i < realPhotos.length; i += 2) {
+        const ph1 = realPhotos[i];
+        const ph2 = realPhotos[i+1];
+        docHtml += `<tr>
+          <td>
+            <img src="${ph1.src}" />
+            <div class="photo-caption-title">${(ph1.title||"").toUpperCase()}</div>
+            ${ph1.description ? `<div class="photo-caption-desc">${ph1.description}</div>` : ""}
+          </td>
+          <td>
+            ${ph2 ? `<img src="${ph2.src}" />
+            <div class="photo-caption-title">${(ph2.title||"").toUpperCase()}</div>
+            ${ph2.description ? `<div class="photo-caption-desc">${ph2.description}</div>` : ""}` : `<div class="photo-empty"></div>`}
+          </td>
+        </tr>`;
+      }
+      docHtml += `</tbody></table>`;
     }
 
-    docHtml += `<h2>Sign-off</h2><div class="signoff"><table><tr><th colspan="2">On behalf of Neptunus</th></tr><tr><td>Maker Name</td><td>${w.signoff.makerName||"—"}</td></tr><tr><td>Checker Name</td><td>${w.signoff.checkerName||"—"}</td></tr><tr><td>Approver Name</td><td>${w.signoff.approverName||"—"}</td></tr><tr><td>Date</td><td>${w.signoff.makerDate||"—"}</td></tr></table><table><tr><th colspan="2">On behalf of Customer</th></tr><tr><td>Name</td><td>${w.signoff.customerName||"—"}</td></tr><tr><td>Date</td><td>${w.signoff.customerDate||"—"}</td></tr></table></div>`;
+    // Sign-off
+    docHtml += `<h2>Sign-off</h2>
+    <table class="signoff-table">
+      <tr>
+        <th colspan="2" style="width:50%">On behalf of Neptunus</th>
+        <th colspan="2">On behalf of Customer</th>
+      </tr>
+      <tr>
+        <td class="label-col" style="width:15%">Maker Name</td><td style="width:35%">${w.signoff?.makerName||"—"}</td>
+        <td class="label-col" style="width:15%">Name</td><td>${w.signoff?.customerName||"—"}</td>
+      </tr>
+      <tr>
+        <td class="label-col">Checker Name</td><td>${w.signoff?.checkerName||"—"}</td>
+        <td class="label-col">Date</td><td>${w.signoff?.customerDate||"—"}</td>
+      </tr>
+      <tr>
+        <td class="label-col">Approver Name</td><td>${w.signoff?.approverName||"—"}</td>
+        <td></td><td></td>
+      </tr>
+      <tr>
+        <td class="label-col">Date</td><td>${w.signoff?.makerDate||"—"}</td>
+        <td></td><td></td>
+      </tr>
+    </table>`;
 
-    docHtml += `</body></html>`;
+    docHtml += `</div></body></html>`;
 
     const blob = new Blob([docHtml], { type: "application/msword" });
     const url = URL.createObjectURL(blob);
