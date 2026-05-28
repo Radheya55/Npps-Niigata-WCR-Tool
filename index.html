@@ -11,7 +11,7 @@
 </head>
 <body>
 
-<!-- ═══════════════ SCREEN 1 — HOME ═══════════════ -->
+<!-- ═══ SCREEN 1 — HOME ═══ -->
 <div id="screen-home" class="screen active">
   <div class="home-bg"></div>
   <div class="home-wrap">
@@ -24,7 +24,7 @@
     </div>
     <div class="home-hero">
       <h1 class="hero-title">Work Completion<br /><em>Report Builder</em></h1>
-      <p class="hero-sub">Niigata Engine Series &nbsp;·&nbsp; Version 2.0</p>
+      <p class="hero-sub">Niigata Engine Series &nbsp;·&nbsp; Version 3.0</p>
     </div>
     <div class="home-actions">
       <button class="btn-primary" onclick="App.goToLogin('wcr')">
@@ -38,11 +38,14 @@
         <span class="btn-arrow">→</span>
       </button>
     </div>
+    <div class="home-hist-btn-wrap">
+      <button class="btn-hist" onclick="App.goToLogin('history')">📋 See Historical Drafts</button>
+    </div>
     <div class="home-footer">Neptunus Power Plant Services Pvt. Ltd. &nbsp;·&nbsp; A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai – 400 710</div>
   </div>
 </div>
 
-<!-- ═══════════════ SCREEN 2 — LOGIN ═══════════════ -->
+<!-- ═══ SCREEN 2 — LOGIN ═══ -->
 <div id="screen-login" class="screen">
   <div class="modal-wrap">
     <button class="back-btn" onclick="App.goHome()">← Back</button>
@@ -52,9 +55,7 @@
       <p class="modal-sub">Select your name and enter your employee number</p>
       <div class="form-group">
         <label class="form-label">Your Name</label>
-        <select id="emp-name-select" class="form-input" onchange="App.onNameSelect()">
-          <option value="">— Select your name —</option>
-        </select>
+        <select id="emp-name-select" class="form-input" onchange="App.onNameSelect()"><option value="">— Select your name —</option></select>
       </div>
       <div class="form-group">
         <label class="form-label">Employee Number</label>
@@ -64,12 +65,7 @@
       <button class="btn-full" id="continue-btn" onclick="App.verifyEmployee()" disabled style="opacity:0.5;cursor:not-allowed;">Continue</button>
       <div class="oauth-divider"><span>then</span></div>
       <button class="btn-google" onclick="App.connectGoogle()">
-        <svg width="18" height="18" viewBox="0 0 48 48">
-          <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.5 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/>
-          <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19.1 13 24 13c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.5 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
-          <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.1 35.5 26.7 36.3 24 36.3c-5.2 0-9.6-3.3-11.2-8H6.3C9.7 37 18.3 44 24 44z"/>
-          <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.2 5.2C37.2 36.2 44 31 44 24c0-1.3-.1-2.6-.4-3.9z"/>
-        </svg>
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.5 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19.1 13 24 13c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.5 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.1 35.5 26.7 36.3 24 36.3c-5.2 0-9.6-3.3-11.2-8H6.3C9.7 37 18.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.2 5.2C37.2 36.2 44 31 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
         Connect Google Drive
       </button>
       <p class="oauth-note">One-time permission. Allows saving drafts to your Drive.</p>
@@ -77,7 +73,7 @@
   </div>
 </div>
 
-<!-- ═══════════════ SCREEN 3 — DASHBOARD ═══════════════ -->
+<!-- ═══ SCREEN 3 — DASHBOARD ═══ -->
 <div id="screen-dashboard" class="screen">
   <header class="app-header">
     <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">WCR Builder</span></div>
@@ -88,14 +84,24 @@
       <h2 class="dash-heading">Start a New Report</h2>
       <div class="project-start-card">
         <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Project Code</label>
-            <input type="text" id="project-code-input" class="form-input" placeholder="e.g. ABC1000" autocomplete="off" onkeydown="if(event.key==='Enter') App.lookupProject()" />
-          </div>
+          <div class="form-group"><label class="form-label">Project Code</label><input type="text" id="project-code-input" class="form-input" placeholder="e.g. ABC1000" autocomplete="off" onkeydown="if(event.key==='Enter') App.lookupProject()" /></div>
           <button class="btn-lookup" onclick="App.lookupProject()">Look Up →</button>
         </div>
         <div id="project-details" class="project-details hidden">
           <div class="project-info-grid" id="project-info-grid"></div>
+          <!-- DWR Upload (optional) -->
+          <div id="dwr-upload-section" class="dwr-section hidden">
+            <div class="dwr-header">
+              <span class="dwr-label">📄 Upload DWRs (Optional)</span>
+              <small>Upload Daily Work Report PDFs to auto-populate Maintenance Summary, Recommendations and Photos</small>
+            </div>
+            <div class="dwr-controls">
+              <input type="file" id="dwr-file-input" accept="application/pdf" multiple style="display:none" />
+              <button class="btn-dwr-pick" onclick="document.getElementById('dwr-file-input').click()">Choose DWR PDFs</button>
+              <button class="btn-dwr-load" id="load-dwr-btn" onclick="App.loadDWRData()">Load Data from DWRs →</button>
+            </div>
+            <div id="dwr-status" class="dwr-status"></div>
+          </div>
           <button class="btn-full mt" onclick="App.startWCR()">Create WCR for This Project →</button>
         </div>
         <div id="project-not-found" class="project-not-found hidden">
@@ -110,7 +116,7 @@
   </div>
 </div>
 
-<!-- ═══════════════ SCREEN 4 — BASE DATA ═══════════════ -->
+<!-- ═══ SCREEN 4 — BASE DATA ═══ -->
 <div id="screen-basedata" class="screen">
   <header class="app-header">
     <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">Base Data Manager</span></div>
@@ -120,90 +126,100 @@
     <div class="dash-section">
       <div class="dash-heading-row">
         <h2 class="dash-heading">Add / Edit Project Base Data</h2>
-        <button class="btn-home" onclick="App.goHome()">← Home</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn-home" id="cancel-edit-btn" onclick="App.cancelEdit()" style="display:none">✕ Cancel Edit</button>
+          <button class="btn-home" onclick="App.goHome()">← Home</button>
+        </div>
       </div>
-      <p class="dash-sub">This data auto-fills when an engineer enters the project code.</p>
+      <p class="dash-sub">This data auto-fills when an engineer enters the project code. Project Code is mandatory.</p>
       <div class="basedata-card">
         <div class="form-grid">
           <div class="form-group"><label class="form-label">Project Code *</label><input type="text" id="bd-project-code" class="form-input" placeholder="e.g. ABC1000" /></div>
           <div class="form-group"><label class="form-label">Customer Name</label><input type="text" id="bd-customer" class="form-input" placeholder="e.g. TOPAZ-BELEUZI" /></div>
-          <div class="form-group"><label class="form-label">Contract Number</label><input type="text" id="bd-contract-no" class="form-input" placeholder="e.g. 2425S062A" /></div>
+          <div class="form-group"><label class="form-label">Contract Number</label><input type="text" id="bd-contract-no" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Start Date</label><input type="date" id="bd-start-date" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Completion Date</label><input type="date" id="bd-end-date" class="form-input" /></div>
-          <div class="form-group"><label class="form-label">Type of Overhaul</label>
-            <select id="bd-overhaul-type" class="form-input">
+          <div class="form-group">
+            <label class="form-label">Type of Overhaul</label>
+            <select id="bd-overhaul-type" class="form-input" onchange="App.onOverhaulTypeChange()">
               <option value="">Select...</option>
               <option value="TOH">TOH — Top Overhaul</option>
               <option value="MOH">MOH — Major Overhaul</option>
               <option value="Minor">Minor Overhaul</option>
               <option value="HealthCheck">Health Check</option>
+              <option value="Other">Other (specify)</option>
             </select>
+          </div>
+          <div class="form-group hidden" id="bd-overhaul-custom-row">
+            <label class="form-label">Specify Overhaul Type</label>
+            <input type="text" id="bd-overhaul-custom" class="form-input" placeholder="Describe the overhaul type..." />
           </div>
           <div class="form-group"><label class="form-label">Engine Make and Model</label><input type="text" id="bd-engine-model" class="form-input" placeholder="e.g. NIIGATA 8L28HX" /></div>
           <div class="form-group"><label class="form-label">Engine Serial Number</label><input type="text" id="bd-engine-serial" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Engine Arrangement</label><input type="text" id="bd-engine-arrangement" class="form-input" placeholder="e.g. PORT & STBD" /></div>
-          <div class="form-group"><label class="form-label">RPM and Capacity</label><input type="text" id="bd-rpm" class="form-input" placeholder="e.g. 750 rpm / 2206 KW" /></div>
+          <div class="form-group"><label class="form-label">RPM and Capacity</label><input type="text" id="bd-rpm" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Current Running Hours</label><input type="text" id="bd-running-hours" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Customer In-Charge</label><input type="text" id="bd-customer-incharge" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Neptunus Team Leader</label><input type="text" id="bd-team-leader" class="form-input" /></div>
-          <div class="form-group"><label class="form-label">Neptunus Members</label><input type="text" id="bd-members" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Vessel / Rig Name</label><input type="text" id="bd-vessel" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Location</label><input type="text" id="bd-location" class="form-input" /></div>
+          <!-- Team Members -->
+          <div class="form-group form-group-full">
+            <label class="form-label">Neptunus Team Members</label>
+            <div id="members-container"></div>
+            <button class="add-member-btn" onclick="App.addMember()">+ Add Member</button>
+          </div>
+          <!-- Vessel Image -->
           <div class="form-group form-group-full">
             <label class="form-label">Vessel / Customer Image</label>
-            <div class="image-upload-box" id="bd-image-box" onclick="document.getElementById('bd-image-input').click()">
-              <div class="image-upload-placeholder" id="bd-image-placeholder">
-                <span class="image-upload-icon">📷</span>
-                <span>Click to upload vessel or customer image</span>
-                <small>Appears at the top of the WCR report</small>
-              </div>
-              <img id="bd-image-preview" class="image-preview hidden" alt="Vessel image" />
+            <div class="image-upload-box" onclick="document.getElementById('bd-image-input').click()">
+              <div class="image-upload-placeholder" id="bd-image-placeholder"><span class="image-upload-icon">📷</span><span>Click to upload vessel or customer image</span><small>Appears at the top of the WCR report</small></div>
+              <img id="bd-image-preview" class="image-preview hidden" alt="Vessel" />
             </div>
             <input type="file" id="bd-image-input" accept="image/*" style="display:none" onchange="App.onVesselImageSelect(event)" />
             <button class="btn-clear-image hidden" id="bd-image-clear" onclick="App.clearVesselImage()">✕ Remove image</button>
           </div>
         </div>
-        <div class="form-actions"><button class="btn-full" onclick="App.saveBaseData()">Save to Database →</button></div>
-        <div id="bd-success" class="success-msg hidden">✓ Project data saved successfully. <button class="btn-home-inline" onclick="App.goHome()">← Back to Home</button></div>
+        <div class="form-actions">
+          <button class="btn-full" id="save-base-btn" onclick="App.saveBaseData()">Save to Database →</button>
+        </div>
+        <div id="bd-success" class="success-msg hidden">✓ Project data saved. <button class="btn-home-inline" onclick="App.goHome()">← Back to Home</button></div>
         <div id="bd-error" class="error-msg hidden"></div>
       </div>
     </div>
     <div class="dash-section">
       <h2 class="dash-heading">All Projects <span class="draft-count" id="project-count">0</span></h2>
-      <div id="projects-table-wrap" class="table-scroll"><div class="empty-state">No projects in database yet.</div></div>
+      <div id="projects-table-wrap" class="table-scroll"><div class="empty-state">No projects yet.</div></div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════ SCREEN 5 — WCR BUILDER ═══════════════ -->
+<!-- ═══ SCREEN 5 — WCR BUILDER ═══ -->
 <div id="screen-wcr-builder" class="screen">
   <header class="app-header">
-    <div class="app-header-left">
-      <div class="brand-mark sm">N</div>
-      <span class="app-header-title">WCR Builder — <span id="wcr-project-code"></span></span>
-    </div>
+    <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">WCR — <span id="wcr-project-code"></span></span></div>
     <div class="app-header-right">
       <span class="wcr-customer-pill" id="wcr-customer"></span>
       <button class="btn-save-wcr" onclick="App.saveWCRSection()">💾 Save Draft</button>
+      <button class="btn-save-wcr" style="background:var(--green);color:#fff" onclick="App.openSemiFinalise()">📋 Preview & Finalise</button>
       <button class="logout-btn" onclick="App.backToDashboard()">← Dashboard</button>
     </div>
   </header>
-
   <div class="wcr-body">
 
-    <!-- ── SECTION: Cover ── -->
+    <!-- Cover -->
     <div class="wcr-section">
-      <div class="wcr-section-label">Cover Page</div>
+      <div class="wcr-section-label">Cover Page (auto-filled from Base Data)</div>
       <div class="wcr-cover-preview">
-        <img id="wcr-cover-image" class="wcr-cover-img hidden" alt="Vessel" />
+        <img id="wcr-cover-image" class="wcr-cover-img hidden" />
         <div class="wcr-cover-grid">
-          <div class="cover-item"><label>Customer Name</label><span id="wcr-cover-customer"></span></div>
+          <div class="cover-item"><label>Customer</label><span id="wcr-cover-customer"></span></div>
           <div class="cover-item"><label>Contract No.</label><span id="wcr-cover-contract"></span></div>
           <div class="cover-item"><label>Start Date</label><span id="wcr-cover-start"></span></div>
           <div class="cover-item"><label>Completion Date</label><span id="wcr-cover-end"></span></div>
-          <div class="cover-item"><label>Type of Overhaul</label><span id="wcr-cover-overhaul"></span></div>
+          <div class="cover-item"><label>Overhaul Type</label><span id="wcr-cover-overhaul"></span></div>
           <div class="cover-item"><label>Engine Model</label><span id="wcr-cover-engine"></span></div>
-          <div class="cover-item"><label>Engine Serial No.</label><span id="wcr-cover-serial"></span></div>
+          <div class="cover-item"><label>Serial No.</label><span id="wcr-cover-serial"></span></div>
           <div class="cover-item"><label>Arrangement</label><span id="wcr-cover-arrangement"></span></div>
           <div class="cover-item"><label>RPM / Capacity</label><span id="wcr-cover-rpm"></span></div>
           <div class="cover-item"><label>Running Hours</label><span id="wcr-cover-hours"></span></div>
@@ -211,78 +227,92 @@
           <div class="cover-item"><label>Team Leader</label><span id="wcr-cover-leader"></span></div>
           <div class="cover-item cover-item-full"><label>Members</label><span id="wcr-cover-members"></span></div>
         </div>
-        <p class="cover-note">↑ Auto-filled from Base Data. Edit via Add Base Data screen if changes needed.</p>
+        <p class="cover-note">↑ To update, go to Add Base Data screen.</p>
       </div>
     </div>
 
-    <!-- ── SECTION: History ── -->
+    <!-- History (collapsible) -->
     <div class="wcr-section">
-      <div class="wcr-section-label">History</div>
-      <div class="wcr-field-grid">
-        <div class="wcr-field"><label>Last Overhauling Type</label><input id="h-lastType" class="form-input" placeholder="e.g. TOH / MOH / Not done" /></div>
-        <div class="wcr-field"><label>Last Overhaul Carried By</label><input id="h-lastBy" class="form-input" placeholder="e.g. Neptunus / OEM / Not done" /></div>
-        <div class="wcr-field"><label>Running Hours at Time of Last Maintenance</label><input id="h-runHours" class="form-input" placeholder="e.g. 12000 Hrs / —" /></div>
-        <div class="wcr-field wcr-field-full"><label>Observations Recorded (Prior Dismantling)</label><textarea id="h-obs" class="form-input" rows="2" placeholder="e.g. None / Describe..."></textarea></div>
-        <div class="wcr-field wcr-field-full"><label>Log Leakages / Abnormalities (Prior Job Start)</label><textarea id="h-leaks" class="form-input" rows="2" placeholder="e.g. None / Describe..."></textarea></div>
-        <div class="wcr-field"><label>Bearing Size – Con Rod Journal (Part No.)</label><input id="h-bearingCon" class="form-input" placeholder="e.g. Standard 21001-6 (95B21070A)" /></div>
-        <div class="wcr-field"><label>Bearing Size – Main Journal (Part No.)</label><input id="h-bearingMain" class="form-input" placeholder="e.g. Standard 1300-201 (95B13090A)" /></div>
-        <div class="wcr-field"><label>Turbo Details</label><input id="h-turbo" class="form-input" placeholder="e.g. ABB IHI MODEL TPS 61001" /></div>
-        <div class="wcr-field"><label>Geislinger Coupling Details</label><input id="h-geislinger" class="form-input" placeholder="e.g. BE63/15/85-10R0 SR.NO-265610" /></div>
-        <div class="wcr-field"><label>Governor Details</label><input id="h-governor" class="form-input" placeholder="e.g. Woodward UG-25+ Sr.no. 19223835" /></div>
-        <div class="wcr-field"><label>Conditions of Gauges on Instrument Panel</label><input id="h-gauges" class="form-input" placeholder="e.g. Normal" /></div>
+      <div class="wcr-section-toggle-row">
+        <div class="wcr-section-label">History</div>
+        <button class="toggle-section-btn" id="history-toggle-btn" onclick="App.toggleHistory()">+ Add History Section</button>
+      </div>
+      <div id="history-body" class="hidden">
+        <div class="wcr-field-grid">
+          <div class="wcr-field"><label>Last Overhauling Type</label><input id="h-lastType" class="form-input" placeholder="e.g. TOH / Not done" /></div>
+          <div class="wcr-field"><label>Last Overhaul Carried By</label><input id="h-lastBy" class="form-input" placeholder="e.g. Neptunus / Not done" /></div>
+          <div class="wcr-field"><label>Running Hours at Last Maintenance</label><input id="h-runHours" class="form-input" /></div>
+          <div class="wcr-field wcr-field-full"><label>Observations (Prior Dismantling)</label><textarea id="h-obs" class="form-input" rows="2"></textarea></div>
+          <div class="wcr-field wcr-field-full"><label>Log Leakages / Abnormalities (Prior Job Start)</label><textarea id="h-leaks" class="form-input" rows="2"></textarea></div>
+          <div class="wcr-field"><label>Bearing Size – Con Rod Journal (Part No.)</label><input id="h-bearingCon" class="form-input" /></div>
+          <div class="wcr-field"><label>Bearing Size – Main Journal (Part No.)</label><input id="h-bearingMain" class="form-input" /></div>
+          <div class="wcr-field"><label>Turbo Details</label><input id="h-turbo" class="form-input" /></div>
+          <div class="wcr-field"><label>Geislinger Coupling Details</label><input id="h-geislinger" class="form-input" /></div>
+          <div class="wcr-field"><label>Governor Details</label><input id="h-governor" class="form-input" /></div>
+          <div class="wcr-field"><label>Gauge Conditions</label><input id="h-gauges" class="form-input" /></div>
+        </div>
       </div>
     </div>
 
-    <!-- ── SECTION: Scope of Work ── -->
+    <!-- Scope of Work (collapsible) -->
     <div class="wcr-section">
-      <div class="wcr-section-label">Scope of Work</div>
-      <div class="scope-header-row">
-        <span class="scope-col-label">Original Scope of Work</span>
-        <span class="scope-col-label">What Was Done (include additions/omissions)</span>
-        <span></span>
+      <div class="wcr-section-toggle-row">
+        <div class="wcr-section-label">Scope of Work</div>
+        <button class="toggle-section-btn" id="scope-toggle-btn" onclick="App.toggleScope()">+ Add Scope of Work</button>
       </div>
-      <div id="scope-rows"></div>
-      <button class="add-row-btn" onclick="App.addScopeRow()">+ Add Row</button>
+      <div id="scope-body" class="hidden">
+        <div class="scope-header-row"><span class="scope-col-label">Original Scope of Work</span><span class="scope-col-label">What Was Done (additions / omissions)</span><span></span></div>
+        <div id="scope-rows"></div>
+        <button class="add-row-btn" onclick="App.addScopeRow()">+ Add Row</button>
+      </div>
     </div>
 
-    <!-- ── SECTION: Deviations ── -->
+    <!-- Deviations (collapsible) -->
     <div class="wcr-section">
-      <div class="wcr-section-label">Deviations & Reference Notes for Next Overhaul</div>
-      <div class="wcr-field-grid">
-        <div class="wcr-field"><label>Next Maintenance Type</label><input id="dev-nextType" class="form-input" placeholder="e.g. MOH (based on health check)" /></div>
-        <div class="wcr-field"><label>Tentative Due Date</label><input id="dev-nextDate" class="form-input" placeholder="e.g. Oct 2026" /></div>
-        <div class="wcr-field wcr-field-full"><label>Notes on Parts Renewal Required in Next Maintenance</label><textarea id="dev-parts" class="form-input" rows="2" placeholder="e.g. As per OEM recommendation..."></textarea></div>
+      <div class="wcr-section-toggle-row">
+        <div class="wcr-section-label">Deviations & Reference Notes for Next Overhaul</div>
+        <button class="toggle-section-btn" id="dev-toggle-btn" onclick="App.toggleDeviations()">+ Add Deviations Section</button>
+      </div>
+      <div id="dev-body" class="hidden">
+        <div class="wcr-field-grid">
+          <div class="wcr-field"><label>Next Maintenance Type</label><input id="dev-nextType" class="form-input" placeholder="e.g. MOH" /></div>
+          <div class="wcr-field"><label>Tentative Due Date</label><input id="dev-nextDate" class="form-input" placeholder="e.g. Oct 2026" /></div>
+          <div class="wcr-field wcr-field-full"><label>Notes on Parts Renewal for Next Maintenance</label><textarea id="dev-parts" class="form-input" rows="2"></textarea></div>
+        </div>
       </div>
     </div>
 
-    <!-- ── SECTION: Maintenance Summary ── -->
+    <!-- Maintenance Summary -->
     <div class="wcr-section">
       <div class="wcr-section-label">Maintenance Summary</div>
-      <p class="wcr-section-hint">Write a detailed account of all work carried out. This is the core narrative of the report.</p>
-      <textarea id="maint-summary" class="form-input maint-summary-area" rows="20" placeholder="Cylinder Heads: Dismounting, further dismantling, Inspection and Cleaning...&#10;&#10;Fuel Injection Pumps: ...&#10;&#10;Piston and Connecting Rod Assembly: ..."></textarea>
+      <p class="wcr-section-hint">Template pre-loaded with standard activities. Edit, delete or add sections and bullet points as needed. DWR activities (if uploaded) appear at the bottom.</p>
+      <div id="maint-items"></div>
+      <div class="maint-add-bar">
+        <button class="add-row-btn" onclick="App.addMaintItem(State.currentDraft.wcr.maintItems.length-1,'heading')">+ Add Section Heading</button>
+        <button class="add-row-btn" onclick="App.addMaintItem(State.currentDraft.wcr.maintItems.length-1,'bullet')">+ Add Bullet Point</button>
+      </div>
     </div>
 
-    <!-- ── SECTION: Scope for Improvement ── -->
+    <!-- Scope for Improvement -->
     <div class="wcr-section">
       <div class="wcr-section-label">Scope for Improvement</div>
-      <div class="sfi-header-row">
-        <span>No.</span><span>Area of Improvement</span><span>Observations</span><span>Recommendations</span><span></span>
-      </div>
+      <div class="sfi-header-row"><span>No.</span><span>Area of Improvement</span><span>Observations</span><span>Recommendations</span><span></span></div>
       <div id="sfi-rows"></div>
       <button class="add-row-btn" onclick="App.addSFI()">+ Add Row</button>
     </div>
 
-    <!-- ── SECTION: Recommendations ── -->
+    <!-- Recommendations -->
     <div class="wcr-section">
       <div class="wcr-section-label">Recommendations</div>
+      <p class="wcr-section-hint">Standard recommendations pre-loaded. Edit, delete or add as needed.</p>
       <div id="rec-rows"></div>
       <button class="add-row-btn" onclick="App.addRec()">+ Add Recommendation</button>
     </div>
 
-    <!-- ── SECTION: Calibration Tables ── -->
+    <!-- Calibration Tables -->
     <div class="wcr-section">
       <div class="wcr-section-label">Annexure — Calibration Tables</div>
-      <p class="wcr-section-hint">Pick any table from the palette below. You can add multiple tables, rename them, edit all values, add/delete rows and columns.</p>
+      <p class="wcr-section-hint">Pick templates from the palette. Each table supports image upload, editable notes, add/delete rows and columns, and undo.</p>
       <button class="btn-palette" onclick="App.showTablePalette()">📋 Add Table from Palette</button>
       <div id="table-palette" class="table-palette hidden">
         <div class="palette-title">Select a table template:</div>
@@ -290,8 +320,8 @@
           <button class="palette-item" onclick="App.insertTable('crankshaft')"><span>📐</span><strong>Crankshaft Deflection</strong></button>
           <button class="palette-item" onclick="App.insertTable('rockerArm')"><span>🔧</span><strong>Rocker Arm Bushing / Shaft</strong></button>
           <button class="palette-item" onclick="App.insertTable('ringGroove')"><span>⭕</span><strong>Ring Groove Clearance</strong></button>
-          <button class="palette-item" onclick="App.insertTable('piston_ring_gap')"><span>📏</span><strong>Liner & Piston Ring Gap</strong></button>
-          <button class="palette-item" onclick="App.insertTable('liner')"><span>🔩</span><strong>Cylinder Liner Calibration</strong></button>
+          <button class="palette-item" onclick="App.insertTable('pistonRingGap')"><span>📏</span><strong>Liner & Piston Ring Gap</strong></button>
+          <button class="palette-item" onclick="App.insertTable('linerCalib')"><span>🔩</span><strong>Cylinder Liner Calibration</strong></button>
           <button class="palette-item" onclick="App.insertTable('valveStem')"><span>🎯</span><strong>Valve Stem Diameter</strong></button>
           <button class="palette-item" onclick="App.insertTable('loadTrial')"><span>⚡</span><strong>Load Trial Sheet</strong></button>
           <button class="palette-item" onclick="App.insertTable('parts')"><span>📦</span><strong>Parts Consumed List</strong></button>
@@ -301,58 +331,90 @@
       <div id="cal-tables"></div>
     </div>
 
-    <!-- ── SECTION: Parts Consumed ── -->
+    <!-- Parts Consumed -->
     <div class="wcr-section">
       <div class="wcr-section-label">Parts Consumed List</div>
-      <div class="parts-table-wrap">
-        <table class="parts-table">
-          <thead><tr><th>Sr No.</th><th>Item No.</th><th>Part No.</th><th>Description</th><th>Qty / Equipment</th><th></th></tr></thead>
-          <tbody id="parts-rows"></tbody>
-        </table>
-      </div>
-      <button class="add-row-btn" onclick="App.addPart()">+ Add Part</button>
+      <p class="wcr-section-hint">Paste each column from your spreadsheet into the boxes, finalise each column, then preview as a table.</p>
+      <div id="parts-container"></div>
     </div>
 
-    <!-- ── SECTION: Photo Gallery ── -->
+    <!-- Photos -->
     <div class="wcr-section">
       <div class="wcr-section-label">Photo Gallery</div>
-      <p class="wcr-section-hint">Upload photos with captions. They will appear in a 2-column grid in the final report.</p>
+      <p class="wcr-section-hint">DWR photos (if uploaded) appear here. Add new photos. Title is compulsory for each photo.</p>
       <button class="add-row-btn" onclick="document.getElementById('photo-input').click()">📷 Add Photos</button>
       <input type="file" id="photo-input" accept="image/*" multiple style="display:none" onchange="App.onPhotoSelect(event)" />
       <div id="photos-grid" class="photos-grid"></div>
     </div>
 
-    <!-- ── SECTION: Sign-off ── -->
+    <!-- Sign-off -->
     <div class="wcr-section">
       <div class="wcr-section-label">Sign-off</div>
       <div class="signoff-grid">
         <div class="signoff-block">
           <div class="signoff-title">On behalf of Neptunus</div>
-          <div class="wcr-field"><label>Maker Name</label><input id="so-maker" class="form-input" placeholder="e.g. Mr. Yashwant Ushir" /></div>
-          <div class="wcr-field"><label>Checker Name</label><input id="so-checker" class="form-input" placeholder="e.g. Prashant Raddi" /></div>
-          <div class="wcr-field"><label>Approver Name</label><input id="so-approver" class="form-input" placeholder="e.g. Sunny Patil" /></div>
+          <div class="wcr-field"><label>Maker Name</label><input id="so-maker" class="form-input" /></div>
+          <div class="wcr-field"><label>Checker Name</label><input id="so-checker" class="form-input" /></div>
+          <div class="wcr-field"><label>Approver Name</label><input id="so-approver" class="form-input" /></div>
           <div class="wcr-field"><label>Date</label><input id="so-makerdate" type="date" class="form-input" /></div>
         </div>
         <div class="signoff-block">
           <div class="signoff-title">On behalf of Customer</div>
-          <div class="wcr-field"><label>Customer Name</label><input id="so-custname" class="form-input" placeholder="e.g. Mr. Josko Rozic" /></div>
+          <div class="wcr-field"><label>Customer Name</label><input id="so-custname" class="form-input" /></div>
           <div class="wcr-field"><label>Date</label><input id="so-custdate" type="date" class="form-input" /></div>
         </div>
       </div>
     </div>
 
-    <!-- ── BOTTOM ACTIONS ── -->
     <div class="wcr-bottom-actions">
       <button class="btn-save-wcr-large" onclick="App.saveWCRSection()">💾 Save Draft</button>
-      <button class="btn-back-dash" onclick="App.backToDashboard()">← Back to Dashboard</button>
+      <button class="btn-save-wcr-large" style="background:var(--green)" onclick="App.openSemiFinalise()">📋 Preview & Finalise →</button>
+      <button class="btn-back-dash" onclick="App.backToDashboard()">← Dashboard</button>
     </div>
-
   </div>
 </div>
 
-<!-- TOAST -->
-<div id="toast" class="toast"></div>
+<!-- ═══ SCREEN 6 — SEMI-FINAL PREVIEW ═══ -->
+<div id="screen-semi-final" class="screen">
+  <header class="app-header">
+    <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">Final Preview</span></div>
+    <div class="app-header-right">
+      <button class="btn-save-wcr" onclick="App.runGrammarCheck()">🔍 Grammar &amp; Spell Check</button>
+      <button class="btn-save-wcr" style="background:var(--green);color:#fff" onclick="App.downloadWCR()">⬇ Download WCR</button>
+      <button class="logout-btn" onclick="Screen.show('wcr-builder')">← Back to Builder</button>
+    </div>
+  </header>
+  <div class="sf-body">
+    <div class="sf-main" id="sf-preview-content"></div>
+    <div class="sf-sidebar hidden" id="grammar-sidebar">
+      <div class="grammar-sidebar-header">
+        <span>✏️ Suggestions</span>
+        <button onclick="App.closeGrammarSidebar()">✕</button>
+      </div>
+      <div id="grammar-results"></div>
+    </div>
+  </div>
+</div>
 
+<!-- ═══ SCREEN 7 — HISTORICAL DRAFTS ═══ -->
+<div id="screen-historical-drafts" class="screen">
+  <header class="app-header">
+    <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">Historical Drafts</span></div>
+    <div class="app-header-right"><button class="logout-btn" onclick="App.goHome()">← Home</button></div>
+  </header>
+  <div class="dashboard-body">
+    <div class="dash-section">
+      <h2 class="dash-heading">Work In Progress (up to 10)</h2>
+      <div id="hist-wip-list"><div class="empty-state">No WIP drafts.</div></div>
+    </div>
+    <div class="dash-section">
+      <h2 class="dash-heading">Downloaded WCRs (up to 5)</h2>
+      <div id="hist-downloaded-list"><div class="empty-state">No downloaded drafts.</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
 <script src="https://apis.google.com/js/api.js"></script>
 <script src="https://accounts.google.com/gsi/client"></script>
 <script src="app.js"></script>
