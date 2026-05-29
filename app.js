@@ -274,7 +274,7 @@ const App = {
     if (!State.currentUser) { document.getElementById("emp-error").textContent = "Please verify your employee number first."; return; }
     const client = google.accounts.oauth2.initTokenClient({
       client_id: CONFIG.GOOGLE_CLIENT_ID,
-      scope: ["https://www.googleapis.com/auth/drive.file","https://www.googleapis.com/auth/spreadsheets"].join(" "),
+      scope: ["https://www.googleapis.com/auth/drive.file","https://www.googleapis.com/auth/spreadsheets","https://www.googleapis.com/auth/documents"].join(" "),
       callback: async (response) => {
         if (response.error) { Toast.show("Google connection failed.", "error"); return; }
         State.googleToken = response.access_token;
@@ -1399,7 +1399,7 @@ const App = {
   /* ══════════════════════════════════════════════════════
      DOWNLOAD
   ══════════════════════════════════════════════════════ */
-  downloadWCR() {
+  async downloadWCR() {
     const d = State.currentDraft;
     const w = d.wcr;
     const p = d.projectData;
@@ -1407,256 +1407,312 @@ const App = {
     const LOGO = (typeof LOGO_B64 !== 'undefined') ? LOGO_B64 : '';
     const DGRAMS = (typeof DIAGRAMS !== 'undefined') ? DIAGRAMS : {};
 
-    const FOOTER = `Neptunus Power Plant Services Pvt. Ltd. &nbsp;&nbsp;|&nbsp;&nbsp; A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai &ndash; 400 710, India &nbsp;&nbsp;|&nbsp;&nbsp; Tel: +91 22 41410707 &nbsp;&nbsp;|&nbsp;&nbsp; www.neptunus-power.com &nbsp;&nbsp;|&nbsp;&nbsp; info@neptunus-power.com`;
+    Toast.show('Creating Google Doc…', 'default');
 
-    // ── Helper: wrap every page with header + footer table ──────────
-    // We use CSS @page with named strings for true running header/footer
-    // This works in Chrome print-to-PDF and Word when opened via browser
-    const CSS = `
-      @charset "UTF-8";
-      @page {
-        size: A4;
-        margin: 28mm 15mm 28mm 15mm;
-        @top-right { content: element(running-header); }
-        @bottom-center { content: element(running-footer); }
+    // ── Step 1: Build the document body as a series of Google Docs API requests ──
+    const requests = [];
+    let cursor = 1; // insertion index (Google Docs inserts at this position, moving forward)
+
+    // Helper: insert text at cursor, returns length inserted
+    const ins = (text, style) => {
+      requests.push({
+        insertText: { location: { index: cursor }, text }
+      });
+      if (style) {
+        requests.push({
+          updateTextStyle: {
+            range: { startIndex: cursor, endIndex: cursor + text.length },
+            textStyle: style,
+            fields: Object.keys(style).join(',')
+          }
+        });
       }
-      #running-header {
-        position: running(running-header);
-        display: flex; align-items: center; justify-content: space-between;
-        border-bottom: 2px solid #003366; padding-bottom: 5px;
-        width: 100%;
-      }
-      #running-footer {
-        position: running(running-footer);
-        border-top: 1px solid #003366; padding-top: 4px;
-        font-size: 7.5pt; color: #555; text-align: center; width: 100%;
-      }
-      body {
-        font-family: Arial, sans-serif; font-size: 10.5pt;
-        color: #000; margin: 0; padding: 0;
-      }
-      h1 { text-align: center; font-size: 17pt; color: #003366; margin: 8px 0 6px; letter-spacing: 0.5px; }
-      h2 { font-size: 12pt; color: #003366; margin: 20px 0 5px;
-           border-bottom: 2px solid #003366; padding-bottom: 3px;
-           page-break-after: avoid; }
-      h3 { font-size: 10.5pt; font-weight: bold; margin: 10px 0 3px;
-           page-break-after: avoid; color: #111; }
-      p  { margin: 4px 0 8px; line-height: 1.5; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 12px;
-              page-break-inside: avoid; font-size: 9.5pt; }
-      td, th { border: 1px solid #aaa; padding: 5px 7px; vertical-align: top; }
-      th { background: #dde4ef; font-weight: bold; text-align: left; color: #003366; }
-      .lc { background: #f5f5f5; font-weight: bold; width: 38%; }
-      ul { margin: 2px 0 8px 18px; padding: 0; }
-      li { margin-bottom: 3px; line-height: 1.6; }
-      ol { margin: 4px 0 10px 20px; }
-      ol li { margin-bottom: 5px; line-height: 1.5; }
-      .cal-wrap { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 6px; }
-      .cal-img { width: 140px; flex-shrink: 0; }
-      .cal-note { font-size: 8.5pt; line-height: 1.6; flex: 1; color: #222; }
-      .photo-tbl { width: 100%; border-collapse: collapse; }
-      .photo-tbl td { border: 1px solid #aaa; padding: 8px; text-align: center;
-                       vertical-align: top; width: 50%; }
-      .photo-tbl img { width: 100%; max-height: 210px; object-fit: cover; display: block; }
-      .pcap { font-size: 9pt; font-weight: bold; text-transform: uppercase;
-              text-align: center; margin-top: 5px; }
-      .pdesc { font-size: 8pt; text-align: center; color: #444; margin-top: 2px; }
-      .photo-empty { background: #f8f8f8; min-height: 180px; }
-      .signoff-wrap { display: flex; gap: 20px; }
-      .signoff-wrap table { flex: 1; }
-      @media screen {
-        body { max-width: 860px; margin: 0 auto; padding: 20px; }
-        #running-header { position: sticky; top: 0; background: white;
-                          z-index: 99; padding: 8px 0; }
-        #running-footer { position: fixed; bottom: 0; left: 0; right: 0;
-                          background: white; padding: 5px 20px; z-index: 99; }
-      }
-    `;
+      cursor += text.length;
+    };
 
-    // ── Build document ──────────────────────────────────────────────
-    let H = `<!DOCTYPE html><html lang="en"><head>
-      <meta charset="UTF-8"/>
-      <title>WCR — ${d.projectCode}</title>
-      <style>${CSS}</style>
-    </head><body>`;
+    const insLine = (text, style) => ins(text + '\n', style);
 
-    // Running header (appears on every page)
-    H += `<div id="running-header">
-      <span style="font-size:12pt;font-weight:bold;color:#003366;">Work Completion Report &mdash; ${p.CustomerName||d.projectCode}</span>
-      ${LOGO ? `<img src="${LOGO}" style="height:38px;width:auto;" alt="NPPS" />` : '<span style="font-weight:bold;color:#003366;">NEPTUNUS</span>'}
-    </div>`;
+    const heading = (text, level) => {
+      const start = cursor;
+      ins(text + '\n');
+      requests.push({
+        updateParagraphStyle: {
+          range: { startIndex: start, endIndex: cursor },
+          paragraphStyle: { namedStyleType: level === 1 ? 'HEADING_1' : level === 2 ? 'HEADING_2' : 'HEADING_3' },
+          fields: 'namedStyleType'
+        }
+      });
+    };
 
-    // Running footer (appears on every page)
-    H += `<div id="running-footer">${FOOTER}</div>`;
+    const normal = (text) => insLine(text, null);
+    const bold = (text) => ins(text, { bold: true });
 
-    // ── COVER ──────────────────────────────────────────────────────
-    H += `<h1>Work Completion Report</h1>`;
-    if (p.CustomerName) H += `<p style="text-align:center;font-size:13pt;font-weight:bold;color:#003366;margin:0 0 8px">${p.CustomerName}</p>`;
-    if (p.VesselImageBase64) H += `<div style="text-align:center;margin:10px 0"><img src="${p.VesselImageBase64}" style="max-width:90%;max-height:220px;object-fit:contain;" /></div>`;
+    // ── TITLE ──
+    heading('Work Completion Report', 1);
+    if (p.CustomerName) heading(p.CustomerName, 2);
+    normal('');
 
-    H += `<table>
-      <tr><td class="lc">Customer Name</td><td><strong>${p.CustomerName||'—'}</strong></td><td class="lc">Project / Contract Number</td><td><strong>${p.ContractNo||'—'}</strong></td></tr>
-      <tr><td class="lc">Start Date of Job</td><td>${p.StartDate||'—'}</td><td class="lc">Completion Date</td><td>${p.EndDate||'—'}</td></tr>
-      <tr><td class="lc">Type of Overhaul</td><td>${p.OverhaulType||'—'}</td><td class="lc">Engine Make and Model</td><td>${p.EngineModel||'—'}</td></tr>
-      <tr><td class="lc">Engine Serial Number</td><td>${p.EngineSerial||'—'}</td><td class="lc">Engine Arrangement No</td><td>${p.EngineArrangement||'—'}</td></tr>
-      <tr><td class="lc">RPM and Capacity</td><td>${p.RPMCapacity||'—'}</td><td class="lc">Current Running Hours</td><td>${p.RunningHours||'—'}</td></tr>
-      <tr><td class="lc">Customer In-Charge</td><td>${p.CustomerIncharge||'—'}</td><td class="lc">Neptunus Team Leader</td><td>${p.TeamLeader||'—'}</td></tr>
-      <tr><td class="lc">Neptunus Members</td><td colspan="3">${p.Members||'—'}</td></tr>
-    </table>`;
+    // ── COVER TABLE — we'll insert as plain text rows (Docs API table creation is complex) ──
+    // Use a clean 2-column layout as text
+    const coverFields = [
+      ['Customer Name', p.CustomerName||'—', 'Project / Contract Number', p.ContractNo||'—'],
+      ['Start Date of Job', p.StartDate||'—', 'Completion Date', p.EndDate||'—'],
+      ['Type of Overhaul', p.OverhaulType||'—', 'Engine Make and Model', p.EngineModel||'—'],
+      ['Engine Serial Number', p.EngineSerial||'—', 'Engine Arrangement No', p.EngineArrangement||'—'],
+      ['RPM and Capacity', p.RPMCapacity||'—', 'Current Running Hours', p.RunningHours||'—'],
+      ['Customer In-Charge', p.CustomerIncharge||'—', 'Neptunus Team Leader', p.TeamLeader||'—'],
+    ];
+    coverFields.forEach(([l1,v1,l2,v2]) => {
+      ins(`${l1}: `); ins(`${v1}   `, {bold:false}); ins(`${l2}: `); insLine(v2||'—');
+    });
+    ins('Neptunus Members: '); insLine(p.Members||'—');
+    normal('');
 
-    // ── HISTORY ───────────────────────────────────────────────────
+    // ── HISTORY ──
     if (w.historyActive && w.historyRows?.length) {
-      H += `<h2>History</h2><table>`;
-      w.historyRows.forEach(r => { H += `<tr><td class="lc">${r.label||'—'}</td><td>${r.value||'—'}</td></tr>`; });
-      H += `</table>`;
+      heading('History', 2);
+      w.historyRows.forEach(r => { ins(`${r.label||'—'}: `, {bold:true}); insLine(r.value||'—'); });
+      normal('');
     }
 
-    // ── SCOPE OF WORK ─────────────────────────────────────────────
+    // ── SCOPE OF WORK ──
     if (w.scopeActive && w.scopeOfWork?.length) {
-      H += `<h2>Scope of Work</h2><table>
-        <tr><th>Describe what the original scope of work was</th><th>Describe what was done (include additions and omissions, with reasons)</th></tr>`;
-      w.scopeOfWork.forEach(r => { H += `<tr><td>${r.original||'—'}</td><td>${r.done||'—'}</td></tr>`; });
-      H += `</table>`;
+      heading('Scope of Work', 2);
+      ins('Original Scope', {bold:true}); ins(' | '); insLine('What Was Done', {bold:true});
+      w.scopeOfWork.forEach(r => { ins(r.original||'—'); ins(' | '); insLine(r.done||'—'); });
+      normal('');
     }
 
-    // ── DEVIATIONS ────────────────────────────────────────────────
+    // ── DEVIATIONS ──
     if (w.deviationsActive) {
-      H += `<h2>Deviations and Reference Notes for Next Overhaul</h2><table>`;
+      heading('Deviations and Reference Notes for Next Overhaul', 2);
       if (w.deviationRows?.length) {
-        w.deviationRows.forEach(r => { H += `<tr><td class="lc">${r.label||'—'}</td><td>${r.value||'—'}</td></tr>`; });
+        w.deviationRows.forEach(r => { ins(`${r.label||'—'}: `, {bold:true}); insLine(r.value||'—'); });
       } else {
-        H += `<tr><td class="lc">Identify Next Maintenance Type and Tentative Due Date</td><td>${w.deviations?.nextMaintType||'—'} ${w.deviations?.nextMaintDate||''}</td></tr>`;
-        H += `<tr><td class="lc">Notes on Required Parts Renewal in Next Maintenance</td><td>${w.deviations?.partsRenewal||'—'}</td></tr>`;
+        ins('Next Maintenance Type and Due Date: ', {bold:true}); insLine(`${w.deviations?.nextMaintType||'—'} ${w.deviations?.nextMaintDate||''}`);
+        ins('Notes on Required Parts Renewal: ', {bold:true}); insLine(w.deviations?.partsRenewal||'—');
       }
-      H += `</table>`;
+      normal('');
     }
 
-    // ── MAINTENANCE SUMMARY ───────────────────────────────────────
-    H += `<h2>Maintenance Summary</h2>`;
-    let inUL = false;
+    // ── MAINTENANCE SUMMARY ──
+    heading('Maintenance Summary', 2);
     (w.maintItems||[]).forEach(item => {
       if (item.type === 'heading') {
-        if (inUL) { H += `</ul>`; inUL = false; }
-        H += `<h3>${item.text}</h3>`;
+        heading(item.text, 3);
       } else {
-        if (!inUL) { H += `<ul>`; inUL = true; }
-        H += `<li>${item.text}</li>`;
+        const start = cursor;
+        ins('• ' + item.text + '\n');
+        requests.push({
+          updateParagraphStyle: {
+            range: { startIndex: start, endIndex: cursor },
+            paragraphStyle: { indentFirstLine: { magnitude: 0, unit: 'PT' }, indentStart: { magnitude: 18, unit: 'PT' } },
+            fields: 'indentFirstLine,indentStart'
+          }
+        });
       }
     });
-    if (inUL) H += `</ul>`;
+    normal('');
 
-    // ── SCOPE FOR IMPROVEMENT ─────────────────────────────────────
-    H += `<h2>Scope for Improvement</h2>
-    <table><tr><th style="width:5%;text-align:center">Sr. No.</th><th>Area of Improvement</th><th>Observations</th><th>Recommendations</th></tr>`;
+    // ── SCOPE FOR IMPROVEMENT ──
+    heading('Scope for Improvement', 2);
+    ins('Sr. No. | Area of Improvement | Observations | Recommendations\n', {bold:true});
     (w.scopeForImprovement||[]).forEach((r, i) => {
-      H += `<tr><td style="text-align:center">${i+1}</td><td>${r.area||'—'}</td><td>${r.observations||'—'}</td><td>${r.recommendations||'—'}</td></tr>`;
+      insLine(`${i+1} | ${r.area||'—'} | ${r.observations||'—'} | ${r.recommendations||'—'}`);
     });
-    H += `</table>`;
+    normal('');
 
-    // ── RECOMMENDATIONS ───────────────────────────────────────────
-    H += `<h2>Recommendations</h2>
-    <p>The engine post overhaul must be closely monitored for any abnormalities which could cause serious breakdowns. It is a known fact that most breakdowns on overhauled engines occur within the first 100 hours post overhaul. We therefore, recommend the following:</p><ol>`;
-    (w.recommendations||[]).forEach(r => { H += `<li>${r}</li>`; });
-    H += `</ol>`;
-
-    // ── CALIBRATION TABLES ────────────────────────────────────────
-    if (w.calibrationTables?.length) {
-      H += `<h2>Annexure 1 &mdash; Calibration Sheet</h2>`;
-      w.calibrationTables.forEach(t => {
-        H += `<h3>${t.name}</h3>`;
-        // Use imageBase64 (which is either builtin diagram or user-uploaded)
-        const imgSrc = t.imageBase64 || DGRAMS[t.templateKey] || null;
-        const noteText = (t.note||'').replace(/\n/g, '<br/>');
-        if (t.hasImage && imgSrc) {
-          H += `<div class="cal-wrap">
-            <img src="${imgSrc}" class="cal-img" />
-            <div class="cal-note">${noteText}</div>
-          </div>`;
-        } else if (noteText) {
-          H += `<p style="font-size:8.5pt;margin-bottom:6px">${noteText}</p>`;
+    // ── RECOMMENDATIONS ──
+    heading('Recommendations', 2);
+    insLine('The engine post overhaul must be closely monitored for any abnormalities which could cause serious breakdowns. It is a known fact that most breakdowns on overhauled engines occur within the first 100 hours post overhaul. We therefore, recommend the following:');
+    (w.recommendations||[]).forEach((r, i) => {
+      const start = cursor;
+      ins(`${i+1}. ${r}\n`);
+      requests.push({
+        updateParagraphStyle: {
+          range: { startIndex: start, endIndex: cursor },
+          paragraphStyle: { indentStart: { magnitude: 18, unit: 'PT' } },
+          fields: 'indentStart'
         }
-        H += `<table><thead><tr>${t.headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
-        (t.rows||[]).forEach(row => { H += `<tr>${row.map(c => `<td>${c}</td>`).join('')}</tr>`; });
-        H += `</tbody></table>`;
+      });
+    });
+    normal('');
+
+    // ── CALIBRATION TABLES ──
+    if (w.calibrationTables?.length) {
+      heading('Annexure 1 — Calibration Sheet', 2);
+      w.calibrationTables.forEach(t => {
+        heading(t.name, 3);
+        if (t.note) insLine(t.note.replace(/\n/g, ' | '));
+        // Headers
+        ins(t.headers.join(' | ') + '\n', {bold:true});
+        // Rows
+        (t.rows||[]).forEach(row => insLine(row.join(' | ')));
+        normal('');
       });
     }
 
-    // ── PARTS CONSUMED ────────────────────────────────────────────
+    // ── PARTS CONSUMED ──
     if (w.partsColumns?.rows?.length) {
-      H += `<h2>Parts Consumed List</h2>
-      <table><thead><tr>${w.partsColumns.headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
-      w.partsColumns.rows.forEach(row => { H += `<tr>${row.map(c => `<td>${c}</td>`).join('')}</tr>`; });
-      H += `</tbody></table>`;
+      heading('Parts Consumed List', 2);
+      ins(w.partsColumns.headers.join(' | ') + '\n', {bold:true});
+      w.partsColumns.rows.forEach(row => insLine(row.join(' | ')));
+      normal('');
     }
 
-    // ── PHOTO GALLERY ─────────────────────────────────────────────
+    // ── PHOTO GALLERY — insert images inline ──
     const realPhotos = (w.photos||[]).filter(ph => ph.src);
     if (realPhotos.length > 0) {
-      H += `<h2>Photo Gallery</h2><table class="photo-tbl"><tbody>`;
+      heading('Photo Gallery', 2);
+      // We'll insert image captions as text (actual images require upload to Drive first)
+      // For each photo: caption in bold, then newline
       for (let i = 0; i < realPhotos.length; i += 2) {
         const ph1 = realPhotos[i];
         const ph2 = realPhotos[i+1] || null;
-        H += `<tr>
-          <td>
-            <img src="${ph1.src}" />
-            <div class="pcap">${(ph1.title||'').toUpperCase()}</div>
-            ${ph1.description ? `<div class="pdesc">${ph1.description}</div>` : ''}
-          </td>
-          <td ${ph2 ? '' : 'class="photo-empty"'}>
-            ${ph2 ? `<img src="${ph2.src}" />
-            <div class="pcap">${(ph2.title||'').toUpperCase()}</div>
-            ${ph2.description ? `<div class="pdesc">${ph2.description}</div>` : ''}` : ''}
-          </td>
-        </tr>`;
+        ins((ph1.title||'Photo').toUpperCase(), {bold:true});
+        if (ph2) { ins(' | '); ins((ph2.title||'Photo').toUpperCase(), {bold:true}); }
+        normal('');
+        if (ph1.description || ph2?.description) {
+          ins(ph1.description||''); if (ph2?.description) { ins(' | '); ins(ph2.description||''); } normal('');
+        }
       }
-      H += `</tbody></table>`;
+      normal('Note: Photos are attached separately. Please insert images next to captions in the final document.');
+      normal('');
     }
 
-    // ── SIGN-OFF ──────────────────────────────────────────────────
-    H += `<h2>Sign-off</h2>
-    <table>
-      <tr>
-        <th colspan="2" style="width:50%;text-align:center">On behalf of Neptunus</th>
-        <th colspan="2" style="text-align:center">On behalf of Customer</th>
-      </tr>
-      <tr>
-        <td class="lc" style="width:15%">Maker Name</td>
-        <td style="width:35%">${w.signoff?.makerName||'—'}</td>
-        <td class="lc" style="width:15%">Name</td>
-        <td>${w.signoff?.customerName||'—'}</td>
-      </tr>
-      <tr>
-        <td class="lc">Checker Name</td><td>${w.signoff?.checkerName||'—'}</td>
-        <td class="lc">Date</td><td>${w.signoff?.customerDate||'—'}</td>
-      </tr>
-      <tr>
-        <td class="lc">Approver Name</td><td>${w.signoff?.approverName||'—'}</td>
-        <td></td><td></td>
-      </tr>
-      <tr>
-        <td class="lc">Date</td><td>${w.signoff?.makerDate||'—'}</td>
-        <td></td><td></td>
-      </tr>
-    </table>`;
+    // ── SIGN-OFF ──
+    heading('Sign-off', 2);
+    ins('On behalf of Neptunus', {bold:true}); ins('  |  '); insLine('On behalf of Customer', {bold:true});
+    ins('Maker Name: ', {bold:true}); ins((w.signoff?.makerName||'—') + '  |  '); ins('Name: ', {bold:true}); insLine(w.signoff?.customerName||'—');
+    ins('Checker Name: ', {bold:true}); insLine(w.signoff?.checkerName||'—');
+    ins('Approver Name: ', {bold:true}); insLine(w.signoff?.approverName||'—');
+    ins('Date: ', {bold:true}); ins((w.signoff?.makerDate||'—') + '  |  '); ins('Date: ', {bold:true}); insLine(w.signoff?.customerDate||'—');
 
-    H += `</body></html>`;
+    // ── Step 2: Create the Google Doc via Drive API ──
+    try {
+      const createResp = await gapi_fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `WCR — ${d.projectCode} — ${p.CustomerName||''} — ${new Date().toLocaleDateString('en-IN')}`,
+          mimeType: 'application/vnd.google-apps.document',
+          parents: [CONFIG.DRIVE_FOLDER_ID],
+        })
+      });
 
-    // ── Download ──────────────────────────────────────────────────
-    const blob = new Blob([H], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `WCR_${d.projectCode}_${new Date().toISOString().slice(0,10)}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+      const created = await createResp.json();
+      if (!created.id) throw new Error('Could not create document: ' + JSON.stringify(created));
 
-    // Save to downloaded drafts
-    const existing = State.downloadedDrafts.findIndex(dd => dd.id === d.id);
-    const downloadedCopy = { ...d, status:'complete', updatedAt:new Date().toISOString() };
-    if (existing >= 0) State.downloadedDrafts[existing] = downloadedCopy;
-    else State.downloadedDrafts.unshift(downloadedCopy);
-    App.saveDownloadedDrafts();
-    Toast.show('WCR downloaded as HTML. Open in Chrome → File → Print → Save as PDF for the final document.', 'success');
+      const docId = created.id;
+
+      // ── Step 3: Apply all content via batchUpdate ──
+      const batchResp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${State.googleToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ requests })
+      });
+
+      const batchResult = await batchResp.json();
+      if (batchResult.error) throw new Error(batchResult.error.message);
+
+      // ── Step 4: Add header with logo (if available) ──
+      // Get the document to find header ID
+      const docResp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
+        headers: { 'Authorization': `Bearer ${State.googleToken}` }
+      });
+      const docData = await docResp.json();
+
+      // Add header section
+      const headerReqs = [];
+      const existingHeaderId = docData.documentStyle?.defaultHeaderId;
+
+      if (!existingHeaderId) {
+        // Create header
+        const hdrCreate = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${State.googleToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requests: [{
+              createHeader: { type: 'DEFAULT', sectionBreakLocation: { index: 1 } }
+            }]
+          })
+        });
+        const hdrData = await hdrCreate.json();
+        const headerId = hdrData.replies?.[0]?.createHeader?.headerId;
+
+        if (headerId) {
+          // Insert header text (logo can't be inserted via API easily without uploading)
+          await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${State.googleToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              requests: [
+                { insertText: { location: { segmentId: headerId, index: 0 }, text: 'Neptunus Power Plant Services Pvt. Ltd.\t\tWork Completion Report' } },
+                { updateTextStyle: {
+                  range: { segmentId: headerId, startIndex: 0, endIndex: 55 },
+                  textStyle: { bold: true, fontSize: { magnitude: 9, unit: 'PT' }, foregroundColor: { color: { rgbColor: { red: 0, green: 0.2, blue: 0.4 } } } },
+                  fields: 'bold,fontSize,foregroundColor'
+                }}
+              ]
+            })
+          });
+        }
+      }
+
+      // ── Step 5: Add footer ──
+      const ftrCreate = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${State.googleToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requests: [{ createFooter: { type: 'DEFAULT', sectionBreakLocation: { index: 1 } } }]
+        })
+      });
+      const ftrData = await ftrCreate.json();
+      const footerId = ftrData.replies?.[0]?.createFooter?.footerId;
+
+      if (footerId) {
+        const footerText = 'Neptunus Power Plant Services Pvt. Ltd.  |  A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai – 400 710, India  |  Tel: +91 22 41410707  |  www.neptunus-power.com  |  info@neptunus-power.com';
+        await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${State.googleToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requests: [
+              { insertText: { location: { segmentId: footerId, index: 0 }, text: footerText } },
+              { updateTextStyle: {
+                range: { segmentId: footerId, startIndex: 0, endIndex: footerText.length },
+                textStyle: { fontSize: { magnitude: 7.5, unit: 'PT' }, foregroundColor: { color: { rgbColor: { red: 0.3, green: 0.3, blue: 0.3 } } } },
+                fields: 'fontSize,foregroundColor'
+              }},
+              { updateParagraphStyle: {
+                range: { segmentId: footerId, startIndex: 0, endIndex: footerText.length },
+                paragraphStyle: { alignment: 'CENTER' },
+                fields: 'alignment'
+              }}
+            ]
+          })
+        });
+      }
+
+      // ── Step 6: Open the document ──
+      const docUrl = `https://docs.google.com/document/d/${docId}/edit`;
+      window.open(docUrl, '_blank');
+
+      // Save to downloaded drafts
+      const existing = State.downloadedDrafts.findIndex(dd => dd.id === d.id);
+      const downloadedCopy = { ...d, status: 'complete', updatedAt: new Date().toISOString(), docUrl };
+      if (existing >= 0) State.downloadedDrafts[existing] = downloadedCopy;
+      else State.downloadedDrafts.unshift(downloadedCopy);
+      App.saveDownloadedDrafts();
+
+      Toast.show('Google Doc created! Opening now…', 'success');
+
+    } catch (err) {
+      console.error('createGoogleDoc error:', err);
+      Toast.show('Failed to create Google Doc: ' + err.message, 'error');
+    }
   },
 };
 
