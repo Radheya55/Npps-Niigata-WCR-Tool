@@ -1,5 +1,7 @@
 /* ═══════════════════════════════════════════════════════
-   NPPS WCR TOOL — app.js  FINAL COMPLETE BUILD
+   NPPS WCR TOOL — app.js  COMPLETE BUILD v5
+   Changes: HOD Review workflow, PDF output, per-user privacy,
+   one-time Google auth per session, comments sidebar
 ═══════════════════════════════════════════════════════ */
 
 const CONFIG = {
@@ -7,14 +9,14 @@ const CONFIG = {
   WORKER_URL: "https://polished-lake-4911.radheya-supnekar.workers.dev",
   DRIVE_FOLDER_ID: "1fqfq-efMq5KsDpYHc-9TJ3-yc8l3GKc1",
   BASE_DATA_SHEET_NAME: "NPPS_WCR_BaseData",
-  DRAFT_EXPIRY_DAYS: 12,
-  MAX_DRAFTS: 10,
-  MAX_DOWNLOADED_DRAFTS: 5,
+  DRAFT_EXPIRY_DAYS: 365,
   BASE_DATA_EXPIRY_DAYS: 1000,
+  MAX_DRAFTS: 10,
+  HOD_EMP_NO: "666",
   EMPLOYEES_URL: "https://raw.githubusercontent.com/Radheya55/Npps-Niigata-WCR-Tool/main/employees.json",
 };
 
-// ── MAINTENANCE SUMMARY TEMPLATE ─────────────────────────
+
 const MAINT_TEMPLATE = [
   { type:"heading", text:"Cylinder Heads: Dismounting, Dismantling, Inspection and Cleaning" },
   { type:"bullet", text:"All cylinder heads were removed from the engine block." },
@@ -89,6 +91,7 @@ const MAINT_TEMPLATE = [
   { type:"bullet", text:"Checked function of overspeed cylinder — found ok." },
 ];
 
+
 const DEFAULT_RECOMMENDATIONS = [
   "Keep a close watch on the engine and act immediately in case of any abnormal sounds, vibrations and parameters.",
   "Please understand that Neptunus could have worked on some part of the engine but malfunctioning in any other part of the engine could also be the cause of the breakdown.",
@@ -98,7 +101,7 @@ const DEFAULT_RECOMMENDATIONS = [
   "Watch out for fuel dilution. Check for fuel condition. In case of doubt, please call us for assistance.",
 ];
 
-// ── TABLE PALETTE TEMPLATES ──────────────────────────────
+
 const TABLE_TEMPLATES = {
   crankshaft: {
     name: "Crankshaft Deflection Measurement",
@@ -174,14 +177,19 @@ const TABLE_TEMPLATES = {
 
 // ── STATE ────────────────────────────────────────────────
 const State = {
-  currentUser: null,
+  currentUser: null,       // { empNo, name, isHOD }
   googleToken: null,
+  tokenExpiry: null,
   pendingFlow: null,
   baseSheetId: null,
   draftsFileId: null,
-  drafts: [],
-  downloadedDrafts: [],
-  downloadedDraftsFileId: null,
+  drafts: [],              // engineer's own WIP drafts
+  submittedFileId: null,
+  submitted: [],           // drafts submitted to HOD (engineer's own)
+  approvedFileId: null,
+  approved: [],            // HOD-approved drafts (engineer's own)
+  hodQueueFileId: null,
+  hodQueue: [],            // ALL submitted drafts (HOD sees all)
   currentProject: null,
   currentDraft: null,
   employees: [],
@@ -190,40 +198,122 @@ const State = {
   dvrParsedData: null,
   grammarSuggestions: [],
   undoStack: [],
+  // HOD Review state
+  hodCurrentDraft: null,
+  hodCommentTarget: null,
 };
 
-const Screen = { show(id) { document.querySelectorAll(".screen").forEach(s => s.classList.remove("active")); document.getElementById("screen-" + id).classList.add("active"); window.scrollTo(0,0); } };
-
-/* ════════════════════════════════════════════════════════
-   UNDO SYSTEM
-════════════════════════════════════════════════════════ */
-const Undo = {
-  push(action) { State.undoStack.push(action); if (State.undoStack.length > 50) State.undoStack.shift(); },
-  pop() { return State.undoStack.pop(); },
-  last() {
-    const action = this.pop();
-    if (!action) { Toast.show("Nothing to undo."); return; }
-    action();
-    Toast.show("Action undone.");
+const Screen = {
+  show(id) {
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    const el = document.getElementById("screen-" + id);
+    if (el) { el.classList.add("active"); window.scrollTo(0,0); }
+    else console.error("Screen not found:", id);
   }
 };
 
+const Undo = {
+  push(action) { State.undoStack.push(action); if (State.undoStack.length > 50) State.undoStack.shift(); },
+  pop() { return State.undoStack.pop(); },
+  last() { const a = this.pop(); if (!a) { Toast.show("Nothing to undo."); return; } a(); Toast.show("Action undone."); }
+};
+
 /* ════════════════════════════════════════════════════════
-   APP INIT
+   AUTH — one-time per browser session
+════════════════════════════════════════════════════════ */
+const Auth = {
+  SESSION_KEY: "npps_google_token",
+  EXPIRY_KEY:  "npps_token_expiry",
+
+  // Try to restore token from sessionStorage (lasts until tab closes)
+  restore() {
+    const token  = sessionStorage.getItem(Auth.SESSION_KEY);
+    const expiry = sessionStorage.getItem(Auth.EXPIRY_KEY);
+    if (token && expiry && Date.now() < parseInt(expiry)) {
+      State.googleToken = token;
+      State.tokenExpiry = parseInt(expiry);
+      return true;
+    }
+    return false;
+  },
+
+  save(token, expiresInSeconds) {
+    const expiry = Date.now() + (expiresInSeconds - 60) * 1000; // 60s buffer
+    State.googleToken = token;
+    State.tokenExpiry = expiry;
+    sessionStorage.setItem(Auth.SESSION_KEY, token);
+    sessionStorage.setItem(Auth.EXPIRY_KEY, String(expiry));
+  },
+
+  clear() {
+    State.googleToken = null;
+    State.tokenExpiry = null;
+    sessionStorage.removeItem(Auth.SESSION_KEY);
+    sessionStorage.removeItem(Auth.EXPIRY_KEY);
+  },
+
+  isValid() {
+    return State.googleToken && State.tokenExpiry && Date.now() < State.tokenExpiry;
+  },
+
+  // Silently refresh token without showing popup if token still valid
+  // If expired, show the Google popup once
+  async ensureValid() {
+    if (Auth.isValid()) return true;
+    return new Promise((resolve) => {
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: CONFIG.GOOGLE_CLIENT_ID,
+        scope: [
+          "https://www.googleapis.com/auth/drive.file",
+          "https://www.googleapis.com/auth/spreadsheets",
+        ].join(" "),
+        prompt: "",  // empty = no popup if session still has grant
+        callback: (resp) => {
+          if (resp.error) { resolve(false); return; }
+          Auth.save(resp.access_token, resp.expires_in || 3600);
+          resolve(true);
+        },
+      });
+      client.requestAccessToken({ prompt: "" });
+    });
+  },
+
+  // Force new token (only called from Connect button)
+  requestNew(callback) {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: CONFIG.GOOGLE_CLIENT_ID,
+      scope: [
+        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/spreadsheets",
+      ].join(" "),
+      callback: (resp) => {
+        if (resp.error) { Toast.show("Google connection failed.", "error"); return; }
+        Auth.save(resp.access_token, resp.expires_in || 3600);
+        callback();
+      },
+    });
+    client.requestAccessToken();
+  },
+};
+
+
+/* ════════════════════════════════════════════════════════
+   APP INIT + LOGIN
 ════════════════════════════════════════════════════════ */
 const App = {
-  async init() { await App.loadEmployees(); },
+  async init() { Auth.restore(); await App.loadEmployees(); },
 
   async loadEmployees() {
     try {
       const resp = await fetch(CONFIG.EMPLOYEES_URL + "?t=" + Date.now());
       State.employees = await resp.json();
       App.populateNameDropdown();
-    } catch (err) { Toast.show("Could not load employee list.", "error"); }
+    } catch { Toast.show("Could not load employee list.", "error"); }
   },
 
   populateNameDropdown() {
     const select = document.getElementById("emp-name-select");
+    if (!select) return;
     select.innerHTML = '<option value="">— Select your name —</option>';
     [...State.employees].sort((a,b) => a.name.localeCompare(b.name)).forEach(emp => {
       const opt = document.createElement("option");
@@ -233,13 +323,13 @@ const App = {
   },
 
   onNameSelect() { document.getElementById("emp-input").value = ""; document.getElementById("emp-error").textContent = ""; App.updateContinueBtn(); },
-  onEmpInput() { document.getElementById("emp-error").textContent = ""; App.updateContinueBtn(); },
+  onEmpInput()   { document.getElementById("emp-error").textContent = ""; App.updateContinueBtn(); },
 
   updateContinueBtn() {
-    const selEmp = document.getElementById("emp-name-select").value;
+    const selEmp   = document.getElementById("emp-name-select").value;
     const typedEmp = document.getElementById("emp-input").value.trim();
-    const btn = document.getElementById("continue-btn");
-    const match = selEmp && typedEmp && selEmp.toLowerCase() === typedEmp.toLowerCase();
+    const btn      = document.getElementById("continue-btn");
+    const match    = selEmp && typedEmp && selEmp.toLowerCase() === typedEmp.toLowerCase();
     btn.disabled = !match; btn.style.opacity = match ? "1" : "0.5"; btn.style.cursor = match ? "pointer" : "not-allowed";
   },
 
@@ -247,63 +337,561 @@ const App = {
 
   goToLogin(flow) {
     State.pendingFlow = flow;
-    document.getElementById("login-title").textContent = flow === "basedata" ? "Service Manager Login" : "Sign In";
+    document.getElementById("login-title").textContent = flow === "basedata" ? "Service Manager Login" : flow === "hod" ? "HOD Review Login" : "Sign In";
     document.getElementById("emp-input").value = "";
     document.getElementById("emp-name-select").value = "";
     document.getElementById("emp-error").textContent = "";
     App.updateContinueBtn();
+
+    // If we already have a valid Google token, skip the connect button
+    const connectBtn = document.getElementById("connect-google-btn");
+    if (Auth.isValid()) {
+      connectBtn.innerHTML = "✓ Google Drive Connected";
+      connectBtn.classList.add("connected");
+    } else {
+      connectBtn.innerHTML = "Connect Google Drive";
+      connectBtn.classList.remove("connected");
+    }
     Screen.show("login");
   },
 
-  logout() { State.currentUser = null; State.googleToken = null; State.drafts = []; State.vesselImageBase64 = null; Screen.show("home"); Toast.show("Signed out."); },
+  logout() {
+    State.currentUser = null;
+    State.drafts = []; State.submitted = []; State.approved = [];
+    State.hodQueue = []; State.currentDraft = null;
+    // We do NOT clear the Google token — it stays for the session
+    Screen.show("home");
+    Toast.show("Signed out.");
+  },
 
   verifyEmployee() {
-    const selEmp = document.getElementById("emp-name-select").value;
+    const selEmp   = document.getElementById("emp-name-select").value;
     const typedEmp = document.getElementById("emp-input").value.trim();
-    const errorEl = document.getElementById("emp-error");
+    const errorEl  = document.getElementById("emp-error");
     if (!selEmp || !typedEmp) { errorEl.textContent = "Please select your name and enter your employee number."; return; }
     if (selEmp.toLowerCase() !== typedEmp.toLowerCase()) { errorEl.textContent = "Employee number does not match the selected name."; return; }
     const emp = State.employees.find(e => e.empNo.toLowerCase() === typedEmp.toLowerCase());
     if (!emp) { errorEl.textContent = "Employee not found."; return; }
+
+    // HOD flow — restrict to empNo 666
+    if (State.pendingFlow === "hod" && emp.empNo !== CONFIG.HOD_EMP_NO) {
+      errorEl.textContent = "HOD Review access is restricted to the Head of Department."; return;
+    }
+
     errorEl.textContent = "";
-    State.currentUser = { empNo: emp.empNo, name: emp.name };
-    Toast.show(`Welcome, ${emp.name}. Connect Google Drive to continue.`);
+    State.currentUser = { empNo: emp.empNo, name: emp.name, isHOD: emp.empNo === CONFIG.HOD_EMP_NO };
+    Toast.show(`Welcome, ${emp.name}.`);
+
+    // If token already valid, proceed immediately — no connect needed
+    if (Auth.isValid()) {
+      State.googleToken = sessionStorage.getItem(Auth.SESSION_KEY);
+      document.getElementById("connect-google-btn").innerHTML = "✓ Google Drive Connected";
+      document.getElementById("connect-google-btn").classList.add("connected");
+      setTimeout(() => App.proceedAfterAuth(), 400);
+    } else {
+      Toast.show(`Welcome, ${emp.name}. Connect Google Drive to continue.`);
+    }
   },
 
   connectGoogle() {
     if (!State.currentUser) { document.getElementById("emp-error").textContent = "Please verify your employee number first."; return; }
-    const client = google.accounts.oauth2.initTokenClient({
-      client_id: CONFIG.GOOGLE_CLIENT_ID,
-      scope: ["https://www.googleapis.com/auth/drive.file","https://www.googleapis.com/auth/spreadsheets","https://www.googleapis.com/auth/documents"].join(" "),
-      callback: async (response) => {
-        if (response.error) { Toast.show("Google connection failed.", "error"); return; }
-        State.googleToken = response.access_token;
-        const btn = document.querySelector(".btn-google");
-        btn.classList.add("connected"); btn.innerHTML = "✓ Google Drive Connected";
-        Toast.show("Google Drive connected!", "success");
-        setTimeout(() => App.proceedAfterAuth(), 800);
-      },
+    Auth.requestNew(() => {
+      const btn = document.getElementById("connect-google-btn");
+      btn.classList.add("connected"); btn.innerHTML = "✓ Google Drive Connected";
+      Toast.show("Google Drive connected!", "success");
+      setTimeout(() => App.proceedAfterAuth(), 600);
     });
-    client.requestAccessToken();
   },
 
   async proceedAfterAuth() {
     await App.ensureBaseSheet();
-    await App.loadDrafts();
-    await App.loadDownloadedDrafts();
-    if (State.pendingFlow === "basedata") {
+    if (State.pendingFlow === "hod") {
+      await App.loadHODQueue();
+      App.renderHODDashboard();
+      document.getElementById("hod-user-pill").textContent = State.currentUser.name;
+      Screen.show("hod-dashboard");
+    } else if (State.pendingFlow === "basedata") {
+      await App.loadProjectsTable();
       document.getElementById("user-pill-bd").textContent = State.currentUser.name;
       State._tempMembers = ["","",""];
       App.renderMemberFields();
-      await App.loadProjectsTable();
       Screen.show("basedata");
-    } else if (State.pendingFlow === "history") {
-      App.showHistoricalDrafts();
     } else {
+      await App.loadAllDrafts();
       document.getElementById("user-pill").textContent = State.currentUser.name;
-      App.renderDrafts();
+      App.renderDashboard();
       Screen.show("dashboard");
     }
+  },
+
+  /* ══════════════════════════════════════════════════════
+     DRIVE FILE HELPERS — per-user JSON files
+  ══════════════════════════════════════════════════════ */
+  async _loadJsonFile(fileName, stateKey, fileIdKey) {
+    try {
+      const resp = await gapi_fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and '${CONFIG.DRIVE_FOLDER_ID}' in parents and trashed=false&fields=files(id,name)`);
+      const data = await resp.json();
+      if (!data.files || data.files.length === 0) { State[stateKey] = []; return; }
+      State[fileIdKey] = data.files[0].id;
+      const fileResp = await gapi_fetch(`https://www.googleapis.com/drive/v3/files/${State[fileIdKey]}?alt=media`);
+      const parsed = JSON.parse(await fileResp.text());
+      const cutoff = Date.now() - CONFIG.DRAFT_EXPIRY_DAYS * 86400000;
+      State[stateKey] = (Array.isArray(parsed) ? parsed : []).filter(d => new Date(d.createdAt || d.updatedAt || Date.now()).getTime() > cutoff);
+    } catch { State[stateKey] = []; }
+  },
+
+  async _saveJsonFile(fileName, fileIdKey, dataKey) {
+    try {
+      const blob = new Blob([JSON.stringify(State[dataKey], null, 2)], { type: "application/json" });
+      if (State[fileIdKey]) {
+        await gapi_fetch(`https://www.googleapis.com/upload/drive/v3/files/${State[fileIdKey]}?uploadType=media`, { method: "PATCH", body: blob });
+      } else {
+        const form = new FormData();
+        form.append("metadata", new Blob([JSON.stringify({ name: fileName, parents: [CONFIG.DRIVE_FOLDER_ID], mimeType: "application/json" })], { type: "application/json" }));
+        form.append("file", blob);
+        const resp = await gapi_fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", { method: "POST", body: form });
+        State[fileIdKey] = (await resp.json()).id;
+      }
+    } catch (err) { console.error("_saveJsonFile:", fileName, err); }
+  },
+
+  async loadAllDrafts() {
+    const u = State.currentUser.empNo;
+    await Promise.all([
+      App._loadJsonFile(`NPPS_Drafts_${u}.json`,    "drafts",    "draftsFileId"),
+      App._loadJsonFile(`NPPS_Submitted_${u}.json`,  "submitted", "submittedFileId"),
+      App._loadJsonFile(`NPPS_Approved_${u}.json`,   "approved",  "approvedFileId"),
+    ]);
+  },
+
+  saveDrafts()    { return App._saveJsonFile(`NPPS_Drafts_${State.currentUser.empNo}.json`,    "draftsFileId",    "drafts"); },
+  saveSubmitted() { return App._saveJsonFile(`NPPS_Submitted_${State.currentUser.empNo}.json`, "submittedFileId", "submitted"); },
+  saveApproved()  { return App._saveJsonFile(`NPPS_Approved_${State.currentUser.empNo}.json`,  "approvedFileId",  "approved"); },
+
+  // HOD queue is shared — one file for all submissions
+  async loadHODQueue() {
+    await App._loadJsonFile("NPPS_HOD_Queue.json", "hodQueue", "hodQueueFileId");
+  },
+  saveHODQueue() { return App._saveJsonFile("NPPS_HOD_Queue.json", "hodQueueFileId", "hodQueue"); },
+
+  /* ══════════════════════════════════════════════════════
+     DASHBOARD — engineer view, per-user only
+  ══════════════════════════════════════════════════════ */
+  renderDashboard() {
+    App.renderDrafts();
+    App.renderSubmitted();
+    App.renderApproved();
+  },
+
+  renderDrafts() {
+    const list = document.getElementById("drafts-list");
+    const myDrafts = State.drafts.filter(d => d.empNo === State.currentUser.empNo);
+    document.getElementById("draft-count").textContent = `${myDrafts.length} / ${CONFIG.MAX_DRAFTS}`;
+    if (myDrafts.length === 0) { list.innerHTML = `<div class="empty-state">No drafts yet. Start a new report above.</div>`; return; }
+    list.innerHTML = myDrafts.map(d => `
+      <div class="draft-card" onclick="App.openDraft('${d.id}')">
+        <div class="draft-card-left">
+          <div class="draft-card-code">${d.projectCode}</div>
+          <div class="draft-card-name">${d.projectData?.CustomerName||"—"} · ${d.projectData?.Vessel||"—"}</div>
+          <div class="draft-card-meta">Updated ${formatDate(d.updatedAt)} · Expires ${expiryDate(d.createdAt, CONFIG.DRAFT_EXPIRY_DAYS)}</div>
+        </div>
+        <div class="draft-card-right">
+          <span class="status-pill draft">Draft</span>
+          <button class="delete-draft" onclick="event.stopPropagation(); App.deleteDraft('${d.id}')" title="Delete">✕</button>
+        </div>
+      </div>`).join("");
+  },
+
+  renderSubmitted() {
+    const list = document.getElementById("submitted-list");
+    if (!list) return;
+    const mine = State.submitted.filter(d => d.empNo === State.currentUser.empNo);
+    if (mine.length === 0) { list.innerHTML = `<div class="empty-state">No drafts currently with HOD.</div>`; return; }
+    list.innerHTML = mine.map(d => `
+      <div class="draft-card ${d.hodComments?.length ? 'has-comments' : ''}" onclick="App.openSubmittedPreview('${d.id}')">
+        <div class="draft-card-left">
+          <div class="draft-card-code">${d.projectCode}</div>
+          <div class="draft-card-name">${d.projectData?.CustomerName||"—"}</div>
+          <div class="draft-card-meta">Submitted ${formatDate(d.submittedAt)}</div>
+        </div>
+        <div class="draft-card-right">
+          <span class="status-pill under-review">${d.hodComments?.length ? `💬 ${d.hodComments.length} Comments` : "Under Review"}</span>
+        </div>
+      </div>`).join("");
+  },
+
+  renderApproved() {
+    const list = document.getElementById("approved-list");
+    if (!list) return;
+    const mine = State.approved.filter(d => d.empNo === State.currentUser.empNo);
+    if (mine.length === 0) { list.innerHTML = `<div class="empty-state">No approved WCRs yet.</div>`; return; }
+    list.innerHTML = mine.map(d => `
+      <div class="draft-card approved-card">
+        <div class="draft-card-left">
+          <div class="draft-card-code">${d.projectCode}</div>
+          <div class="draft-card-name">${d.projectData?.CustomerName||"—"} · ${d.projectData?.Vessel||"—"}</div>
+          <div class="draft-card-meta">Approved ${formatDate(d.approvedAt)}</div>
+        </div>
+        <div class="draft-card-right">
+          <span class="status-pill approved">✓ HOD Approved</span>
+          <button class="btn-download-pdf" onclick="event.stopPropagation(); App.downloadPDF('${d.id}')">⬇ PDF</button>
+        </div>
+      </div>`).join("");
+  },
+
+  openDraft(id) {
+    const draft = State.drafts.find(d => d.id === id);
+    if (!draft) return;
+    State.currentDraft = draft;
+    App.openWCRBuilder(draft);
+  },
+
+  deleteDraft(id) {
+    if (!confirm("Delete this draft?")) return;
+    State.drafts = State.drafts.filter(d => d.id !== id);
+    App.saveDrafts();
+    App.renderDrafts();
+    Toast.show("Draft deleted.");
+  },
+
+  /* ══════════════════════════════════════════════════════
+     SUBMIT TO HOD
+  ══════════════════════════════════════════════════════ */
+  async submitToHOD() {
+    App.saveWCRSection();
+    const draft = State.currentDraft;
+    const submission = {
+      ...draft,
+      status: "under_review",
+      submittedAt: new Date().toISOString(),
+      hodComments: [],
+    };
+
+    // Add to engineer's submitted list
+    const existingIdx = State.submitted.findIndex(d => d.id === draft.id);
+    if (existingIdx >= 0) State.submitted[existingIdx] = submission;
+    else State.submitted.unshift(submission);
+    await App.saveSubmitted();
+
+    // Add to shared HOD queue
+    await App.loadHODQueue();
+    const queueIdx = State.hodQueue.findIndex(d => d.id === draft.id);
+    if (queueIdx >= 0) State.hodQueue[queueIdx] = submission;
+    else State.hodQueue.unshift(submission);
+    await App.saveHODQueue();
+
+    // Remove from engineer's WIP drafts
+    State.drafts = State.drafts.filter(d => d.id !== draft.id);
+    await App.saveDrafts();
+
+    Toast.show("Submitted to HOD for review!", "success");
+    App.renderDashboard();
+    Screen.show("dashboard");
+  },
+
+  /* ══════════════════════════════════════════════════════
+     ENGINEER: VIEW SUBMITTED DRAFT WITH HOD COMMENTS
+  ══════════════════════════════════════════════════════ */
+  openSubmittedPreview(id) {
+    const draft = State.submitted.find(d => d.id === id);
+    if (!draft) return;
+    State.currentDraft = draft;
+    App.renderReviewPreview(draft, "engineer");
+    Screen.show("review-preview");
+  },
+
+  /* ══════════════════════════════════════════════════════
+     HOD DASHBOARD
+  ══════════════════════════════════════════════════════ */
+  renderHODDashboard() {
+    const list = document.getElementById("hod-queue-list");
+    if (!list) return;
+    const queue = State.hodQueue.filter(d => d.status === "under_review");
+    if (queue.length === 0) { list.innerHTML = `<div class="empty-state">No WCRs pending review.</div>`; return; }
+    list.innerHTML = queue.map(d => `
+      <div class="draft-card" onclick="App.openHODReview('${d.id}')">
+        <div class="draft-card-left">
+          <div class="draft-card-code">${d.projectCode}</div>
+          <div class="draft-card-name">${d.projectData?.CustomerName||"—"} · ${d.authorName||"—"}</div>
+          <div class="draft-card-meta">Submitted ${formatDate(d.submittedAt)}</div>
+        </div>
+        <div class="draft-card-right">
+          <span class="status-pill under-review">Review</span>
+          ${d.hodComments?.length ? `<span class="comment-badge">${d.hodComments.length} comments</span>` : ""}
+        </div>
+      </div>`).join("");
+  },
+
+  openHODReview(id) {
+    const draft = State.hodQueue.find(d => d.id === id);
+    if (!draft) return;
+    State.hodCurrentDraft = draft;
+    State.currentDraft = draft;
+    App.renderReviewPreview(draft, "hod");
+    Screen.show("review-preview");
+  },
+
+  /* ══════════════════════════════════════════════════════
+     REVIEW PREVIEW — shared view for engineer + HOD
+     mode: "engineer" | "hod"
+  ══════════════════════════════════════════════════════ */
+  renderReviewPreview(draft, mode) {
+    document.getElementById("rp-project-title").textContent = `${draft.projectCode} — ${draft.projectData?.CustomerName||""}`;
+    document.getElementById("rp-mode-label").textContent = mode === "hod" ? "HOD Review Mode — click any section to comment" : "Your submitted draft";
+
+    // Show/hide controls
+    document.getElementById("hod-controls").classList.toggle("hidden", mode !== "hod");
+    document.getElementById("engineer-controls").classList.toggle("hidden", mode !== "engineer");
+
+    App.renderReviewContent(draft, mode);
+    App.renderCommentsSidebar(draft, mode);
+  },
+
+  renderReviewContent(draft, mode) {
+    const w = draft.wcr;
+    const p = draft.projectData;
+    const DGRAMS = (typeof DIAGRAMS !== "undefined") ? DIAGRAMS : {};
+    let html = "";
+
+    const section = (id, label, content) => {
+      const hasComment = (draft.hodComments||[]).some(c => c.sectionId === id);
+      return `<div class="rp-section ${hasComment ? "has-comment" : ""}" data-section="${id}" data-label="${label}"
+        ${mode === "hod" ? `onclick="App.openCommentBox('${id}','${label}')"` : ""}>
+        <div class="rp-section-header">
+          <h2 class="rp-section-title">${label}</h2>
+          ${hasComment ? `<span class="rp-comment-dot" title="HOD commented">💬</span>` : ""}
+          ${mode === "hod" ? `<span class="rp-add-comment-hint">+ Comment</span>` : ""}
+        </div>
+        ${content}
+      </div>`;
+    };
+
+    // Cover
+    let coverHtml = "";
+    if (p.VesselImageBase64) coverHtml += `<img src="${p.VesselImageBase64}" class="rp-cover-img" />`;
+    coverHtml += `<table class="rp-table">
+      <tr><td class="rp-lc">Customer Name</td><td><strong>${p.CustomerName||"—"}</strong></td><td class="rp-lc">Contract No.</td><td>${p.ContractNo||"—"}</td></tr>
+      <tr><td class="rp-lc">Start Date</td><td>${p.StartDate||"—"}</td><td class="rp-lc">Completion</td><td>${p.EndDate||"—"}</td></tr>
+      <tr><td class="rp-lc">Overhaul Type</td><td>${p.OverhaulType||"—"}</td><td class="rp-lc">Engine Model</td><td>${p.EngineModel||"—"}</td></tr>
+      <tr><td class="rp-lc">Serial No.</td><td>${p.EngineSerial||"—"}</td><td class="rp-lc">Arrangement</td><td>${p.EngineArrangement||"—"}</td></tr>
+      <tr><td class="rp-lc">RPM / Capacity</td><td>${p.RPMCapacity||"—"}</td><td class="rp-lc">Running Hours</td><td>${p.RunningHours||"—"}</td></tr>
+      <tr><td class="rp-lc">Team Leader</td><td>${p.TeamLeader||"—"}</td><td class="rp-lc">Members</td><td>${p.Members||"—"}</td></tr>
+    </table>`;
+    html += section("cover", "Cover Details", coverHtml);
+
+    // History
+    if (w.historyActive) {
+      const rows = w.historyRows || [];
+      let hHtml = `<table class="rp-table">${rows.map(r => `<tr><td class="rp-lc">${r.label||"—"}</td><td>${r.value||"—"}</td></tr>`).join("")}</table>`;
+      html += section("history", "History", hHtml);
+    }
+
+    // Scope of Work
+    if (w.scopeActive && w.scopeOfWork?.length) {
+      let sHtml = `<table class="rp-table"><tr><th>Original Scope</th><th>What Was Done</th></tr>${w.scopeOfWork.map(r => `<tr><td>${r.original||"—"}</td><td>${r.done||"—"}</td></tr>`).join("")}</table>`;
+      html += section("scope", "Scope of Work", sHtml);
+    }
+
+    // Deviations
+    if (w.deviationsActive) {
+      const dv = w.deviations || {};
+      const rows = w.deviationRows || [{label:"Next Maintenance Type & Date", value:`${dv.nextMaintType||"—"} ${dv.nextMaintDate||""}`},{label:"Parts Renewal Required", value:dv.partsRenewal||"—"}];
+      let dvHtml = `<table class="rp-table">${rows.map(r => `<tr><td class="rp-lc">${r.label||"—"}</td><td>${r.value||"—"}</td></tr>`).join("")}</table>`;
+      html += section("deviations", "Deviations & Reference Notes", dvHtml);
+    }
+
+    // Maintenance Summary
+    let mHtml = (w.maintItems||[]).map(item =>
+      item.type === "heading" ? `<h3 class="rp-maint-h">${item.text}</h3>` : `<div class="rp-bullet"><span>•</span><span>${item.text}</span></div>`
+    ).join("");
+    html += section("maint", "Maintenance Summary", mHtml);
+
+    // Scope for Improvement
+    let sfiHtml = `<table class="rp-table"><tr><th style="width:4%">No.</th><th>Area</th><th>Observations</th><th>Recommendations</th></tr>
+      ${(w.scopeForImprovement||[]).map((r,i) => `<tr><td>${i+1}</td><td>${r.area||"—"}</td><td>${r.observations||"—"}</td><td>${r.recommendations||"—"}</td></tr>`).join("")}</table>`;
+    html += section("sfi", "Scope for Improvement", sfiHtml);
+
+    // Recommendations
+    let recHtml = `<p style="margin-bottom:8px;font-size:9.5pt">The engine post overhaul must be closely monitored for any abnormalities which could cause serious breakdowns. It is a known fact that most breakdowns on overhauled engines occur within the first 100 hours post overhaul. We therefore, recommend the following:</p>
+      <ol class="rp-ol">${(w.recommendations||[]).map(r => `<li>${r}</li>`).join("")}</ol>`;
+    html += section("recs", "Recommendations", recHtml);
+
+    // Calibration Tables
+    if (w.calibrationTables?.length) {
+      let calHtml = w.calibrationTables.map(t => {
+        const imgSrc = t.imageBase64 || DGRAMS[t.templateKey] || null;
+        return `<div style="margin-bottom:16px">
+          <h3 style="font-size:10pt;font-weight:bold;margin-bottom:6px">${t.name}</h3>
+          ${imgSrc && t.hasImage ? `<div style="display:flex;gap:12px;margin-bottom:8px;align-items:flex-start"><img src="${imgSrc}" style="width:130px;flex-shrink:0" /><p style="font-size:8pt;line-height:1.6">${(t.note||"").replace(/\n/g,"<br/>")}</p></div>` : t.note ? `<p style="font-size:8.5pt;margin-bottom:6px">${(t.note||"").replace(/\n/g,"<br/>")}</p>` : ""}
+          <table class="rp-table"><thead><tr>${t.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${(t.rows||[]).map(row => `<tr>${row.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>
+        </div>`;
+      }).join("");
+      html += section("cal", "Calibration Tables", calHtml);
+    }
+
+    // Parts
+    if (w.partsColumns?.rows?.length) {
+      let partsHtml = `<table class="rp-table"><thead><tr>${w.partsColumns.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${w.partsColumns.rows.map(row => `<tr>${row.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+      html += section("parts", "Parts Consumed List", partsHtml);
+    }
+
+    // Photo Gallery
+    const realPhotos = (w.photos||[]).filter(ph => ph.src);
+    if (realPhotos.length) {
+      let photoHtml = `<div class="rp-photo-grid">`;
+      for (let i = 0; i < realPhotos.length; i += 2) {
+        const ph1 = realPhotos[i], ph2 = realPhotos[i+1]||null;
+        photoHtml += `<div class="rp-photo-pair">
+          <div class="rp-photo-item"><img src="${ph1.src}" class="rp-photo-img"/><div class="rp-photo-cap">${(ph1.title||"").toUpperCase()}</div>${ph1.description?`<div class="rp-photo-desc">${ph1.description}</div>`:""}</div>
+          ${ph2 ? `<div class="rp-photo-item"><img src="${ph2.src}" class="rp-photo-img"/><div class="rp-photo-cap">${(ph2.title||"").toUpperCase()}</div>${ph2.description?`<div class="rp-photo-desc">${ph2.description}</div>`:""}</div>` : `<div class="rp-photo-item"></div>`}
+        </div>`;
+      }
+      photoHtml += `</div>`;
+      html += section("photos", "Photo Gallery", photoHtml);
+    }
+
+    // Sign-off
+    const so = w.signoff||{};
+    let signHtml = `<table class="rp-table">
+      <tr><th colspan="2" style="text-align:center">On behalf of Neptunus</th><th colspan="2" style="text-align:center">On behalf of Customer</th></tr>
+      <tr><td class="rp-lc">Maker</td><td>${so.makerName||"—"}</td><td class="rp-lc">Name</td><td>${so.customerName||"—"}</td></tr>
+      <tr><td class="rp-lc">Checker</td><td>${so.checkerName||"—"}</td><td class="rp-lc">Date</td><td>${so.customerDate||"—"}</td></tr>
+      <tr><td class="rp-lc">Approver</td><td>${so.approverName||"—"}</td><td></td><td></td></tr>
+      <tr><td class="rp-lc">Date</td><td>${so.makerDate||"—"}</td><td></td><td></td></tr>
+    </table>`;
+    html += section("signoff", "Sign-off", signHtml);
+
+    document.getElementById("rp-content").innerHTML = html;
+  },
+
+  /* ══════════════════════════════════════════════════════
+     COMMENTS SIDEBAR
+  ══════════════════════════════════════════════════════ */
+  renderCommentsSidebar(draft, mode) {
+    const sidebar = document.getElementById("rp-comments-sidebar");
+    const comments = draft.hodComments || [];
+    if (comments.length === 0 && mode === "engineer") {
+      sidebar.innerHTML = `<div class="comment-empty">No comments from HOD yet.</div>`;
+      return;
+    }
+    let html = comments.length === 0 ? `<div class="comment-empty">No comments yet. Click a section to add a comment.</div>` : "";
+    html += comments.map((c, i) => `
+      <div class="comment-card" id="cc-${i}" onclick="App.highlightSection('${c.sectionId}')">
+        <div class="comment-section-label">${c.sectionLabel}</div>
+        <div class="comment-text">${c.text}</div>
+        <div class="comment-meta">${formatDate(c.createdAt)}</div>
+        ${mode === "hod" ? `<button class="comment-delete" onclick="event.stopPropagation();App.deleteComment(${i})">✕</button>` : ""}
+      </div>`).join("");
+    sidebar.innerHTML = html;
+  },
+
+  highlightSection(sectionId) {
+    document.querySelectorAll(".rp-section").forEach(s => s.classList.remove("highlight"));
+    const el = document.querySelector(`.rp-section[data-section="${sectionId}"]`);
+    if (el) { el.classList.add("highlight"); el.scrollIntoView({ behavior:"smooth", block:"center" }); }
+  },
+
+  openCommentBox(sectionId, sectionLabel) {
+    if (!State.currentUser?.isHOD) return;
+    State.hodCommentTarget = { sectionId, sectionLabel };
+    document.getElementById("comment-input-header").textContent = `Comment on: ${sectionLabel}`;
+    document.getElementById("comment-textarea").value = "";
+    document.getElementById("comment-input-box").classList.remove("hidden");
+    document.getElementById("comment-textarea").focus();
+  },
+
+  closeCommentBox() {
+    document.getElementById("comment-input-box").classList.add("hidden");
+    State.hodCommentTarget = null;
+  },
+
+  saveComment() {
+    const text = document.getElementById("comment-textarea").value.trim();
+    if (!text) { Toast.show("Please enter a comment.", "error"); return; }
+    const { sectionId, sectionLabel } = State.hodCommentTarget;
+    const comment = { sectionId, sectionLabel, text, createdAt: new Date().toISOString() };
+    if (!State.currentDraft.hodComments) State.currentDraft.hodComments = [];
+    State.currentDraft.hodComments.push(comment);
+    App.closeCommentBox();
+    App.renderCommentsSidebar(State.currentDraft, "hod");
+    App.renderReviewContent(State.currentDraft, "hod");
+    Toast.show("Comment added.", "success");
+  },
+
+  deleteComment(i) {
+    State.currentDraft.hodComments.splice(i, 1);
+    App.renderCommentsSidebar(State.currentDraft, "hod");
+    App.renderReviewContent(State.currentDraft, "hod");
+  },
+
+  /* ══════════════════════════════════════════════════════
+     HOD ACTIONS: SEND BACK / APPROVE
+  ══════════════════════════════════════════════════════ */
+  async hodSendBack() {
+    if (!State.currentDraft.hodComments?.length) {
+      Toast.show("Please add at least one comment before sending back.", "error"); return;
+    }
+    const draft = { ...State.currentDraft, status: "needs_revision", sentBackAt: new Date().toISOString() };
+
+    // Update HOD queue
+    const qi = State.hodQueue.findIndex(d => d.id === draft.id);
+    if (qi >= 0) State.hodQueue[qi] = draft;
+    await App.saveHODQueue();
+
+    // Update engineer's submitted file
+    await App._loadJsonFile(`NPPS_Submitted_${draft.empNo}.json`, "_tempSubmitted", "_tempSubmittedFileId");
+    const si = (State._tempSubmitted||[]).findIndex(d => d.id === draft.id);
+    if (si >= 0) State._tempSubmitted[si] = draft;
+    await gapi_fetch(`https://www.googleapis.com/upload/drive/v3/files/${State._tempSubmittedFileId}?uploadType=media`, {
+      method: "PATCH", body: new Blob([JSON.stringify(State._tempSubmitted, null, 2)], { type: "application/json" })
+    });
+
+    Toast.show("Sent back to engineer with comments.", "success");
+    State.hodQueue = State.hodQueue.filter(d => !(d.id === draft.id));
+    State.hodQueue.unshift(draft);
+    App.renderHODDashboard();
+    Screen.show("hod-dashboard");
+  },
+
+  async hodApprove() {
+    const draft = { ...State.currentDraft, status: "approved", approvedAt: new Date().toISOString() };
+
+    // Remove from HOD queue
+    State.hodQueue = State.hodQueue.filter(d => d.id !== draft.id);
+    await App.saveHODQueue();
+
+    // Add to engineer's approved file
+    await App._loadJsonFile(`NPPS_Approved_${draft.empNo}.json`, "_tempApproved", "_tempApprovedFileId");
+    if (!State._tempApproved) State._tempApproved = [];
+    State._tempApproved.unshift(draft);
+    if (State._tempApprovedFileId) {
+      await gapi_fetch(`https://www.googleapis.com/upload/drive/v3/files/${State._tempApprovedFileId}?uploadType=media`, {
+        method: "PATCH", body: new Blob([JSON.stringify(State._tempApproved, null, 2)], { type: "application/json" })
+      });
+    } else {
+      const form = new FormData();
+      form.append("metadata", new Blob([JSON.stringify({ name:`NPPS_Approved_${draft.empNo}.json`, parents:[CONFIG.DRIVE_FOLDER_ID], mimeType:"application/json" })], { type:"application/json" }));
+      form.append("file", new Blob([JSON.stringify(State._tempApproved, null, 2)], { type:"application/json" }));
+      await gapi_fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", { method:"POST", body:form });
+    }
+
+    // Remove from engineer's submitted
+    await App._loadJsonFile(`NPPS_Submitted_${draft.empNo}.json`, "_tempSubmitted2", "_tempSubmitted2FileId");
+    State._tempSubmitted2 = (State._tempSubmitted2||[]).filter(d => d.id !== draft.id);
+    if (State._tempSubmitted2FileId) {
+      await gapi_fetch(`https://www.googleapis.com/upload/drive/v3/files/${State._tempSubmitted2FileId}?uploadType=media`, {
+        method:"PATCH", body: new Blob([JSON.stringify(State._tempSubmitted2, null, 2)], { type:"application/json" })
+      });
+    }
+
+    Toast.show(`WCR Approved! It will appear in ${draft.authorName}'s HOD Approved folder.`, "success");
+    App.renderHODDashboard();
+    Screen.show("hod-dashboard");
+  },
+
+  backFromReview() {
+    if (State.currentUser?.isHOD) { App.renderHODDashboard(); Screen.show("hod-dashboard"); }
+    else { App.renderDashboard(); Screen.show("dashboard"); }
   },
 
   /* ══════════════════════════════════════════════════════
@@ -827,7 +1415,7 @@ const App = {
     Toast.show("Draft saved.", "success");
   },
 
-  backToDashboard() { App.saveWCRSection(); App.renderDrafts(); Screen.show("dashboard"); },
+  backToDashboard() { App.saveWCRSection(); App.renderDashboard(); Screen.show("dashboard"); },
 
   // ── History ──
   toggleHistory() {
@@ -1396,338 +1984,394 @@ const App = {
 
   closeGrammarSidebar() { document.getElementById("grammar-sidebar").classList.add("hidden"); },
 
+
   /* ══════════════════════════════════════════════════════
-     DOWNLOAD
+     PDF DOWNLOAD — from HOD Approved section
   ══════════════════════════════════════════════════════ */
-  async downloadWCR() {
+  downloadPDF(draftId) {
+    const draft = State.approved.find(d => d.id === draftId);
+    if (!draft) { Toast.show("Draft not found.", "error"); return; }
+    App._generateAndPrintPDF(draft);
+  },
+
+  _generateAndPrintPDF(draft) {
+    const w = draft.wcr;
+    const p = draft.projectData;
+    const LOGO  = (typeof LOGO_B64  !== "undefined") ? LOGO_B64  : "";
+    const DGRAMS = (typeof DIAGRAMS !== "undefined") ? DIAGRAMS  : {};
+
+    const FOOTER_TEXT = "Neptunus Power Plant Services Pvt. Ltd. &nbsp;|&nbsp; A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai – 400 710, India &nbsp;|&nbsp; Tel: +91 22 41410707 &nbsp;|&nbsp; www.neptunus-power.com &nbsp;|&nbsp; info@neptunus-power.com";
+
+    const CSS = `
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; font-size: 10pt; color: #000; }
+      @page { size: A4; margin: 0; }
+      .page { width: 210mm; min-height: 297mm; padding: 18mm 14mm 24mm 14mm; position: relative; page-break-after: always; }
+      .page-header { display: flex; align-items: center; justify-content: space-between;
+        border-bottom: 2px solid #003366; padding-bottom: 5px; margin-bottom: 14px; }
+      .page-header-title { font-size: 11pt; font-weight: bold; color: #003366; }
+      .page-header img { height: 36px; width: auto; }
+      .page-footer { position: absolute; bottom: 8mm; left: 14mm; right: 14mm;
+        border-top: 1px solid #003366; padding-top: 4px; font-size: 7pt;
+        color: #555; text-align: center; }
+      h1 { text-align: center; font-size: 16pt; color: #003366; margin: 10px 0 6px; }
+      h2 { font-size: 11pt; color: #003366; border-bottom: 2px solid #003366;
+           padding-bottom: 3px; margin: 16px 0 6px; }
+      h3 { font-size: 10pt; font-weight: bold; margin: 10px 0 3px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 9pt; }
+      td, th { border: 1px solid #aaa; padding: 4px 7px; vertical-align: top; }
+      th { background: #dde4ef; font-weight: bold; color: #003366; text-align: left; }
+      .lc { background: #f5f5f5; font-weight: bold; width: 35%; }
+      ul { margin: 3px 0 8px 16px; }
+      li { margin-bottom: 2px; line-height: 1.5; }
+      ol { margin: 4px 0 10px 18px; }
+      ol li { margin-bottom: 4px; line-height: 1.5; }
+      .cal-row { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
+      .cal-row img { width: 120px; flex-shrink: 0; }
+      .cal-note { font-size: 8pt; line-height: 1.6; flex: 1; }
+      .photo-grid { width: 100%; border-collapse: collapse; }
+      .photo-grid td { border: 1px solid #aaa; padding: 6px; text-align: center; width: 50%; vertical-align: top; }
+      .photo-grid img { width: 100%; max-height: 190px; object-fit: cover; display: block; }
+      .pcap { font-size: 8.5pt; font-weight: bold; text-transform: uppercase; margin-top: 4px; }
+      .pdesc { font-size: 7.5pt; color: #444; margin-top: 2px; }
+    `;
+
+    const hdr = () => `
+      <div class="page-header">
+        <span class="page-header-title">Work Completion Report &mdash; ${p.CustomerName||draft.projectCode}</span>
+        ${LOGO ? `<img src="${LOGO}" alt="NPPS" />` : `<span style="font-weight:bold;color:#003366">NEPTUNUS</span>`}
+      </div>`;
+    const ftr = () => `<div class="page-footer">${FOOTER_TEXT}</div>`;
+
+    // ── Page 1: Cover ──
+    let pages = `<div class="page">${hdr()}`;
+    pages += `<h1>Work Completion Report</h1>`;
+    if (p.CustomerName) pages += `<p style="text-align:center;font-size:12pt;font-weight:bold;color:#003366;margin:4px 0 10px">${p.CustomerName}</p>`;
+    if (p.VesselImageBase64) pages += `<div style="text-align:center;margin:10px 0"><img src="${p.VesselImageBase64}" style="max-width:90%;max-height:200px;object-fit:contain"/></div>`;
+    pages += `<table>
+      <tr><td class="lc">Customer Name</td><td><strong>${p.CustomerName||"—"}</strong></td><td class="lc">Project/Contract No.</td><td>${p.ContractNo||"—"}</td></tr>
+      <tr><td class="lc">Start Date</td><td>${p.StartDate||"—"}</td><td class="lc">Completion Date</td><td>${p.EndDate||"—"}</td></tr>
+      <tr><td class="lc">Overhaul Type</td><td>${p.OverhaulType||"—"}</td><td class="lc">Engine Model</td><td>${p.EngineModel||"—"}</td></tr>
+      <tr><td class="lc">Engine Serial No.</td><td>${p.EngineSerial||"—"}</td><td class="lc">Arrangement No.</td><td>${p.EngineArrangement||"—"}</td></tr>
+      <tr><td class="lc">RPM and Capacity</td><td>${p.RPMCapacity||"—"}</td><td class="lc">Running Hours</td><td>${p.RunningHours||"—"}</td></tr>
+      <tr><td class="lc">Customer In-Charge</td><td>${p.CustomerIncharge||"—"}</td><td class="lc">Neptunus Team Leader</td><td>${p.TeamLeader||"—"}</td></tr>
+      <tr><td class="lc">Neptunus Members</td><td colspan="3">${p.Members||"—"}</td></tr>
+    </table>`;
+    pages += ftr() + `</div>`;
+
+    // ── Page 2+: Content sections ──
+    let body = `<div class="page">${hdr()}`;
+
+    // History
+    if (w.historyActive && w.historyRows?.length) {
+      body += `<h2>History</h2><table>`;
+      w.historyRows.forEach(r => { body += `<tr><td class="lc">${r.label||"—"}</td><td>${r.value||"—"}</td></tr>`; });
+      body += `</table>`;
+    }
+
+    // Scope of Work
+    if (w.scopeActive && w.scopeOfWork?.length) {
+      body += `<h2>Scope of Work</h2><table><tr><th>Original Scope</th><th>What Was Done</th></tr>`;
+      w.scopeOfWork.forEach(r => { body += `<tr><td>${r.original||"—"}</td><td>${r.done||"—"}</td></tr>`; });
+      body += `</table>`;
+    }
+
+    // Deviations
+    if (w.deviationsActive) {
+      body += `<h2>Deviations and Reference Notes for Next Overhaul</h2><table>`;
+      const rows = w.deviationRows || [{label:"Next Maintenance Type & Date", value:`${w.deviations?.nextMaintType||"—"} ${w.deviations?.nextMaintDate||""}`},{label:"Parts Renewal Required", value:w.deviations?.partsRenewal||"—"}];
+      rows.forEach(r => { body += `<tr><td class="lc">${r.label||"—"}</td><td>${r.value||"—"}</td></tr>`; });
+      body += `</table>`;
+    }
+
+    // Maintenance Summary
+    body += `<h2>Maintenance Summary</h2>`;
+    let inUL = false;
+    (w.maintItems||[]).forEach(item => {
+      if (item.type === "heading") { if (inUL) { body += `</ul>`; inUL = false; } body += `<h3>${item.text}</h3>`; }
+      else { if (!inUL) { body += `<ul>`; inUL = true; } body += `<li>${item.text}</li>`; }
+    });
+    if (inUL) body += `</ul>`;
+
+    // Scope for Improvement
+    body += `<h2>Scope for Improvement</h2><table><tr><th>No.</th><th>Area</th><th>Observations</th><th>Recommendations</th></tr>`;
+    (w.scopeForImprovement||[]).forEach((r,i) => { body += `<tr><td style="text-align:center">${i+1}</td><td>${r.area||"—"}</td><td>${r.observations||"—"}</td><td>${r.recommendations||"—"}</td></tr>`; });
+    body += `</table>`;
+
+    // Recommendations
+    body += `<h2>Recommendations</h2><p style="font-size:8.5pt;margin-bottom:6px">The engine post overhaul must be closely monitored for any abnormalities which could cause serious breakdowns. It is a known fact that most breakdowns on overhauled engines occur within the first 100 hours post overhaul. We therefore, recommend the following:</p><ol>`;
+    (w.recommendations||[]).forEach(r => { body += `<li>${r}</li>`; });
+    body += `</ol>`;
+
+    body += ftr() + `</div>`;
+
+    // ── Calibration Tables page ──
+    if (w.calibrationTables?.length) {
+      body += `<div class="page">${hdr()}<h2>Annexure 1 &mdash; Calibration Sheet</h2>`;
+      w.calibrationTables.forEach(t => {
+        const imgSrc = t.imageBase64 || DGRAMS[t.templateKey] || null;
+        body += `<h3>${t.name}</h3>`;
+        if (t.hasImage && imgSrc) {
+          body += `<div class="cal-row"><img src="${imgSrc}" /><div class="cal-note">${(t.note||"").replace(/\n/g,"<br/>")}</div></div>`;
+        } else if (t.note) {
+          body += `<p style="font-size:8pt;margin-bottom:6px">${(t.note||"").replace(/\n/g,"<br/>")}</p>`;
+        }
+        body += `<table><thead><tr>${t.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`;
+        (t.rows||[]).forEach(row => { body += `<tr>${row.map(c => `<td>${c}</td>`).join("")}</tr>`; });
+        body += `</tbody></table>`;
+      });
+      body += ftr() + `</div>`;
+    }
+
+    // ── Parts Consumed page ──
+    if (w.partsColumns?.rows?.length) {
+      body += `<div class="page">${hdr()}<h2>Parts Consumed List</h2>`;
+      body += `<table><thead><tr>${w.partsColumns.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`;
+      w.partsColumns.rows.forEach(row => { body += `<tr>${row.map(c => `<td>${c}</td>`).join("")}</tr>`; });
+      body += `</tbody></table>`;
+      body += ftr() + `</div>`;
+    }
+
+    // ── Photo Gallery page ──
+    const realPhotos = (w.photos||[]).filter(ph => ph.src);
+    if (realPhotos.length) {
+      body += `<div class="page">${hdr()}<h2>Photo Gallery</h2><table class="photo-grid"><tbody>`;
+      for (let i = 0; i < realPhotos.length; i += 2) {
+        const ph1 = realPhotos[i], ph2 = realPhotos[i+1]||null;
+        body += `<tr>
+          <td><img src="${ph1.src}"/><div class="pcap">${(ph1.title||"").toUpperCase()}</div>${ph1.description?`<div class="pdesc">${ph1.description}</div>`:""}</td>
+          <td>${ph2?`<img src="${ph2.src}"/><div class="pcap">${(ph2.title||"").toUpperCase()}</div>${ph2.description?`<div class="pdesc">${ph2.description}</div>`:""}`:""}</td>
+        </tr>`;
+      }
+      body += `</tbody></table>`;
+      body += ftr() + `</div>`;
+    }
+
+    // ── Sign-off page ──
+    const so = w.signoff||{};
+    body += `<div class="page">${hdr()}<h2>Sign-off</h2>
+      <table>
+        <tr><th colspan="2" style="text-align:center">On behalf of Neptunus</th><th colspan="2" style="text-align:center">On behalf of Customer</th></tr>
+        <tr><td class="lc">Maker Name</td><td>${so.makerName||"—"}</td><td class="lc">Name</td><td>${so.customerName||"—"}</td></tr>
+        <tr><td class="lc">Checker Name</td><td>${so.checkerName||"—"}</td><td class="lc">Date</td><td>${so.customerDate||"—"}</td></tr>
+        <tr><td class="lc">Approver Name</td><td>${so.approverName||"—"}</td><td></td><td></td></tr>
+        <tr><td class="lc">Date</td><td>${so.makerDate||"—"}</td><td></td><td></td></tr>
+      </table>
+    ${ftr()}</div>`;
+
+    // ── Open print window ──
+    const win = window.open("", "_blank");
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>WCR — ${draft.projectCode}</title><style>${CSS}</style></head><body>${pages}${body}</body></html>`);
+    win.document.close();
+    win.onload = () => { win.focus(); win.print(); };
+    Toast.show("PDF opened — use Print → Save as PDF.", "success");
+  },
+
+  /* ══════════════════════════════════════════════════════
+     SEMI-FINALISE + GRAMMAR CHECK
+  ══════════════════════════════════════════════════════ */
+  openSemiFinalise() {
+    App.saveWCRSection();
+    Screen.show("semi-final");
+    App.renderSemiFinalPreview();
+  },
+
+  renderSemiFinalPreview() {
     const d = State.currentDraft;
     const w = d.wcr;
     const p = d.projectData;
+    let html = `<div class="sf-preview">`;
 
-    const LOGO = (typeof LOGO_B64 !== 'undefined') ? LOGO_B64 : '';
-    const DGRAMS = (typeof DIAGRAMS !== 'undefined') ? DIAGRAMS : {};
+    // Cover
+    html += `<div class="sf-section sf-cover">
+      ${p.VesselImageBase64 ? `<img src="${p.VesselImageBase64}" class="sf-cover-img" />` : ""}
+      <h1 class="sf-title">Work Completion Report</h1>
+      <div class="sf-cover-table">
+        <div class="sf-row"><label>Customer Name</label><span>${p.CustomerName||"—"}</span><label>Contract No.</label><span>${p.ContractNo||"—"}</span></div>
+        <div class="sf-row"><label>Start Date</label><span>${p.StartDate||"—"}</span><label>Completion Date</label><span>${p.EndDate||"—"}</span></div>
+        <div class="sf-row"><label>Overhaul Type</label><span>${p.OverhaulType||"—"}</span><label>Engine Model</label><span>${p.EngineModel||"—"}</span></div>
+        <div class="sf-row"><label>Engine Serial</label><span>${p.EngineSerial||"—"}</span><label>Arrangement</label><span>${p.EngineArrangement||"—"}</span></div>
+        <div class="sf-row"><label>RPM / Capacity</label><span>${p.RPMCapacity||"—"}</span><label>Running Hours</label><span>${p.RunningHours||"—"}</span></div>
+        <div class="sf-row"><label>Customer In-Charge</label><span>${p.CustomerIncharge||"—"}</span><label>Team Leader</label><span>${p.TeamLeader||"—"}</span></div>
+        <div class="sf-row full"><label>Members</label><span>${p.Members||"—"}</span></div>
+      </div>
+    </div>`;
 
-    Toast.show('Creating Google Doc…', 'default');
-
-    // ── Step 1: Build the document body as a series of Google Docs API requests ──
-    const requests = [];
-    let cursor = 1; // insertion index (Google Docs inserts at this position, moving forward)
-
-    // Helper: insert text at cursor, returns length inserted
-    const ins = (text, style) => {
-      requests.push({
-        insertText: { location: { index: cursor }, text }
-      });
-      if (style) {
-        requests.push({
-          updateTextStyle: {
-            range: { startIndex: cursor, endIndex: cursor + text.length },
-            textStyle: style,
-            fields: Object.keys(style).join(',')
-          }
-        });
-      }
-      cursor += text.length;
-    };
-
-    const insLine = (text, style) => ins(text + '\n', style);
-
-    const heading = (text, level) => {
-      const start = cursor;
-      ins(text + '\n');
-      requests.push({
-        updateParagraphStyle: {
-          range: { startIndex: start, endIndex: cursor },
-          paragraphStyle: { namedStyleType: level === 1 ? 'HEADING_1' : level === 2 ? 'HEADING_2' : 'HEADING_3' },
-          fields: 'namedStyleType'
-        }
-      });
-    };
-
-    const normal = (text) => insLine(text, null);
-    const bold = (text) => ins(text, { bold: true });
-
-    // ── TITLE ──
-    heading('Work Completion Report', 1);
-    if (p.CustomerName) heading(p.CustomerName, 2);
-    normal('');
-
-    // ── COVER TABLE — we'll insert as plain text rows (Docs API table creation is complex) ──
-    // Use a clean 2-column layout as text
-    const coverFields = [
-      ['Customer Name', p.CustomerName||'—', 'Project / Contract Number', p.ContractNo||'—'],
-      ['Start Date of Job', p.StartDate||'—', 'Completion Date', p.EndDate||'—'],
-      ['Type of Overhaul', p.OverhaulType||'—', 'Engine Make and Model', p.EngineModel||'—'],
-      ['Engine Serial Number', p.EngineSerial||'—', 'Engine Arrangement No', p.EngineArrangement||'—'],
-      ['RPM and Capacity', p.RPMCapacity||'—', 'Current Running Hours', p.RunningHours||'—'],
-      ['Customer In-Charge', p.CustomerIncharge||'—', 'Neptunus Team Leader', p.TeamLeader||'—'],
-    ];
-    coverFields.forEach(([l1,v1,l2,v2]) => {
-      ins(`${l1}: `); ins(`${v1}   `, {bold:false}); ins(`${l2}: `); insLine(v2||'—');
-    });
-    ins('Neptunus Members: '); insLine(p.Members||'—');
-    normal('');
-
-    // ── HISTORY ──
-    if (w.historyActive && w.historyRows?.length) {
-      heading('History', 2);
-      w.historyRows.forEach(r => { ins(`${r.label||'—'}: `, {bold:true}); insLine(r.value||'—'); });
-      normal('');
+    // History
+    if (w.historyActive) {
+      const h = w.history;
+      html += `<div class="sf-section"><h2 class="sf-heading">History</h2>
+        ${Object.entries({
+          "Last Overhauling Type and Carried By": h.lastOverhaulType + (h.lastOverhaulBy ? " / " + h.lastOverhaulBy : ""),
+          "Running Hours at Last Maintenance": h.runningHoursAtMaint,
+          "Observations (Prior Dismantling)": h.observations,
+          "Log Leakages / Abnormalities": h.logLeakages,
+          "Bearing Size – Con Rod Journal": h.bearingConRod,
+          "Bearing Size – Main Journal": h.bearingMainJournal,
+          "Turbo Details": h.turboDetails,
+          "Geislinger Coupling Details": h.geislingerDetails,
+          "Governor Details": h.governorDetails,
+          "Gauge Conditions": h.gaugeConditions,
+        }).map(([k,v]) => v ? `<div class="sf-kv"><label>${k}</label><span contenteditable="true">${v}</span></div>` : "").join("")}
+      </div>`;
     }
 
-    // ── SCOPE OF WORK ──
-    if (w.scopeActive && w.scopeOfWork?.length) {
-      heading('Scope of Work', 2);
-      ins('Original Scope', {bold:true}); ins(' | '); insLine('What Was Done', {bold:true});
-      w.scopeOfWork.forEach(r => { ins(r.original||'—'); ins(' | '); insLine(r.done||'—'); });
-      normal('');
+    // Scope of Work
+    if (w.scopeActive && w.scopeOfWork.length) {
+      html += `<div class="sf-section"><h2 class="sf-heading">Scope of Work</h2>
+        <table class="sf-table"><thead><tr><th>Original Scope</th><th>What Was Done</th></tr></thead><tbody>
+          ${w.scopeOfWork.map(r => `<tr><td contenteditable="true">${r.original}</td><td contenteditable="true">${r.done}</td></tr>`).join("")}
+        </tbody></table></div>`;
     }
 
-    // ── DEVIATIONS ──
+    // Deviations
     if (w.deviationsActive) {
-      heading('Deviations and Reference Notes for Next Overhaul', 2);
-      if (w.deviationRows?.length) {
-        w.deviationRows.forEach(r => { ins(`${r.label||'—'}: `, {bold:true}); insLine(r.value||'—'); });
-      } else {
-        ins('Next Maintenance Type and Due Date: ', {bold:true}); insLine(`${w.deviations?.nextMaintType||'—'} ${w.deviations?.nextMaintDate||''}`);
-        ins('Notes on Required Parts Renewal: ', {bold:true}); insLine(w.deviations?.partsRenewal||'—');
-      }
-      normal('');
+      html += `<div class="sf-section"><h2 class="sf-heading">Deviations & Reference Notes</h2>
+        <div class="sf-kv"><label>Next Maintenance Type & Date</label><span contenteditable="true">${w.deviations.nextMaintType} ${w.deviations.nextMaintDate}</span></div>
+        <div class="sf-kv"><label>Parts Renewal Required</label><span contenteditable="true">${w.deviations.partsRenewal}</span></div>
+      </div>`;
     }
 
-    // ── MAINTENANCE SUMMARY ──
-    heading('Maintenance Summary', 2);
-    (w.maintItems||[]).forEach(item => {
-      if (item.type === 'heading') {
-        heading(item.text, 3);
-      } else {
-        const start = cursor;
-        ins('• ' + item.text + '\n');
-        requests.push({
-          updateParagraphStyle: {
-            range: { startIndex: start, endIndex: cursor },
-            paragraphStyle: { indentFirstLine: { magnitude: 0, unit: 'PT' }, indentStart: { magnitude: 18, unit: 'PT' } },
-            fields: 'indentFirstLine,indentStart'
-          }
-        });
-      }
-    });
-    normal('');
+    // Maintenance Summary
+    html += `<div class="sf-section"><h2 class="sf-heading">Maintenance Summary</h2>
+      ${w.maintItems.map(item => item.type === "heading" ? `<h3 class="sf-maint-heading" contenteditable="true">${item.text}</h3>` : `<div class="sf-bullet"><span>•</span><span contenteditable="true">${item.text}</span></div>`).join("")}
+    </div>`;
 
-    // ── SCOPE FOR IMPROVEMENT ──
-    heading('Scope for Improvement', 2);
-    ins('Sr. No. | Area of Improvement | Observations | Recommendations\n', {bold:true});
-    (w.scopeForImprovement||[]).forEach((r, i) => {
-      insLine(`${i+1} | ${r.area||'—'} | ${r.observations||'—'} | ${r.recommendations||'—'}`);
-    });
-    normal('');
+    // Scope for Improvement
+    html += `<div class="sf-section"><h2 class="sf-heading">Scope for Improvement</h2>
+      <table class="sf-table"><thead><tr><th>Sr. No.</th><th>Area</th><th>Observations</th><th>Recommendations</th></tr></thead><tbody>
+        ${w.scopeForImprovement.map((r,i) => `<tr><td>${i+1}</td><td contenteditable="true">${r.area}</td><td contenteditable="true">${r.observations}</td><td contenteditable="true">${r.recommendations}</td></tr>`).join("")}
+      </tbody></table></div>`;
 
-    // ── RECOMMENDATIONS ──
-    heading('Recommendations', 2);
-    insLine('The engine post overhaul must be closely monitored for any abnormalities which could cause serious breakdowns. It is a known fact that most breakdowns on overhauled engines occur within the first 100 hours post overhaul. We therefore, recommend the following:');
-    (w.recommendations||[]).forEach((r, i) => {
-      const start = cursor;
-      ins(`${i+1}. ${r}\n`);
-      requests.push({
-        updateParagraphStyle: {
-          range: { startIndex: start, endIndex: cursor },
-          paragraphStyle: { indentStart: { magnitude: 18, unit: 'PT' } },
-          fields: 'indentStart'
-        }
-      });
-    });
-    normal('');
+    // Recommendations
+    html += `<div class="sf-section"><h2 class="sf-heading">Recommendations</h2>
+      <p class="sf-rec-intro">The engine post overhaul must be closely monitored for any abnormalities which could cause serious breakdowns. It is a known fact that most breakdowns on overhauled engines occur within the first 100 hours post overhaul. We therefore, recommend the following:</p>
+      <ol class="sf-rec-list">${w.recommendations.map(r => `<li contenteditable="true">${r}</li>`).join("")}</ol>
+    </div>`;
 
-    // ── CALIBRATION TABLES ──
-    if (w.calibrationTables?.length) {
-      heading('Annexure 1 — Calibration Sheet', 2);
-      w.calibrationTables.forEach(t => {
-        heading(t.name, 3);
-        if (t.note) insLine(t.note.replace(/\n/g, ' | '));
-        // Headers
-        ins(t.headers.join(' | ') + '\n', {bold:true});
-        // Rows
-        (t.rows||[]).forEach(row => insLine(row.join(' | ')));
-        normal('');
-      });
+    // Calibration Tables
+    if (w.calibrationTables.length > 0) {
+      html += `<div class="sf-section"><h2 class="sf-heading">Annexure — Calibration Reports</h2>
+        ${w.calibrationTables.map(t => `
+          <div class="sf-cal-block">
+            <h3 class="sf-cal-title" contenteditable="true">${t.name}</h3>
+            ${t.hasImage && t.imageBase64 ? `<div class="sf-cal-image-row"><img src="${t.imageBase64}" class="sf-cal-img" /><p class="sf-cal-note" contenteditable="true">${t.note||""}</p></div>` : t.note ? `<p class="sf-cal-note" contenteditable="true">${t.note}</p>` : ""}
+            <table class="sf-table">
+              <thead><tr>${t.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead>
+              <tbody>${t.rows.map(row => `<tr>${row.map(cell => `<td contenteditable="true">${cell}</td>`).join("")}</tr>`).join("")}</tbody>
+            </table>
+          </div>`).join("")}
+      </div>`;
     }
 
-    // ── PARTS CONSUMED ──
-    if (w.partsColumns?.rows?.length) {
-      heading('Parts Consumed List', 2);
-      ins(w.partsColumns.headers.join(' | ') + '\n', {bold:true});
-      w.partsColumns.rows.forEach(row => insLine(row.join(' | ')));
-      normal('');
+    // Parts
+    if (w.partsColumns.rows?.length) {
+      html += `<div class="sf-section"><h2 class="sf-heading">Parts Consumed List</h2>
+        <table class="sf-table"><thead><tr>${w.partsColumns.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead>
+        <tbody>${w.partsColumns.rows.map(row => `<tr>${row.map(cell => `<td contenteditable="true">${cell}</td>`).join("")}</tr>`).join("")}</tbody></table>
+      </div>`;
     }
 
-    // ── PHOTO GALLERY — insert images inline ──
-    const realPhotos = (w.photos||[]).filter(ph => ph.src);
+    // Photos
+    const realPhotos = w.photos.filter(ph => ph.src);
     if (realPhotos.length > 0) {
-      heading('Photo Gallery', 2);
-      // We'll insert image captions as text (actual images require upload to Drive first)
-      // For each photo: caption in bold, then newline
-      for (let i = 0; i < realPhotos.length; i += 2) {
-        const ph1 = realPhotos[i];
-        const ph2 = realPhotos[i+1] || null;
-        ins((ph1.title||'Photo').toUpperCase(), {bold:true});
-        if (ph2) { ins(' | '); ins((ph2.title||'Photo').toUpperCase(), {bold:true}); }
-        normal('');
-        if (ph1.description || ph2?.description) {
-          ins(ph1.description||''); if (ph2?.description) { ins(' | '); ins(ph2.description||''); } normal('');
-        }
-      }
-      normal('Note: Photos are attached separately. Please insert images next to captions in the final document.');
-      normal('');
+      html += `<div class="sf-section"><h2 class="sf-heading">Photo Gallery</h2>
+        <div class="sf-photo-grid">
+          ${realPhotos.map(ph => `<div class="sf-photo-item"><img src="${ph.src}" /><div class="sf-photo-caption"><strong contenteditable="true">${ph.title||"(no title)"}</strong>${ph.description ? `<br/><span contenteditable="true">${ph.description}</span>` : ""}</div></div>`).join("")}
+        </div>
+      </div>`;
     }
 
-    // ── SIGN-OFF ──
-    heading('Sign-off', 2);
-    ins('On behalf of Neptunus', {bold:true}); ins('  |  '); insLine('On behalf of Customer', {bold:true});
-    ins('Maker Name: ', {bold:true}); ins((w.signoff?.makerName||'—') + '  |  '); ins('Name: ', {bold:true}); insLine(w.signoff?.customerName||'—');
-    ins('Checker Name: ', {bold:true}); insLine(w.signoff?.checkerName||'—');
-    ins('Approver Name: ', {bold:true}); insLine(w.signoff?.approverName||'—');
-    ins('Date: ', {bold:true}); ins((w.signoff?.makerDate||'—') + '  |  '); ins('Date: ', {bold:true}); insLine(w.signoff?.customerDate||'—');
+    // Sign-off
+    html += `<div class="sf-section sf-signoff"><h2 class="sf-heading">Sign-off</h2>
+      <div class="sf-signoff-grid">
+        <div><h4>On behalf of Neptunus</h4><div class="sf-kv"><label>Maker</label><span contenteditable="true">${w.signoff.makerName}</span></div><div class="sf-kv"><label>Checker</label><span contenteditable="true">${w.signoff.checkerName}</span></div><div class="sf-kv"><label>Approver</label><span contenteditable="true">${w.signoff.approverName}</span></div><div class="sf-kv"><label>Date</label><span contenteditable="true">${w.signoff.makerDate}</span></div></div>
+        <div><h4>On behalf of Customer</h4><div class="sf-kv"><label>Name</label><span contenteditable="true">${w.signoff.customerName}</span></div><div class="sf-kv"><label>Date</label><span contenteditable="true">${w.signoff.customerDate}</span></div></div>
+      </div>
+    </div>`;
 
-    // ── Step 2: Create the Google Doc via Drive API ──
+    html += `</div>`;
+    document.getElementById("sf-preview-content").innerHTML = html;
+  },
+
+  async runGrammarCheck() {
+    const previewEl = document.getElementById("sf-preview-content");
+    const text = previewEl.innerText.substring(0, 8000);
+    document.getElementById("grammar-sidebar").classList.remove("hidden");
+    document.getElementById("grammar-results").innerHTML = `<div class="grammar-loading">⏳ Analysing text...</div>`;
+
     try {
-      const createResp = await gapi_fetch('https://www.googleapis.com/drive/v3/files', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: `WCR — ${d.projectCode} — ${p.CustomerName||''} — ${new Date().toLocaleDateString('en-IN')}`,
-          mimeType: 'application/vnd.google-apps.document',
-          parents: [CONFIG.DRIVE_FOLDER_ID],
-        })
+      const resp = await fetch(`${CONFIG.WORKER_URL}/grammar-check`, {
+        method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({text})
       });
-
-      const created = await createResp.json();
-      if (!created.id) throw new Error('Could not create document: ' + JSON.stringify(created));
-
-      const docId = created.id;
-
-      // ── Step 3: Apply all content via batchUpdate ──
-      const batchResp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${State.googleToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ requests })
-      });
-
-      const batchResult = await batchResp.json();
-      if (batchResult.error) throw new Error(batchResult.error.message);
-
-      // ── Step 4: Add header with logo (if available) ──
-      // Get the document to find header ID
-      const docResp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
-        headers: { 'Authorization': `Bearer ${State.googleToken}` }
-      });
-      const docData = await docResp.json();
-
-      // Add header section
-      const headerReqs = [];
-      const existingHeaderId = docData.documentStyle?.defaultHeaderId;
-
-      if (!existingHeaderId) {
-        // Create header
-        const hdrCreate = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${State.googleToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            requests: [{
-              createHeader: { type: 'DEFAULT', sectionBreakLocation: { index: 1 } }
-            }]
-          })
-        });
-        const hdrData = await hdrCreate.json();
-        const headerId = hdrData.replies?.[0]?.createHeader?.headerId;
-
-        if (headerId) {
-          // Insert header text (logo can't be inserted via API easily without uploading)
-          await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${State.googleToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              requests: [
-                { insertText: { location: { segmentId: headerId, index: 0 }, text: 'Neptunus Power Plant Services Pvt. Ltd.\t\tWork Completion Report' } },
-                { updateTextStyle: {
-                  range: { segmentId: headerId, startIndex: 0, endIndex: 55 },
-                  textStyle: { bold: true, fontSize: { magnitude: 9, unit: 'PT' }, foregroundColor: { color: { rgbColor: { red: 0, green: 0.2, blue: 0.4 } } } },
-                  fields: 'bold,fontSize,foregroundColor'
-                }}
-              ]
-            })
-          });
-        }
-      }
-
-      // ── Step 5: Add footer ──
-      const ftrCreate = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${State.googleToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requests: [{ createFooter: { type: 'DEFAULT', sectionBreakLocation: { index: 1 } } }]
-        })
-      });
-      const ftrData = await ftrCreate.json();
-      const footerId = ftrData.replies?.[0]?.createFooter?.footerId;
-
-      if (footerId) {
-        const footerText = 'Neptunus Power Plant Services Pvt. Ltd.  |  A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai – 400 710, India  |  Tel: +91 22 41410707  |  www.neptunus-power.com  |  info@neptunus-power.com';
-        await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${State.googleToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            requests: [
-              { insertText: { location: { segmentId: footerId, index: 0 }, text: footerText } },
-              { updateTextStyle: {
-                range: { segmentId: footerId, startIndex: 0, endIndex: footerText.length },
-                textStyle: { fontSize: { magnitude: 7.5, unit: 'PT' }, foregroundColor: { color: { rgbColor: { red: 0.3, green: 0.3, blue: 0.3 } } } },
-                fields: 'fontSize,foregroundColor'
-              }},
-              { updateParagraphStyle: {
-                range: { segmentId: footerId, startIndex: 0, endIndex: footerText.length },
-                paragraphStyle: { alignment: 'CENTER' },
-                fields: 'alignment'
-              }}
-            ]
-          })
-        });
-      }
-
-      // ── Step 6: Open the document ──
-      const docUrl = `https://docs.google.com/document/d/${docId}/edit`;
-      window.open(docUrl, '_blank');
-
-      // Save to downloaded drafts
-      const existing = State.downloadedDrafts.findIndex(dd => dd.id === d.id);
-      const downloadedCopy = { ...d, status: 'complete', updatedAt: new Date().toISOString(), docUrl };
-      if (existing >= 0) State.downloadedDrafts[existing] = downloadedCopy;
-      else State.downloadedDrafts.unshift(downloadedCopy);
-      App.saveDownloadedDrafts();
-
-      Toast.show('Google Doc created! Opening now…', 'success');
-
+      const data = await resp.json();
+      State.grammarSuggestions = data.suggestions || [];
+      App.renderGrammarSuggestions();
     } catch (err) {
-      console.error('createGoogleDoc error:', err);
-      Toast.show('Failed to create Google Doc: ' + err.message, 'error');
+      document.getElementById("grammar-results").innerHTML = `<div class="grammar-error">Failed to run check. Try again.</div>`;
     }
   },
-};
+
+  renderGrammarSuggestions() {
+    const suggestions = State.grammarSuggestions;
+    if (!suggestions.length) { document.getElementById("grammar-results").innerHTML = `<div class="grammar-ok">✓ No suggestions found. Looks great!</div>`; return; }
+    document.getElementById("grammar-results").innerHTML = suggestions.map((s, i) => `
+      <div class="grammar-item grammar-${s.type}" id="gs-${i}">
+        <div class="grammar-type-badge">${s.type}</div>
+        <div class="grammar-original">"${s.original}"</div>
+        <div class="grammar-arrow">→</div>
+        <div class="grammar-suggestion">"${s.suggestion}"</div>
+        <div class="grammar-explanation">${s.explanation}</div>
+        <div class="grammar-actions">
+          <button class="grammar-accept" onclick="App.acceptSuggestion(${i})">✓ Accept</button>
+          <button class="grammar-ignore" onclick="App.ignoreSuggestion(${i})">Ignore</button>
+        </div>
+      </div>`).join("");
+  },
+
+  acceptSuggestion(i) {
+    const s = State.grammarSuggestions[i];
+    const content = document.getElementById("sf-preview-content");
+    content.innerHTML = content.innerHTML.replace(new RegExp(s.original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), s.suggestion);
+    document.getElementById(`gs-${i}`).classList.add("accepted");
+    document.getElementById(`gs-${i}`).style.opacity = "0.4";
+  },
+
+  ignoreSuggestion(i) { document.getElementById(`gs-${i}`).style.opacity = "0.4"; },
+
+  closeGrammarSidebar() { document.getElementById("grammar-sidebar").classList.add("hidden"); },
+
+
+};  // end App
 
 // ── HELPERS ──────────────────────────────────────────────
 async function gapi_fetch(url, options = {}) {
-  return fetch(url, { ...options, headers: { "Authorization":`Bearer ${State.googleToken}`, ...(options.headers||{}) } });
+  // Auto-refresh token if close to expiry
+  if (!Auth.isValid()) {
+    const ok = await Auth.ensureValid();
+    if (!ok) { Toast.show("Google session expired. Please log in again.", "error"); throw new Error("Token expired"); }
+  }
+  return fetch(url, {
+    ...options,
+    headers: { "Authorization": `Bearer ${State.googleToken}`, ...(options.headers||{}) }
+  });
 }
 
-function formatDate(iso) { return new Date(iso).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}); }
-function expiryDate(iso, days) { const d = new Date(iso); d.setDate(d.getDate()+days); return d.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}); }
+function formatDate(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
+}
+function expiryDate(iso, days) {
+  if (!iso) return "—";
+  const d = new Date(iso); d.setDate(d.getDate() + days);
+  return d.toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
+}
 
 const Toast = {
   timer: null,
-  show(msg, type="default") {
+  show(msg, type = "default") {
     const el = document.getElementById("toast");
+    if (!el) return;
     el.textContent = msg; el.className = `toast show ${type}`;
     clearTimeout(Toast.timer);
     Toast.timer = setTimeout(() => el.classList.remove("show"), 3500);
