@@ -1238,3 +1238,25 @@ html, body {
 /* Engineer controls */
 .engineer-controls { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
 .engineer-hint { font-size: 9.5px; color: var(--amber-dim); margin-bottom: 10px; line-height: 1.5; }
+
+/* ── DWR Points Section ────────────────────────────────── */
+.dwr-points-section { border-color: var(--amber); border-style: dashed; }
+.dwr-point-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 10px; margin-bottom: 4px;
+  background: rgba(232,160,32,0.08); border-radius: 6px;
+  border-left: 3px solid var(--amber);
+  transition: opacity 0.2s;
+}
+.dwr-point-row.dwr-point-removed {
+  opacity: 0.35; text-decoration: line-through;
+  border-left-color: var(--amber-dim);
+}
+.dwr-point-bullet { color: var(--amber); font-size: 12px; flex-shrink: 0; margin-top: 2px; }
+.dwr-point-text { flex: 1; font-size: 12px; line-height: 1.5; color: var(--fg); }
+.dwr-point-toggle {
+  background: none; border: 1px solid var(--amber-dim); color: var(--amber-dim);
+  border-radius: 4px; padding: 2px 7px; font-size: 11px; cursor: pointer;
+  flex-shrink: 0;
+}
+.dwr-point-toggle:hover { border-color: var(--amber); color: var(--amber); }
