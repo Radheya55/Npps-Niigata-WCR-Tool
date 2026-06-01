@@ -103,69 +103,252 @@ const DEFAULT_RECOMMENDATIONS = [
 
 
 const TABLE_TEMPLATES = {
-  crankshaft: {
-    name: "Crankshaft Deflection Measurement",
-    note: "Indication Reading: (+ve) / (-ve) | Permissible Limit: 0.07 mm",
-    hasImage: true,
-    imageLabel: "Crankshaft diagram",
-    builtinImage: true,
+
+  // ── PORT Crankshaft Deflection ──────────────────────────
+  portCrankshaft: {
+    name: "PORT M/E — Crankshaft Deflection Measurement",
+    note: "The deflection measurements should be made when the engine is cold (Refer to Section 4.7)\nIndication Reading: (+ve) / (-ve)\nPermissible Limit: 0.07 mm",
+    hasImage: true, builtinImage: true, imageKey: "crankshaft",
     headers: ["Crankpin Position","1","2","3","4","5","6","7","8","Remarks"],
-    rows: [["1","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],["2","","","","","","","","","OK"],["3","","","","","","","","","OK"],["4","","","","","","","","","OK"],["5","","","","","","","","","OK"]]
+    rows: [
+      ["1","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
+      ["2","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
+      ["3","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
+      ["4","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
+      ["5","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
+    ]
   },
-  rockerArm: {
-    name: "Rocker Arm Bushing / Rocker Arm Shaft Diameter",
+
+  // ── STBD Crankshaft Deflection ──────────────────────────
+  stbdCrankshaft: {
+    name: "STBD M/E — Crankshaft Deflection Measurement",
+    note: "The deflection measurements should be made when the engine is cold (Refer to Section 4.7)\nIndication Reading: (+ve) / (-ve)\nPermissible Limit: 0.07 mm",
+    hasImage: true, builtinImage: true, imageKey: "crankshaft",
+    headers: ["Crankpin Position","1","2","3","4","5","6","7","8","Remarks"],
+    rows: [
+      ["1","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
+      ["2","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
+      ["3","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
+      ["4","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
+      ["5","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
+    ]
+  },
+
+  // ── PORT Rocker Arm Bushing ─────────────────────────────
+  portRockerArm: {
+    name: "PORT — Rocker Arm Bushing / Rocker Arm Shaft Diameter",
     note: "1. Rocker Arm Bushing Inner Diameter = 55 +0.05/+0.12mm\n2. Rocker Arm Shaft Diameter = 55 -0.03/-0.05mm\n3. Clearance (Shaft – Bush) = 0.2mm",
-    hasImage: true,
-    imageLabel: "Rocker arm diagram",
-    builtinImage: true,
-    headers: ["Cylinder No.","Valve Type","Shaft D1 (mm)","Shaft D2 (mm)","Remarks"],
-    rows: [["1","IV","54.99","54.99","Ok"],["","EV","54.99","54.98","Ok"],["2","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],["3","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],["4","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],["5","IV","54.98","54.99","Ok"],["","EV","54.99","54.99","Ok"],["6","IV","54.99","54.98","Ok"],["","EV","54.99","54.99","Ok"],["7","IV","54.99","54.99","Ok"],["","EV","54.98","54.99","Ok"],["8","IV","54.99","54.99","Ok"],["","EV","54.98","54.99","Ok"]]
+    hasImage: true, builtinImage: true, imageKey: "rockerArm",
+    headers: ["Cylinder No.","Valve Type","SHAFT - D1mm","SHAFT - D2mm","Remarks"],
+    rows: [
+      ["1","IV","54.99","54.99","Ok"],["","EV","54.99","54.98","Ok"],
+      ["2","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
+      ["3","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
+      ["4","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
+      ["5","IV","54.98","54.99","Ok"],["","EV","54.99","54.99","Ok"],
+      ["6","IV","54.99","54.98","Ok"],["","EV","54.99","54.99","Ok"],
+      ["7","IV","54.99","54.99","Ok"],["","EV","54.98","54.99","Ok"],
+      ["8","IV","54.99","54.99","Ok"],["","EV","54.98","54.99","Ok"],
+    ]
   },
-  ringGroove: {
-    name: "Ring Groove Clearance",
+
+  // ── STBD Rocker Arm Bushing ─────────────────────────────
+  stbdRockerArm: {
+    name: "STBD — Rocker Arm Bushing / Rocker Arm Shaft Diameter",
+    note: "1. Rocker Arm Bushing Inner Diameter = 55 +0.05/+0.12mm\n2. Rocker Arm Shaft Diameter = 55 -0.03/-0.05mm\n3. Clearance (Shaft – Bush) = 0.2mm",
+    hasImage: true, builtinImage: true, imageKey: "rockerArm",
+    headers: ["Cylinder No.","Valve Type","SHAFT - D1mm","SHAFT - D2mm","Remarks"],
+    rows: [
+      ["1","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
+      ["2","IV","54.98","54.98","Ok"],["","EV","54.99","54.99","Ok"],
+      ["3","IV","54.99","54.99","Ok"],["","EV","54.99","54.98","Ok"],
+      ["4","IV","54.99","54.99","Ok"],["","EV","54.98","54.99","Ok"],
+      ["5","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
+      ["6","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
+      ["7","IV","54.99","54.99","Ok"],["","EV","54.98","54.99","Ok"],
+      ["8","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
+    ]
+  },
+
+  // ── PORT Ring Groove Clearance ──────────────────────────
+  portRingGroove: {
+    name: "PORT — Ring Groove Clearance",
     note: "Standard: 1st Compression 0.21~0.25mm | 2nd Compression 0.11~0.15mm | 3rd Compression 0.07~0.11mm | Oil Ring 0.04~0.09mm\nPermissible Limit: 1st 0.35mm | 2nd 0.30mm | 3rd 0.30mm | Oil Ring 0.30mm",
     hasImage: false,
     headers: ["Cylinder No","1st Ring","2nd Ring","3rd Ring","Oil Ring","Remarks"],
-    rows: [["1","0.21","0.11","0.09","0.06","Ok"],["2","0.21","0.11","0.09","0.06","Ok"],["3","0.21","0.11","0.09","0.06","Ok"],["4","0.21","0.11","0.09","0.06","Ok"],["5","0.21","0.11","0.09","0.06","Ok"],["6","0.21","0.11","0.09","0.06","Ok"],["7","0.21","0.11","0.09","0.06","Ok"],["8","0.21","0.11","0.09","0.06","Ok"]]
+    rows: [
+      ["1","0.21","0.11","0.09","0.06","Ok"],["2","0.21","0.11","0.09","0.06","Ok"],
+      ["3","0.21","0.11","0.09","0.06","Ok"],["4","0.21","0.11","0.09","0.06","Ok"],
+      ["5","0.21","0.11","0.09","0.06","Ok"],["6","0.21","0.11","0.09","0.06","Ok"],
+      ["7","0.21","0.11","0.09","0.06","Ok"],["8","0.21","0.11","0.09","0.06","Ok"],
+    ]
   },
-  pistonRingGap: {
-    name: "Clearance between Liner & Piston Ring Gap",
-    note: "Standard: 1st/2nd/3rd Compression 1.1~1.4mm | Oil Ring 0.65~0.95mm\nPermissible Limit: 2nd 3.5mm | 3rd 3.5mm",
+
+  // ── STBD Ring Groove Clearance ──────────────────────────
+  stbdRingGroove: {
+    name: "STBD — Ring Groove Clearance",
+    note: "Standard: 1st Compression 0.21~0.25mm | 2nd Compression 0.11~0.15mm | 3rd Compression 0.07~0.11mm | Oil Ring 0.04~0.09mm\nPermissible Limit: 1st 0.35mm | 2nd 0.30mm | 3rd 0.30mm | Oil Ring 0.30mm",
     hasImage: false,
     headers: ["Cylinder No","1st Ring","2nd Ring","3rd Ring","Oil Ring","Remarks"],
-    rows: [["1","1.25","1.25","1.25","0.90","Ok"],["2","1.25","1.25","1.25","0.90","Ok"],["3","1.25","1.25","1.25","0.90","Ok"],["4","1.25","1.25","1.25","0.90","Ok"],["5","1.25","1.25","1.25","0.90","Ok"],["6","1.25","1.25","1.25","0.90","Ok"],["7","1.25","1.25","1.25","0.90","Ok"],["8","1.25","1.25","1.25","0.90","Ok"]]
+    rows: [
+      ["1","0.21","0.11","0.09","0.06","Ok"],["2","0.21","0.11","0.09","0.06","Ok"],
+      ["3","0.21","0.11","0.09","0.06","Ok"],["4","0.21","0.11","0.09","0.06","Ok"],
+      ["5","0.21","0.11","0.09","0.06","Ok"],["6","0.21","0.11","0.09","0.06","Ok"],
+      ["7","0.21","0.11","0.09","0.06","Ok"],["8","0.21","0.11","0.09","0.06","Ok"],
+    ]
   },
-  linerCalib: {
-    name: "Cylinder Liner Calibration after Honing",
+
+  // ── PORT Liner & Piston Ring Gap ────────────────────────
+  portPistonRingGap: {
+    name: "PORT — Clearance between Liner & Piston Ring Gap",
+    note: "Standard: 1st Compression 1.1~1.4mm | 2nd Compression 1.1~1.4mm | 3rd Compression 1.1~1.4mm | Oil Ring 0.65~0.95mm\nPermissible Limit: 2nd 3.5mm | 3rd 3.5mm",
+    hasImage: false,
+    headers: ["Cylinder No","1st Ring","2nd Ring","3rd Ring","Oil Ring","Remarks"],
+    rows: [
+      ["1","1.25","1.25","1.25","0.90","Ok"],["2","1.25","1.25","1.25","0.90","Ok"],
+      ["3","1.25","1.25","1.25","0.90","Ok"],["4","1.25","1.25","1.25","0.90","Ok"],
+      ["5","1.25","1.25","1.25","0.90","Ok"],["6","1.25","1.25","1.25","0.90","Ok"],
+      ["7","1.25","1.25","1.25","0.90","Ok"],["8","1.25","1.25","1.25","0.90","Ok"],
+    ]
+  },
+
+  // ── STBD Liner & Piston Ring Gap ────────────────────────
+  stbdPistonRingGap: {
+    name: "STBD — Clearance between Liner & Piston Ring Gap",
+    note: "Standard: 1st Compression 1.1~1.4mm | 2nd Compression 1.1~1.4mm | 3rd Compression 1.1~1.4mm | Oil Ring 0.65~0.95mm\nPermissible Limit: 2nd 3.5mm | 3rd 3.5mm",
+    hasImage: false,
+    headers: ["Cylinder No","1st Ring","2nd Ring","3rd Ring","Oil Ring","Remarks"],
+    rows: [
+      ["1","1.25","1.25","1.25","0.90","Ok"],["2","1.25","1.25","1.25","0.90","Ok"],
+      ["3","1.25","1.25","1.25","0.90","Ok"],["4","1.25","1.25","1.25","0.90","Ok"],
+      ["5","1.25","1.25","1.25","0.90","Ok"],["6","1.25","1.25","1.25","0.90","Ok"],
+      ["7","1.25","1.25","1.25","0.90","Ok"],["8","1.25","1.25","1.25","0.90","Ok"],
+    ]
+  },
+
+  // ── PORT Cylinder Liner Calibration ────────────────────
+  portLinerCalib: {
+    name: "PORT — Cylinder Liner Calibration after Honing",
     note: "A=70mm | B=280mm | C=490mm | D=615mm\nNormal Size: 280 +0.040mm | Permissible Limit: 280.5mm\nC: Cam Side | E: Exhaust Side | F: Free End | A: Alternator End (Flywheel End)",
-    hasImage: true,
-    imageLabel: "Liner calibration diagram",
-    builtinImage: true,
+    hasImage: true, builtinImage: true, imageKey: "linerCalib",
     headers: ["Unit No.","A C-E","A F-A","B C-E","B F-A","C C-E","C F-A","D C-E","D F-A","Remark"],
-    rows: [["1","280.04","280.03","280.04","280.04","280.04","280.04","280.03","280.03","ok"],["2","280.04","280.05","280.04","280.04","280.04","280.04","280.02","280.03","ok"],["3","280.04","280.04","280.04","280.04","280.05","280.04","280.03","280.03","ok"],["4","280.05","280.04","280.04","280.04","280.04","280.04","280.03","280.02","ok"],["5","280.03","280.04","280.04","280.04","280.04","280.04","280.03","280.03","ok"],["6","280.05","280.04","280.04","280.03","280.05","280.04","280.02","280.02","ok"]]
+    rows: [
+      ["1","280.04","280.02","280.04","280.04","280.04","280.04","280.04","280.04","ok"],
+      ["2","280.03","280.04","280.04","280.04","280.03","280.03","280.02","280.02","ok"],
+      ["3","280.03","280.03","280.04","280.04","280.03","280.04","280.03","280.04","ok"],
+      ["4","280.04","280.04","280.3","280.03","280.03","280.03","280.03","280.03","ok"],
+      ["5","280.04","280.04","280.04","280.03","280.4","280.04","280.03","280.03","ok"],
+      ["6","280.04","280.04","280.04","280.04","280.04","280.04","280.03","280.02","ok"],
+    ]
   },
-  valveStem: {
-    name: "Valve Stem Diameter",
-    note: "dX1: At Top Position | dX2: At Bottom Position\nInlet & Exhaust Valve Limit = 19.80mm | Valve Guide Limit = 20.40mm | Allowable Clearance = 0.06~0.10mm",
-    hasImage: true,
-    builtinImage: true,
-    headers: ["Cylinder No.","Valve Type","Stem dX1 (mm)","Stem dX2 (mm)","Guide D1 (mm)","Guide D2 (mm)"],
-    rows: [["1","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["2","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["3","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["4","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["5","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["6","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["7","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],["8","IV","19.94","19.94","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"]]
+
+  // ── STBD Cylinder Liner Calibration ────────────────────
+  stbdLinerCalib: {
+    name: "STBD — Cylinder Liner Calibration after Honing",
+    note: "A=70mm | B=280mm | C=490mm | D=615mm\nNormal Size: 280 +0.040mm | Permissible Limit: 280.5mm\nC: Cam Side | E: Exhaust Side | F: Free End | A: Alternator End (Flywheel End)",
+    hasImage: true, builtinImage: true, imageKey: "linerCalib",
+    headers: ["Unit No.","A C-E","A F-A","B C-E","B F-A","C C-E","C F-A","D C-E","D F-A","Remark"],
+    rows: [
+      ["1","280.04","280.03","280.04","280.04","280.04","280.04","280.03","280.03","ok"],
+      ["2","280.04","280.05","280.04","280.04","280.04","280.04","280.02","280.03","ok"],
+      ["3","280.04","280.04","280.04","280.04","280.05","280.04","280.03","280.03","ok"],
+      ["4","280.05","280.04","280.04","280.04","280.04","280.04","280.03","280.02","ok"],
+      ["5","280.03","280.04","280.04","280.04","280.04","280.04","280.03","280.03","ok"],
+      ["6","280.05","280.04","280.04","280.03","280.05","280.04","280.02","280.02","ok"],
+    ]
   },
+
+  // ── PORT Valve Stem Diameter ────────────────────────────
+  portValveStem: {
+    name: "PORT — Valve Stem Diameter",
+    note: "dX1: At Top Position | dX2: At Bottom Position\nAvg. Intake Valve Stem Dia. d1 = (dX1 + dX2) / 2\nAvg. Exhaust Valve Stem Dia. d2 = (dX1 + dX2) / 2\nStandard: Inlet & Exhaust Valve Limit = 19.80mm | Valve Guide Limit = 20.40mm | Allowable Clearance = 0.06~0.10mm",
+    hasImage: true, builtinImage: true, imageKey: "valveStem",
+    headers: ["Cylinder No.","Valve Type","Stem Dia. dX1mm","Stem Dia. dX2mm","Guide-Dia D1mm","Guide-Dia D2mm"],
+    rows: [
+      ["1","IV","19.94","19.94","20.05","20.04"],["","IV","19.94","19.94","20.04","20.04"],
+      ["","EV","19.96","19.96","20.06","20.03"],["","EV","19.96","19.96","20.02","20.01"],
+      ["2","IV","19.94","19.94","20.00","20.00"],["","IV","19.94","19.94","20.00","20.00"],
+      ["","EV","19.96","19.96","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],
+      ["3","IV","19.94","19.94","20.00","20.00"],["","IV","19.94","19.94","20.00","20.00"],
+      ["","EV","19.96","19.96","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],
+      ["4","IV","19.94","19.94","20.00","20.00"],["","IV","19.94","19.94","20.00","20.00"],
+      ["","EV","19.96","19.96","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],
+      ["5","IV","19.94","19.94","20.00","20.00"],["","IV","19.94","19.94","20.00","20.00"],
+      ["","EV","19.96","19.96","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],
+      ["6","IV","19.94","19.94","20.00","20.00"],["","IV","19.94","19.94","20.00","20.00"],
+      ["","EV","19.96","19.96","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],
+    ]
+  },
+
+  // ── STBD Valve Stem Diameter (with Valve Number) ────────
+  stbdValveStem: {
+    name: "STBD — Valve Stem Diameter",
+    note: "dX1: At Top Position | dX2: At Bottom Position\nAvg. Intake Valve Stem Dia. d1 = (dX1 + dX2) / 2\nAvg. Exhaust Valve Stem Dia. d2 = (dX1 + dX2) / 2\nStandard: Inlet & Exhaust Valve Limit = 19.80mm | Valve Guide Limit = 20.40mm | Allowable Clearance = 0.06~0.10mm",
+    hasImage: true, builtinImage: true, imageKey: "valveStem",
+    headers: ["Cylinder No.","Valve Type","Valve Number","Stem Dia. dX1mm","Stem Dia. dX2mm","Guide-Dia D1mm","Guide-Dia D2mm"],
+    rows: [
+      ["1","IV","1","19.94","19.94","20.00","20.00"],["","IV","","19.94","19.94","20.00","20.00"],
+      ["","EV","","19.96","19.96","20.00","20.00"],["","EV","","19.96","19.96","20.00","20.00"],
+      ["2","IV","2","19.9","19.94","20.00","20.00"], ["","IV","","19.94","19.94","20.00","20.00"],
+      ["","EV","","19.96","19.96","20.00","20.00"],["","EV","","19.96","19.96","20.00","20.00"],
+      ["3","IV","3","19.94","19.94","20.00","20.00"],["","IV","","19.90","19.94","20.00","20.00"],
+      ["","EV","","19.96","19.96","20.00","20.00"],["","EV","","19.96","19.96","20.00","20.00"],
+      ["4","IV","4","19.94","19.94","20.00","20.00"],["","IV","","19.94","19.94","20.00","20.00"],
+      ["","EV","","19.96","19.96","20.00","20.00"],["","EV","","19.96","19.96","20.00","20.00"],
+      ["5","IV","5","19.94","19.94","20.00","20.00"],["","IV","","19.94","19.94","20.00","20.00"],
+      ["","EV","","19.96","19.96","20.00","20.00"],["","EV","","19.96","19.96","20.00","20.00"],
+      ["6","IV","6","19.94","19.94","20.00","20.00"],["","IV","","19.94","19.94","20.00","20.00"],
+      ["","EV","","19.96","19.96","20.00","20.00"],["","EV","","19.96","19.96","20.00","20.00"],
+    ]
+  },
+
+  // ── Load Trial Sheet ────────────────────────────────────
   loadTrial: {
     name: "Load Trial Sheet — PORT & STBD ENGINE",
     note: "Model: 8L28HX",
     hasImage: false,
-    headers: ["Parameter","Unit","P-600rpm","P-750rpm","S-600rpm","S-750rpm"],
-    rows: [["Engine Speed","Rpm","600","750","600","750"],["Lay Shaft Handle Pointer","Scale","3.5","5","3.5","5"],["Eng. Lube Oil Pressure","Mpa","","","",""],["FW Cooling Pressure","Mpa","","","",""],["SW Cooling Pressure","Mpa","","","",""],["Charge Air Pressure","Mpa","","","",""],["T/C Lube Oil Pressure","Mpa","","","",""],["Fuel Oil Pressure","Mpa","","","",""],["Lube Oil Temp (Cooler Inlet)","°C","","","",""],["Water Temp (Engine Inlet)","°C","","","",""],["Max Pressure — Cyl 1","Mpa","","","",""],["Max Pressure — Cyl 2","Mpa","","","",""],["Max Pressure — Cyl 3","Mpa","","","",""],["Max Pressure — Cyl 4","Mpa","","","",""],["Max Pressure — Cyl 5","Mpa","","","",""],["Max Pressure — Cyl 6","Mpa","","","",""],["Max Pressure — Cyl 7","Mpa","","","",""],["Max Pressure — Cyl 8","Mpa","","","",""],["Exh. Gas Temp — Cyl 1","°C","","","",""],["Exh. Gas Temp — Cyl 2","°C","","","",""],["Exh. Gas Temp — Cyl 3","°C","","","",""],["Exh. Gas Temp — Cyl 4","°C","","","",""],["Exh. Gas Temp — Cyl 5","°C","","","",""],["Exh. Gas Temp — Cyl 6","°C","","","",""],["Exh. Gas Temp — Cyl 7","°C","","","",""],["Exh. Gas Temp — Cyl 8","°C","","","",""],["F.I.P Rack Index — Cyl 1","mm","","","",""],["F.I.P Rack Index — Cyl 2","mm","","","",""],["F.I.P Rack Index — Cyl 3","mm","","","",""],["F.I.P Rack Index — Cyl 4","mm","","","",""],["F.I.P Rack Index — Cyl 5","mm","","","",""],["F.I.P Rack Index — Cyl 6","mm","","","",""],["F.I.P Rack Index — Cyl 7","mm","","","",""],["F.I.P Rack Index — Cyl 8","mm","","","",""]]
+    headers: ["Parameter","Sub-Parameter","Unit","P(P) 600rpm 15min","P(P) 750rpm 15min","S(S) 600rpm 15min","S(S) 750rpm 15min"],
+    rows: [
+      ["Load","%","","","","",""],
+      ["","Duration","HH:MM","15 min","15 min","15 min","15 min"],
+      ["","Engine Speed","Rpm","600","750","600","750"],
+      ["","Lay shaft Handle pointer","Scale","3.5","5","3.5","5"],
+      ["Pressure","Eng. Lube oil","Mpa","","","",""],
+      ["","FW cooling","Mpa","","","",""],
+      ["","SW cooling","Mpa","","","",""],
+      ["","Charge air","Mpa","","","",""],
+      ["","T/C Lube oil","Mpa","","","",""],
+      ["","Fuel oil","Mpa","","","",""],
+      ["Lube oil Temp","Cooler inlet","°C","","","",""],
+      ["Water Temp","Engine Inlet","°C","","","",""],
+      ["Max Pressure","No. 1 Cylinder","Mpa","","","",""],
+      ["","No. 2 Cylinder","Mpa","","","",""],
+      ["","No. 3 Cylinder","Mpa","","","",""],
+      ["","No. 4 Cylinder","Mpa","","","",""],
+      ["","No. 5 Cylinder","Mpa","","","",""],
+      ["","No. 6 Cylinder","Mpa","","","",""],
+      ["","No. 7 Cylinder","Mpa","","","",""],
+      ["","No. 8 Cylinder","Mpa","","","",""],
+      ["Exh. Gas Temp","No. 1 Cylinder","°C","","","",""],
+      ["","No. 2 Cylinder","°C","","","",""],
+      ["","No. 3 Cylinder","°C","","","",""],
+      ["","No. 4 Cylinder","°C","","","",""],
+      ["","No. 5 Cylinder","°C","","","",""],
+      ["","No. 6 Cylinder","°C","","","",""],
+      ["","No. 7 Cylinder","°C","","","",""],
+      ["","No. 8 Cylinder","°C","","","",""],
+      ["F.I.P Rack Index","No. 1 Cylinder","Mm","","","",""],
+      ["","No. 2 Cylinder","Mm","","","",""],
+      ["","No. 3 Cylinder","Mm","","","",""],
+      ["","No. 4 Cylinder","Mm","","","",""],
+      ["","No. 5 Cylinder","Mm","","","",""],
+      ["","No. 6 Cylinder","Mm","","","",""],
+      ["","No. 7 Cylinder","Mm","","","",""],
+      ["","No. 8 Cylinder","Mm","","","",""],
+    ]
   },
-  parts: {
-    name: "Parts Consumed List",
-    note: "",
-    hasImage: false,
-    headers: ["Sr No.","Item No.","Part No.","Description","Qty / Equipment"],
-    rows: [["1","","","",""],["2","","","",""],["3","","",""]]
-  },
+
+  // ── Custom Table ────────────────────────────────────────
   custom: {
     name: "Custom Table",
     note: "",
@@ -173,8 +356,8 @@ const TABLE_TEMPLATES = {
     headers: ["Column 1","Column 2","Column 3"],
     rows: [["","",""],["","",""],["","",""]]
   },
-};
 
+};
 // ── STATE ────────────────────────────────────────────────
 const State = {
   currentUser: null,       // { empNo, name, isHOD }
@@ -704,6 +887,11 @@ const App = {
     let mHtml = (w.maintItems||[]).map(item =>
       item.type === "heading" ? `<h3 class="rp-maint-h">${item.text}</h3>` : `<div class="rp-bullet"><span>•</span><span>${item.text}</span></div>`
     ).join("");
+    // Add DWR points to maintenance preview
+    const keptDWRPts = (w.dwrPoints || []).filter(p => p.keep);
+    if (keptDWRPts.length) {
+      mHtml += `<div style="margin-top:10px;padding:8px;border-left:3px solid var(--amber);background:rgba(232,160,32,0.07)"><div style="font-size:9px;color:var(--amber);font-weight:700;margin-bottom:6px;text-transform:uppercase">Points from DWR</div>${keptDWRPts.map(p=>`<div class="rp-bullet"><span style="color:var(--amber)">▸</span><span>${p.text}</span></div>`).join("")}</div>`;
+    }
     html += section("maint", "Maintenance Summary", mHtml);
 
     // Scope for Improvement
@@ -1211,10 +1399,12 @@ const App = {
 
     // Build maintenance summary from template + DWR extras
     const maintItems = MAINT_TEMPLATE.map(item => ({ ...item, id: "mi_" + Math.random().toString(36).substr(2,8) }));
-    if (State.dvrParsedData?.maintPoints?.length) {
-      maintItems.push({ type:"heading", text:"Additional Activities from DWR", id:"mi_dwr_h" });
-      State.dvrParsedData.maintPoints.forEach(pt => maintItems.push({ type:"bullet", text:pt, id:"mi_"+Math.random().toString(36).substr(2,8) }));
-    }
+    // DWR points stored separately — shown below template as "Points from DWR"
+    const dwrPoints = (State.dvrParsedData?.maintPoints || []).map(pt => ({
+      id: "dwr_" + Math.random().toString(36).substr(2,8),
+      text: pt,
+      keep: true
+    }));
 
     const recs = [...DEFAULT_RECOMMENDATIONS];
     if (State.dvrParsedData?.recommendations?.length) {
@@ -1243,6 +1433,7 @@ const App = {
         deviationsActive: false,
         deviations: { nextMaintType:"", nextMaintDate:"", partsRenewal:"" },
         maintItems,
+        dwrPoints,
         scopeForImprovement: [{ area:"Engine Operation and Maintenance", observations:"", recommendations:"" },{ area:"Maintenance Tools (lifting arrangements, jacking tools, special tools)", observations:"", recommendations:"" },{ area:"Emergency Spare Parts Stock on Board", observations:"", recommendations:"" }],
         recommendations: recs,
         calibrationTables: [],
@@ -1439,6 +1630,24 @@ const App = {
 
   updateMaintItem(id, field, val) { const item = State.currentDraft.wcr.maintItems.find(m => m.id === id); if (item) item[field] = val; },
 
+  renderDWRPoints() {
+    const container = document.getElementById("dwr-points-container");
+    if (!container) return;
+    const points = State.currentDraft.wcr.dwrPoints || [];
+    if (!points.length) { container.innerHTML = `<div class="empty-state" style="font-size:11px">No DWR points loaded. Upload DWRs before creating the WCR to populate this section.</div>`; return; }
+    container.innerHTML = points.map((p, i) => `
+      <div class="dwr-point-row ${p.keep ? '' : 'dwr-point-removed'}">
+        <span class="dwr-point-bullet">▸</span>
+        <span class="dwr-point-text">${p.text}</span>
+        <button class="dwr-point-toggle" onclick="App.toggleDWRPoint(${i})" title="${p.keep ? 'Remove' : 'Restore'}">${p.keep ? '✕' : '↩'}</button>
+      </div>`).join("");
+  },
+
+  toggleDWRPoint(i) {
+    State.currentDraft.wcr.dwrPoints[i].keep = !State.currentDraft.wcr.dwrPoints[i].keep;
+    App.renderDWRPoints();
+  },
+
   addMaintItem(afterIndex, type) {
     const prev = State.currentDraft.wcr.maintItems.map(m => ({...m}));
     Undo.push(() => { State.currentDraft.wcr.maintItems = prev; App.renderMaintSummary(); });
@@ -1491,7 +1700,8 @@ const App = {
 
   insertTable(templateKey) {
     const tmpl = TABLE_TEMPLATES[templateKey];
-    const builtinImg = (typeof DIAGRAMS !== 'undefined') && DIAGRAMS[templateKey] ? DIAGRAMS[templateKey] : null;
+    const imgKey = tmpl.imageKey || templateKey;
+    const builtinImg = (typeof DIAGRAMS !== 'undefined') && DIAGRAMS[imgKey] ? DIAGRAMS[imgKey] : null;
     const table = { id:"tbl_"+Date.now(), templateKey, name:tmpl.name, note:tmpl.note, hasImage:tmpl.hasImage||false, imageBase64:builtinImg, imageSrc:null, headers:[...tmpl.headers], rows:tmpl.rows.map(r=>[...r]) };
     const prev = State.currentDraft.wcr.calibrationTables.map(t => ({...t, rows:t.rows.map(r=>[...r]), headers:[...t.headers]}));
     Undo.push(() => { State.currentDraft.wcr.calibrationTables = prev; App.renderCalibrationTables(); });
