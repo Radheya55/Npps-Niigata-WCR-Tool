@@ -308,6 +308,15 @@
       </div>
     </div>
 
+    <!-- DWR Points Section -->
+    <div class="wcr-section dwr-points-section">
+      <div class="wcr-section-title-row">
+        <h3 class="wcr-section-title" style="color:var(--amber)">▸ Points from DWR</h3>
+      </div>
+      <p class="wcr-section-hint" style="color:var(--amber-dim);font-size:11px;margin-bottom:10px">These points were extracted from your DWR PDFs. Review and remove anything not relevant. Remaining points will appear in the PDF below the Maintenance Summary.</p>
+      <div id="dwr-points-container"></div>
+    </div>
+
     <!-- Scope for Improvement -->
     <div class="wcr-section">
       <div class="wcr-section-label">Scope for Improvement</div>
@@ -332,17 +341,21 @@
       <div id="table-palette" class="table-palette hidden">
         <div class="palette-title">Select a table template:</div>
         <div class="palette-grid">
-          <button class="palette-item" onclick="App.insertTable('crankshaft')"><span>📐</span><strong>Crankshaft Deflection</strong></button>
-          <button class="palette-item" onclick="App.insertTable('rockerArm')"><span>🔧</span><strong>Rocker Arm Bushing / Shaft</strong></button>
-          <button class="palette-item" onclick="App.insertTable('ringGroove')"><span>⭕</span><strong>Ring Groove Clearance</strong></button>
-          <button class="palette-item" onclick="App.insertTable('pistonRingGap')"><span>📏</span><strong>Liner & Piston Ring Gap</strong></button>
-          <button class="palette-item" onclick="App.insertTable('linerCalib')"><span>🔩</span><strong>Cylinder Liner Calibration</strong></button>
-          <button class="palette-item" onclick="App.insertTable('valveStem')"><span>🎯</span><strong>Valve Stem Diameter</strong></button>
-          <button class="palette-item" onclick="App.insertTable('loadTrial')"><span>⚡</span><strong>Load Trial Sheet</strong></button>
-          <button class="palette-item" onclick="App.insertTable('parts')"><span>📦</span><strong>Parts Consumed List</strong></button>
-          <button class="palette-item" onclick="App.insertTable('custom')"><span>✏️</span><strong>Blank Custom Table</strong></button>
+          <button class="palette-item" onclick="App.insertTable('portCrankshaft')"><span>📐</span><strong>PORT Crankshaft Deflection</strong></button>
+          <button class="palette-item" onclick="App.insertTable('stbdCrankshaft')"><span>📐</span><strong>STBD Crankshaft Deflection</strong></button>
+          <button class="palette-item" onclick="App.insertTable('portRockerArm')"><span>🔧</span><strong>PORT Rocker Arm Bushing</strong></button>
+          <button class="palette-item" onclick="App.insertTable('stbdRockerArm')"><span>🔧</span><strong>STBD Rocker Arm Bushing</strong></button>
+          <button class="palette-item" onclick="App.insertTable('portRingGroove')"><span>⭕</span><strong>PORT Ring Groove Clearance</strong></button>
+          <button class="palette-item" onclick="App.insertTable('stbdRingGroove')"><span>⭕</span><strong>STBD Ring Groove Clearance</strong></button>
+          <button class="palette-item" onclick="App.insertTable('portPistonRingGap')"><span>📏</span><strong>PORT Liner &amp; Piston Ring Gap</strong></button>
+          <button class="palette-item" onclick="App.insertTable('stbdPistonRingGap')"><span>📏</span><strong>STBD Liner &amp; Piston Ring Gap</strong></button>
+          <button class="palette-item" onclick="App.insertTable('portLinerCalib')"><span>🔩</span><strong>PORT Liner Calibration</strong></button>
+          <button class="palette-item" onclick="App.insertTable('stbdLinerCalib')"><span>🔩</span><strong>STBD Liner Calibration</strong></button>
+          <button class="palette-item" onclick="App.insertTable('portValveStem')"><span>🎯</span><strong>PORT Valve Stem Diameter</strong></button>
+          <button class="palette-item" onclick="App.insertTable('stbdValveStem')"><span>🎯</span><strong>STBD Valve Stem Diameter</strong></button>
+          <button class="palette-item" onclick="App.insertTable('loadTrial')"><span>⚡</span><strong>Load Trial Sheet PORT &amp; STBD</strong></button>
+          <button class="palette-item" onclick="App.insertTable('custom')"><span>✏️</span><strong>Custom Table</strong></button>
         </div>
-      </div>
       <div id="cal-tables"></div>
     </div>
 
