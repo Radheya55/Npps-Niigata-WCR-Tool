@@ -1338,7 +1338,12 @@ const App = {
     ];
 
     try {
-      await gapi_fetch(`https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({values:[row]}) });
+      const appendResp = await gapi_fetch(`https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({values:[row]}) });
+      if (!appendResp.ok) {
+        const errText = await appendResp.text();
+        console.error("Sheets append error:", appendResp.status, errText);
+        throw new Error("Sheets " + appendResp.status + ": " + errText.substring(0,200));
+      }
       document.getElementById("bd-success").classList.remove("hidden");
       Toast.show("Project data saved.", "success");
       App.clearBaseDataForm();
