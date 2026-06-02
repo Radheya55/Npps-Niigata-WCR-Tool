@@ -971,8 +971,8 @@ const App = {
     if (p.VesselImageBase64) coverHtml += `<img src="${p.VesselImageBase64}" class="rp-cover-img" />`;
     coverHtml += `<table class="rp-table">
       <tr><td class="rp-lc">Customer Name</td><td><strong>${p.CustomerName||"—"}</strong></td><td class="rp-lc">Contract No.</td><td>${p.ContractNo||"—"}</td></tr>
-      <tr><td class="rp-lc">Start Date</td><td>${p.StartDate||"—"}</td><td class="rp-lc">Completion</td><td>${p.EndDate||"—"}</td></tr>
-      <tr><td class="rp-lc">Overhaul Type</td><td>${p.OverhaulType||"—"}</td><td class="rp-lc">Engine Model</td><td>${p.EngineModel||"—"}</td></tr>
+      <tr><td class="rp-lc">Start Date</td><td>${p.StartDate||"—"}</td><td class="rp-lc">${(App.ENGINE_TYPE_LABELS[p.EngineType||'niigata']||App.ENGINE_TYPE_LABELS.niigata).endDate}</td><td>${p.EndDate||"—"}</td></tr>
+      <tr><td class="rp-lc">${(App.ENGINE_TYPE_LABELS[p.EngineType||'niigata']||App.ENGINE_TYPE_LABELS.niigata).overhaulType}</td><td>${p.OverhaulType||"—"}</td><td class="rp-lc">Engine Model</td><td>${p.EngineModel||"—"}</td></tr>
       <tr><td class="rp-lc">Serial No.</td><td>${p.EngineSerial||"—"}</td><td class="rp-lc">Arrangement</td><td>${p.EngineArrangement||"—"}</td></tr>
       <tr><td class="rp-lc">RPM / Capacity</td><td>${p.RPMCapacity||"—"}</td><td class="rp-lc">Running Hours</td><td>${p.RunningHours||"—"}</td></tr>
       <tr><td class="rp-lc">Team Leader</td><td>${p.TeamLeader||"—"}</td><td class="rp-lc">Members</td><td>${p.Members||"—"}</td></tr>
@@ -1751,9 +1751,17 @@ const App = {
     const w = d.wcr;
     const p = d.projectData;
 
-    // Cover
+    // Cover — update values
     const coverFields = { "wcr-cover-customer":"CustomerName","wcr-cover-contract":"ContractNo","wcr-cover-start":"StartDate","wcr-cover-end":"EndDate","wcr-cover-overhaul":"OverhaulType","wcr-cover-engine":"EngineModel","wcr-cover-serial":"EngineSerial","wcr-cover-arrangement":"EngineArrangement","wcr-cover-rpm":"RPMCapacity","wcr-cover-hours":"RunningHours","wcr-cover-custincharge":"CustomerIncharge","wcr-cover-leader":"TeamLeader","wcr-cover-members":"Members" };
     Object.entries(coverFields).forEach(([elId, key]) => { const el = document.getElementById(elId); if (el) el.textContent = p[key] || "Not Updated in Base Data Yet"; });
+    // Update cover labels based on engine type
+    const engineType = p.EngineType || 'niigata';
+    const lbls = App.ENGINE_TYPE_LABELS[engineType] || App.ENGINE_TYPE_LABELS.niigata;
+    const setLbl = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    setLbl('wcr-lbl-contract',    lbls.contractNo);
+    setLbl('wcr-lbl-enddate',     lbls.endDate);
+    setLbl('wcr-lbl-overhaul',    lbls.overhaulType);
+    setLbl('wcr-lbl-arrangement', lbls.arrangement);
     const img = document.getElementById("wcr-cover-image");
     if (p.VesselImageBase64) { img.src = p.VesselImageBase64; img.classList.remove("hidden"); } else { img.classList.add("hidden"); }
 
@@ -2328,8 +2336,8 @@ const App = {
     if (p.VesselImageBase64) pages += `<div style="text-align:center;margin:10px 0"><img src="${p.VesselImageBase64}" style="max-width:90%;max-height:200px;object-fit:contain"/></div>`;
     pages += `<table>
       <tr><td class="lc">Customer Name</td><td><strong>${p.CustomerName||"—"}</strong></td><td class="lc">Project/Contract No.</td><td>${p.ContractNo||"—"}</td></tr>
-      <tr><td class="lc">Start Date</td><td>${p.StartDate||"—"}</td><td class="lc">Completion Date</td><td>${p.EndDate||"—"}</td></tr>
-      <tr><td class="lc">Overhaul Type</td><td>${p.OverhaulType||"—"}</td><td class="lc">Engine Model</td><td>${p.EngineModel||"—"}</td></tr>
+      <tr><td class="lc">Start Date</td><td>${p.StartDate||"—"}</td><td class="lc">${(App.ENGINE_TYPE_LABELS[p.EngineType||'niigata']||App.ENGINE_TYPE_LABELS.niigata).endDate}</td><td>${p.EndDate||"—"}</td></tr>
+      <tr><td class="lc">${(App.ENGINE_TYPE_LABELS[p.EngineType||'niigata']||App.ENGINE_TYPE_LABELS.niigata).overhaulType}</td><td>${p.OverhaulType||"—"}</td><td class="lc">Engine Model</td><td>${p.EngineModel||"—"}</td></tr>
       <tr><td class="lc">Engine Serial No.</td><td>${p.EngineSerial||"—"}</td><td class="lc">Arrangement No.</td><td>${p.EngineArrangement||"—"}</td></tr>
       <tr><td class="lc">RPM and Capacity</td><td>${p.RPMCapacity||"—"}</td><td class="lc">Running Hours</td><td>${p.RunningHours||"—"}</td></tr>
       <tr><td class="lc">Customer In-Charge</td><td>${p.CustomerIncharge||"—"}</td><td class="lc">Neptunus Team Leader</td><td>${p.TeamLeader||"—"}</td></tr>
