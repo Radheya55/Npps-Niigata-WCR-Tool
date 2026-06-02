@@ -1262,18 +1262,48 @@ const App = {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (e) => {
-      State.vesselImageBase64 = e.target.result;
-      document.getElementById("bd-image-preview").src = e.target.result;
+    reader.onload = async (e) => {
+      const base64 = e.target.result;
+      // Show preview immediately
+      document.getElementById("bd-image-preview").src = base64;
       document.getElementById("bd-image-preview").classList.remove("hidden");
       document.getElementById("bd-image-placeholder").classList.add("hidden");
       document.getElementById("bd-image-clear").classList.remove("hidden");
+      // Upload to Drive and store file ID (avoids 50k char sheet limit)
+      try {
+        const blob = await fetch(base64).then(r => r.blob());
+        const form = new FormData();
+        form.append("metadata", new Blob([JSON.stringify({
+          name: "vessel_" + Date.now() + "." + file.name.split('.').pop(),
+          parents: [CONFIG.DRIVE_FOLDER_ID],
+          mimeType: file.type,
+        })], { type: "application/json" }));
+        form.append("file", blob);
+        const resp = await gapi_fetch(
+          "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+          { method: "POST", body: form }
+        );
+        const data = await resp.json();
+        if (data.id) {
+          State.vesselImageBase64 = data.id; // store Drive file ID
+          State._vesselImagePreview = base64;  // keep base64 for local preview only
+          Toast.show("Vessel image uploaded.", "success");
+        } else {
+          throw new Error("No file ID returned");
+        }
+      } catch(e) {
+        // Fallback: store base64 directly (will fail for large images but better than nothing)
+        State.vesselImageBase64 = base64;
+        State._vesselImagePreview = base64;
+        console.warn("Drive upload failed, using base64 fallback:", e);
+      }
     };
     reader.readAsDataURL(file);
   },
 
   clearVesselImage() {
     State.vesselImageBase64 = null;
+    State._vesselImagePreview = null;
     document.getElementById("bd-image-input").value = "";
     document.getElementById("bd-image-preview").src = "";
     document.getElementById("bd-image-preview").classList.add("hidden");
@@ -1517,7 +1547,13 @@ const App = {
       else { document.getElementById("bd-overhaul-type").value = "Other"; document.getElementById("bd-overhaul-custom").value = ovType; document.getElementById("bd-overhaul-custom-row").classList.remove("hidden"); }
       // Handle image
       const vesselImg = getCol("VesselImageBase64");
-      if (vesselImg) { State.vesselImageBase64 = vesselImg; document.getElementById("bd-image-preview").src = vesselImg; document.getElementById("bd-image-preview").classList.remove("hidden"); document.getElementById("bd-image-placeholder").classList.add("hidden"); document.getElementById("bd-image-clear").classList.remove("hidden"); }
+      if (vesselImg) {
+        State.vesselImageBase64 = vesselImg;
+        // If it's a Drive file ID (not base64), fetch the image for preview
+        const previewSrc = vesselImg.startsWith("data:") ? vesselImg
+          : `https://www.googleapis.com/drive/v3/files/${vesselImg}?alt=media`;
+        State._vesselImagePreview = previewSrc;
+        document.getElementById("bd-image-preview").src = previewSrc; document.getElementById("bd-image-preview").classList.remove("hidden"); document.getElementById("bd-image-placeholder").classList.add("hidden"); document.getElementById("bd-image-clear").classList.remove("hidden"); }
       // Switch button to Update
       document.getElementById("save-base-btn").textContent = "Update Project →";
       document.getElementById("save-base-btn").onclick = () => App.updateBaseData(rowIndex);
@@ -1548,8 +1584,23 @@ const App = {
       headers.forEach((h, i) => { project[h] = match[i] || ""; });
       // Ensure EngineType has a default for old rows
       if (!project.EngineType) project.EngineType = 'niigata';
-      // Ensure ContractNo is populated (old sheets may use different column name)
-      if (!project.ContractNo && project['ContractNo']) project.ContractNo = project['ContractNo'];
+      // Resolve vessel image: if it's a Drive file ID, fetch as base64 for embedding in WCR/PDF
+      if (project.VesselImageBase64 && !project.VesselImageBase64.startsWith("data:")) {
+        try {
+          const fileId = project.VesselImageBase64;
+          const imgResp = await gapi_fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+          const blob = await imgResp.blob();
+          const base64 = await new Promise((res) => {
+            const r = new FileReader();
+            r.onload = e => res(e.target.result);
+            r.readAsDataURL(blob);
+          });
+          project.VesselImageBase64 = base64;
+        } catch(e) {
+          console.warn("Could not load vessel image from Drive:", e);
+          project.VesselImageBase64 = "";
+        }
+      }
       State.currentProject = project;
       State.dvrParsedData = null;
       const labels = { CustomerName:"Customer", ContractNo:"Contract No.", StartDate:"Start Date", EndDate:"Est. Completion", OverhaulType:"Type of Overhaul", EngineModel:"Engine Model", EngineSerial:"Serial No.", Vessel:"Vessel / Rig", Location:"Location", TeamLeader:"Team Leader" };
