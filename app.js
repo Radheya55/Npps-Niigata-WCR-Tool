@@ -1268,8 +1268,7 @@ const App = {
     ["bd-project-code","bd-customer","bd-contract-no","bd-start-date","bd-end-date","bd-overhaul-type","bd-overhaul-custom","bd-engine-model","bd-other-engine-name","bd-engine-serial","bd-engine-arrangement","bd-rpm","bd-running-hours","bd-customer-incharge","bd-team-leader","bd-vessel","bd-location"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
     // Reset engine type to Niigata
     State._engineType = 'niigata';
-    document.querySelectorAll('.engine-type-btn').forEach((b,i) => b.classList.toggle('active', i===0));
-    App.setEngineType('niigata', null);
+    App.onEngineTypeChange();
     document.getElementById('bd-other-engine-row')?.classList.add('hidden');
     document.getElementById("bd-overhaul-custom-row").classList.add("hidden");
     State._tempMembers = ["","",""];
@@ -1279,10 +1278,9 @@ const App = {
     document.getElementById("bd-error").classList.add("hidden");
   },
 
-  setEngineType(type, btn) {
+  onEngineTypeChange() {
+    const type = document.getElementById('bd-engine-type')?.value || 'niigata';
     State._engineType = type;
-    document.querySelectorAll('.engine-type-btn').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
     document.getElementById('bd-other-engine-row')?.classList.toggle('hidden', type !== 'other');
     const labels = App.ENGINE_TYPE_LABELS[type] || App.ENGINE_TYPE_LABELS.niigata;
     const setLbl = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
@@ -1342,12 +1340,8 @@ const App = {
       // Restore engine type (column index 18)
       const savedEngineType = row[18] || 'niigata';
       State._engineType = savedEngineType;
-      document.querySelectorAll('.engine-type-btn').forEach(b => {
-        const t = b.getAttribute('onclick').match(/\'([^']+)\'/);
-        if (t && t[1] === savedEngineType) b.classList.add('active');
-        else b.classList.remove('active');
-      });
-      App.setEngineType(savedEngineType, null);
+
+      App.onEngineTypeChange();
       if (savedEngineType === 'other') {
         document.getElementById('bd-other-engine-name').value = row[6] || '';
         document.getElementById('bd-engine-model').value = '';
