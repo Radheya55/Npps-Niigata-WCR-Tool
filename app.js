@@ -384,6 +384,7 @@ const State = {
   // HOD Review state
   hodCurrentDraft: null,
   hodCommentTarget: null,
+  _engineType: "niigata",
 };
 
 const Screen = {
@@ -484,6 +485,14 @@ const Auth = {
    APP INIT + LOGIN
 ════════════════════════════════════════════════════════ */
 const App = {
+
+  ENGINE_TYPE_LABELS: {
+    niigata: { contractNo:"Project / Contract Number", endDate:"Handing Over Date", overhaulType:"Type of Overhaul", arrangement:"Engine Arrangement" },
+    cat:     { contractNo:"Project Code", endDate:"Handover Date", overhaulType:"Type of Job", arrangement:"Engine Arrangement No." },
+    emd:     { contractNo:"Project Code", endDate:"Handover Date", overhaulType:"Type of Job", arrangement:"Engine Arrangement No." },
+    other:   { contractNo:"Project / Contract Number", endDate:"Handover / Completion Date", overhaulType:"Type of Job / Overhaul", arrangement:"Engine Arrangement" },
+  },
+
   async init() { Auth.restore(); await App.loadEmployees(); },
 
   async loadEmployees() {
@@ -1092,7 +1101,7 @@ const App = {
       if (data.files && data.files.length > 0) { State.baseSheetId = data.files[0].id; return; }
       const cr = await gapi_fetch("https://www.googleapis.com/drive/v3/files", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ name:CONFIG.BASE_DATA_SHEET_NAME, mimeType:"application/vnd.google-apps.spreadsheet", parents:[CONFIG.DRIVE_FOLDER_ID] }) });
       State.baseSheetId = (await cr.json()).id;
-      const headers = ["ProjectCode","CustomerName","ContractNo","StartDate","EndDate","OverhaulType","EngineModel","EngineSerial","EngineArrangement","RPMCapacity","RunningHours","CustomerIncharge","TeamLeader","Members","Vessel","Location","VesselImageBase64","CreatedDate"];
+      const headers = ["ProjectCode","CustomerName","ContractNo","StartDate","EndDate","OverhaulType","EngineModel","EngineSerial","EngineArrangement","RPMCapacity","RunningHours","CustomerIncharge","TeamLeader","Members","Vessel","Location","VesselImageBase64","CreatedDate","EngineType"];
       await gapi_fetch(`https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A1:R1?valueInputOption=RAW`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({values:[headers]}) });
     } catch (err) { console.error("ensureBaseSheet:", err); Toast.show("Could not access Drive.", "error"); }
   },
@@ -1187,12 +1196,18 @@ const App = {
     const membersStr = members.join(", ");
     const overhaulType = getValue("bd-overhaul-type") || getValue("bd-overhaul-custom");
 
+    const engineType = State._engineType || 'niigata';
+    const otherEngineName = getValue("bd-other-engine-name");
+    const engineModel = engineType === 'other' && otherEngineName
+      ? otherEngineName
+      : getValue("bd-engine-model");
     const row = [
       projectCode, getValue("bd-customer"), getValue("bd-contract-no"), getValue("bd-start-date"),
-      getValue("bd-end-date"), overhaulType, getValue("bd-engine-model"), getValue("bd-engine-serial"),
+      getValue("bd-end-date"), overhaulType, engineModel, getValue("bd-engine-serial"),
       getValue("bd-engine-arrangement"), getValue("bd-rpm"), getValue("bd-running-hours"),
       getValue("bd-customer-incharge"), getValue("bd-team-leader"), membersStr,
       getValue("bd-vessel"), getValue("bd-location"), State.vesselImageBase64 || "", new Date().toISOString(),
+      engineType,
     ];
 
     try {
@@ -1215,7 +1230,12 @@ const App = {
     const members = (State._tempMembers || []).filter(m => m.trim()).join(", ");
     const overhaulType = getValue("bd-overhaul-type") === "Other" ? getValue("bd-overhaul-custom") : getValue("bd-overhaul-type");
 
-    const row = [projectCode, getValue("bd-customer"), getValue("bd-contract-no"), getValue("bd-start-date"), getValue("bd-end-date"), overhaulType, getValue("bd-engine-model"), getValue("bd-engine-serial"), getValue("bd-engine-arrangement"), getValue("bd-rpm"), getValue("bd-running-hours"), getValue("bd-customer-incharge"), getValue("bd-team-leader"), members, getValue("bd-vessel"), getValue("bd-location"), State.vesselImageBase64 || "", new Date().toISOString()];
+    const engineType = State._engineType || 'niigata';
+    const otherEngineName = getValue("bd-other-engine-name");
+    const engineModel = engineType === 'other' && otherEngineName
+      ? otherEngineName
+      : getValue("bd-engine-model");
+    const row = [projectCode, getValue("bd-customer"), getValue("bd-contract-no"), getValue("bd-start-date"), getValue("bd-end-date"), overhaulType, engineModel, getValue("bd-engine-serial"), getValue("bd-engine-arrangement"), getValue("bd-rpm"), getValue("bd-running-hours"), getValue("bd-customer-incharge"), getValue("bd-team-leader"), members, getValue("bd-vessel"), getValue("bd-location"), State.vesselImageBase64 || "", new Date().toISOString(), engineType];
 
     const rangeRow = rowIndex + 2;
     try {
@@ -1245,7 +1265,12 @@ const App = {
   },
 
   clearBaseDataForm() {
-    ["bd-project-code","bd-customer","bd-contract-no","bd-start-date","bd-end-date","bd-overhaul-type","bd-overhaul-custom","bd-engine-model","bd-engine-serial","bd-engine-arrangement","bd-rpm","bd-running-hours","bd-customer-incharge","bd-team-leader","bd-vessel","bd-location"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+    ["bd-project-code","bd-customer","bd-contract-no","bd-start-date","bd-end-date","bd-overhaul-type","bd-overhaul-custom","bd-engine-model","bd-other-engine-name","bd-engine-serial","bd-engine-arrangement","bd-rpm","bd-running-hours","bd-customer-incharge","bd-team-leader","bd-vessel","bd-location"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+    // Reset engine type to Niigata
+    State._engineType = 'niigata';
+    document.querySelectorAll('.engine-type-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+    App.setEngineType('niigata', null);
+    document.getElementById('bd-other-engine-row')?.classList.add('hidden');
     document.getElementById("bd-overhaul-custom-row").classList.add("hidden");
     State._tempMembers = ["","",""];
     App.renderMemberFields();
@@ -1301,6 +1326,19 @@ const App = {
       const row = (data.values || [[]])[0];
       const fields = ["bd-project-code","bd-customer","bd-contract-no","bd-start-date","bd-end-date","bd-overhaul-type","bd-engine-model","bd-engine-serial","bd-engine-arrangement","bd-rpm","bd-running-hours","bd-customer-incharge","bd-team-leader","bd-vessel","bd-location"];
       fields.forEach((id, i) => { const el = document.getElementById(id); if (el && row[i] !== undefined) el.value = row[i]; });
+      // Restore engine type (column index 18)
+      const savedEngineType = row[18] || 'niigata';
+      State._engineType = savedEngineType;
+      document.querySelectorAll('.engine-type-btn').forEach(b => {
+        const t = b.getAttribute('onclick').match(/\'([^']+)\'/);
+        if (t && t[1] === savedEngineType) b.classList.add('active');
+        else b.classList.remove('active');
+      });
+      App.setEngineType(savedEngineType, null);
+      if (savedEngineType === 'other') {
+        document.getElementById('bd-other-engine-name').value = row[6] || '';
+        document.getElementById('bd-engine-model').value = '';
+      }
       // Handle members
       const membersStr = row[13] || "";
       State._tempMembers = membersStr ? membersStr.split(",").map(m => m.trim()) : ["","",""];
@@ -1340,6 +1378,8 @@ const App = {
       if (!match) { document.getElementById("project-not-found").classList.remove("hidden"); return; }
       const project = {};
       headers.forEach((h, i) => { project[h] = match[i] || ""; });
+      // Ensure EngineType has a default
+      if (!project.EngineType) project.EngineType = 'niigata';
       State.currentProject = project;
       State.dvrParsedData = null;
       const labels = { CustomerName:"Customer", ContractNo:"Contract No.", StartDate:"Start Date", EndDate:"Est. Completion", OverhaulType:"Type of Overhaul", EngineModel:"Engine Model", EngineSerial:"Serial No.", Vessel:"Vessel / Rig", Location:"Location", TeamLeader:"Team Leader" };
