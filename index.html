@@ -149,13 +149,29 @@
       <p class="dash-sub">This data auto-fills when an engineer enters the project code. Project Code is mandatory.</p>
       <div class="basedata-card">
         <div class="form-grid">
+          <!-- Engine Type selector — drives label changes -->
+          <div class="form-group form-group-full" style="margin-bottom:4px">
+            <label class="form-label" style="color:var(--amber)">Engine Type *</label>
+            <div class="engine-type-selector">
+              <button class="engine-type-btn active" onclick="App.setEngineType('niigata',this)">Niigata</button>
+              <button class="engine-type-btn" onclick="App.setEngineType('cat',this)">CAT</button>
+              <button class="engine-type-btn" onclick="App.setEngineType('emd',this)">EMD</button>
+              <button class="engine-type-btn" onclick="App.setEngineType('other',this)">Other</button>
+            </div>
+          </div>
+          <!-- Other engine name (shown only when Other selected) -->
+          <div class="form-group form-group-full hidden" id="bd-other-engine-row">
+            <label class="form-label">Specify Engine Make and Model <span style="color:var(--amber)">*</span></label>
+            <input type="text" id="bd-other-engine-name" class="form-input" placeholder="e.g. MAN B&W 6S50ME-C" />
+          </div>
+
           <div class="form-group"><label class="form-label">Project Code *</label><input type="text" id="bd-project-code" class="form-input" placeholder="e.g. ABC1000" /></div>
           <div class="form-group"><label class="form-label">Customer Name</label><input type="text" id="bd-customer" class="form-input" placeholder="e.g. TOPAZ-BELEUZI" /></div>
-          <div class="form-group"><label class="form-label">Contract Number</label><input type="text" id="bd-contract-no" class="form-input" /></div>
-          <div class="form-group"><label class="form-label">Start Date</label><input type="date" id="bd-start-date" class="form-input" /></div>
-          <div class="form-group"><label class="form-label">Completion Date</label><input type="date" id="bd-end-date" class="form-input" /></div>
+          <div class="form-group"><label id="lbl-contract-no" class="form-label">Project / Contract Number</label><input type="text" id="bd-contract-no" class="form-input" /></div>
+          <div class="form-group"><label class="form-label">Start Date of Job</label><input type="date" id="bd-start-date" class="form-input" /></div>
+          <div class="form-group"><label id="lbl-end-date" class="form-label">Handing Over Date</label><input type="date" id="bd-end-date" class="form-input" /></div>
           <div class="form-group">
-            <label class="form-label">Type of Overhaul</label>
+            <label id="lbl-overhaul-type" class="form-label">Type of Overhaul</label>
             <select id="bd-overhaul-type" class="form-input" onchange="App.onOverhaulTypeChange()">
               <option value="">Select...</option>
               <option value="TOH">TOH — Top Overhaul</option>
@@ -166,12 +182,12 @@
             </select>
           </div>
           <div class="form-group hidden" id="bd-overhaul-custom-row">
-            <label class="form-label">Specify Overhaul Type</label>
-            <input type="text" id="bd-overhaul-custom" class="form-input" placeholder="Describe the overhaul type..." />
+            <label class="form-label">Specify Type</label>
+            <input type="text" id="bd-overhaul-custom" class="form-input" placeholder="Describe..." />
           </div>
           <div class="form-group"><label class="form-label">Engine Make and Model</label><input type="text" id="bd-engine-model" class="form-input" placeholder="e.g. NIIGATA 8L28HX" /></div>
           <div class="form-group"><label class="form-label">Engine Serial Number</label><input type="text" id="bd-engine-serial" class="form-input" /></div>
-          <div class="form-group"><label class="form-label">Engine Arrangement</label><input type="text" id="bd-engine-arrangement" class="form-input" placeholder="e.g. PORT & STBD" /></div>
+          <div class="form-group"><label id="lbl-arrangement" class="form-label">Engine Arrangement</label><input type="text" id="bd-engine-arrangement" class="form-input" placeholder="e.g. PORT & STBD" /></div>
           <div class="form-group"><label class="form-label">RPM and Capacity</label><input type="text" id="bd-rpm" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Current Running Hours</label><input type="text" id="bd-running-hours" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Customer In-Charge</label><input type="text" id="bd-customer-incharge" class="form-input" /></div>
