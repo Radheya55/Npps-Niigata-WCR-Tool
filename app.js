@@ -573,7 +573,7 @@ const App = {
   },
 
   ENGINE_TYPE_LABELS: {
-    niigata: { contractNo:"Project / Contract Number", endDate:"Handing Over Date",  overhaulType:"Type of Overhaul", arrangement:"Engine Arrangement" },
+    niigata: { contractNo:"Project/Contract Number", endDate:"Handing over date", overhaulType:"Type of Overhaul", arrangement:"Engine Arrangement" },
     cat:     { contractNo:"Project Code",              endDate:"Handover Date",       overhaulType:"Type of Job",      arrangement:"Engine Arrangement No." },
     emd:     { contractNo:"Project Code",              endDate:"Handover Date",       overhaulType:"Type of Job",      arrangement:"Engine Arrangement No." },
     other:   { contractNo:"Project / Contract Number", endDate:"Handover Date",       overhaulType:"Type of Job / Overhaul", arrangement:"Engine Arrangement" },
