@@ -1606,7 +1606,9 @@ const App = {
       }
       State.currentProject = project;
       State.dvrParsedData = null;
-      const labels = { CustomerName:"Customer", ContractNo:"Contract No.", StartDate:"Start Date", EndDate:"Est. Completion", OverhaulType:"Type of Overhaul", EngineModel:"Engine Model", EngineSerial:"Serial No.", Vessel:"Vessel / Rig", Location:"Location", TeamLeader:"Team Leader" };
+      const et = project.EngineType || 'niigata';
+      const L = App.ENGINE_TYPE_LABELS[et] || App.ENGINE_TYPE_LABELS.niigata;
+      const labels = { CustomerName:"Customer Name", ContractNo:L.contractNo, StartDate:"Start Date of Job", EndDate:L.endDate, OverhaulType:L.overhaulType, EngineModel:"Engine Make and Model", EngineSerial:"Engine Serial Number", Vessel:"Vessel / Rig", Location:"Location", TeamLeader:"Neptunus Team Leader" };
       document.getElementById("project-info-grid").innerHTML = Object.entries(labels).map(([key,label]) => `<div class="project-info-item"><label>${label}</label><span>${project[key] || '<em class="not-updated">Not Updated in Base Data Yet</em>'}</span></div>`).join("");
       document.getElementById("project-details").classList.remove("hidden");
       document.getElementById("dwr-upload-section").classList.remove("hidden");
