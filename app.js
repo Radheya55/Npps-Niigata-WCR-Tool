@@ -1364,7 +1364,7 @@ const App = {
       getValue("bd-engine-arrangement"), getValue("bd-rpm"), getValue("bd-running-hours"),
       getValue("bd-customer-incharge"), getValue("bd-team-leader"), membersStr,
       getValue("bd-vessel"), getValue("bd-location"), new Date().toISOString(),
-      State.vesselImageBase64 || "", engineType,
+      "", engineType,
     ];
 
     try {
@@ -1397,7 +1397,7 @@ const App = {
     const engineModel = engineType === 'other' && otherEngineName
       ? otherEngineName
       : getValue("bd-engine-model");
-    const row = [projectCode, getValue("bd-customer"), getValue("bd-contract-no"), getValue("bd-start-date"), getValue("bd-end-date"), overhaulType, engineModel, getValue("bd-engine-serial"), getValue("bd-engine-arrangement"), getValue("bd-rpm"), getValue("bd-running-hours"), getValue("bd-customer-incharge"), getValue("bd-team-leader"), members, getValue("bd-vessel"), getValue("bd-location"), new Date().toISOString(), State.vesselImageBase64 || "", engineType];
+    const row = [projectCode, getValue("bd-customer"), getValue("bd-contract-no"), getValue("bd-start-date"), getValue("bd-end-date"), overhaulType, engineModel, getValue("bd-engine-serial"), getValue("bd-engine-arrangement"), getValue("bd-rpm"), getValue("bd-running-hours"), getValue("bd-customer-incharge"), getValue("bd-team-leader"), members, getValue("bd-vessel"), getValue("bd-location"), new Date().toISOString(), "", engineType];
 
     const rangeRow = rowIndex + 2;
     try {
@@ -1709,6 +1709,31 @@ const App = {
     App.renderDrafts();
     State.currentDraft = draft;
     App.openWCRBuilder(draft);
+  },
+
+
+  onCoverImageSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      State.currentDraft.projectData.VesselImageBase64 = e.target.result;
+      const img = document.getElementById("wcr-cover-image");
+      img.src = e.target.result;
+      img.classList.remove("hidden");
+      document.getElementById("cover-image-clear").classList.remove("hidden");
+      State.currentDraft.updatedAt = new Date().toISOString();
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  },
+
+  clearCoverImage() {
+    State.currentDraft.projectData.VesselImageBase64 = "";
+    const img = document.getElementById("wcr-cover-image");
+    img.src = ""; img.classList.add("hidden");
+    document.getElementById("cover-image-clear").classList.add("hidden");
+    document.getElementById("cover-image-input").value = "";
   },
 
   /* ══════════════════════════════════════════════════════
