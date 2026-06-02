@@ -1331,3 +1331,15 @@ html, body {
   font-size: 12px; font-weight: 600; cursor: pointer;
 }
 .btn-save-history:hover { background: var(--amber); color: var(--navy-dark); }
+
+/* ── Cover image upload in WCR builder ── */
+.cover-img-upload-btn {
+  display: inline-block; padding: 7px 16px; border-radius: 8px;
+  background: var(--navy-light); border: 1px dashed var(--amber-dim);
+  color: var(--amber-dim); font-size: 11px; cursor: pointer;
+}
+.cover-img-upload-btn:hover { border-color: var(--amber); color: var(--amber); }
+.cover-img-clear {
+  margin-left: 8px; background: none; border: none;
+  color: #f07070; font-size: 11px; cursor: pointer;
+}
