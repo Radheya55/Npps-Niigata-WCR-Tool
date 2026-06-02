@@ -165,9 +165,9 @@
             <input type="text" id="bd-other-engine-name" class="form-input" placeholder="e.g. MAN B&W 6S50ME-C" />
           </div>
 
-          <div class="form-group"><label class="form-label">Project Code *</label><input type="text" id="bd-project-code" class="form-input" placeholder="e.g. ABC1000" /></div>
+          <div class="form-group"><label class="form-label">Project Code *</label><input type="text" id="bd-project-code" class="form-input" placeholder="e.g. ABC1000" oninput="if(State._engineType==='cat'||State._engineType==='emd'){const c=document.getElementById('bd-contract-no');if(c)c.value=this.value;}" /></div>
           <div class="form-group"><label class="form-label">Customer Name</label><input type="text" id="bd-customer" class="form-input" placeholder="e.g. TOPAZ-BELEUZI" /></div>
-          <div class="form-group"><label id="lbl-contract-no" class="form-label">Project / Contract Number</label><input type="text" id="bd-contract-no" class="form-input" /></div>
+          <div class="form-group" id="bd-contract-no-row"><label id="lbl-contract-no" class="form-label">Project / Contract Number</label><input type="text" id="bd-contract-no" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Start Date of Job</label><input type="date" id="bd-start-date" class="form-input" /></div>
           <div class="form-group"><label id="lbl-end-date" class="form-label">Handing Over Date</label><input type="date" id="bd-end-date" class="form-input" /></div>
           <div class="form-group">
