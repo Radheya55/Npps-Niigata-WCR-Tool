@@ -149,18 +149,18 @@
       <p class="dash-sub">This data auto-fills when an engineer enters the project code. Project Code is mandatory.</p>
       <div class="basedata-card">
         <div class="form-grid">
-          <!-- Engine Type selector — drives label changes -->
-          <div class="form-group form-group-full" style="margin-bottom:4px">
+          <!-- Engine Type selector — simple dropdown -->
+          <div class="form-group">
             <label class="form-label" style="color:var(--amber)">Engine Type *</label>
-            <div class="engine-type-selector">
-              <button class="engine-type-btn active" onclick="App.setEngineType('niigata',this)">Niigata</button>
-              <button class="engine-type-btn" onclick="App.setEngineType('cat',this)">CAT</button>
-              <button class="engine-type-btn" onclick="App.setEngineType('emd',this)">EMD</button>
-              <button class="engine-type-btn" onclick="App.setEngineType('other',this)">Other</button>
-            </div>
+            <select id="bd-engine-type" class="form-input" onchange="App.onEngineTypeChange()">
+              <option value="niigata">Niigata</option>
+              <option value="cat">CAT</option>
+              <option value="emd">EMD</option>
+              <option value="other">Other</option>
+            </select>
           </div>
           <!-- Other engine name (shown only when Other selected) -->
-          <div class="form-group form-group-full hidden" id="bd-other-engine-row">
+          <div class="form-group hidden" id="bd-other-engine-row">
             <label class="form-label">Specify Engine Make and Model <span style="color:var(--amber)">*</span></label>
             <input type="text" id="bd-other-engine-name" class="form-input" placeholder="e.g. MAN B&W 6S50ME-C" />
           </div>
