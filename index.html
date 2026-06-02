@@ -200,16 +200,7 @@
             <div id="members-container"></div>
             <button class="add-member-btn" onclick="App.addMember()">+ Add Member</button>
           </div>
-          <!-- Vessel Image -->
-          <div class="form-group form-group-full">
-            <label class="form-label">Vessel / Customer Image</label>
-            <div class="image-upload-box" onclick="document.getElementById('bd-image-input').click()">
-              <div class="image-upload-placeholder" id="bd-image-placeholder"><span class="image-upload-icon">📷</span><span>Click to upload vessel or customer image</span><small>Appears at the top of the WCR report</small></div>
-              <img id="bd-image-preview" class="image-preview hidden" alt="Vessel" />
-            </div>
-            <input type="file" id="bd-image-input" accept="image/*" style="display:none" onchange="App.onVesselImageSelect(event)" />
-            <button class="btn-clear-image hidden" id="bd-image-clear" onclick="App.clearVesselImage()">✕ Remove image</button>
-          </div>
+          
         </div>
         <div class="form-actions">
           <button class="btn-full" id="save-base-btn" onclick="App.saveBaseData()">Save to Database →</button>
@@ -243,6 +234,11 @@
       <div class="wcr-section-label">Cover Page (auto-filled from Base Data)</div>
       <div class="wcr-cover-preview">
         <img id="wcr-cover-image" class="wcr-cover-img hidden" />
+        <div style="margin:8px 0 12px">
+          <label for="cover-image-input" class="cover-img-upload-btn">📷 Upload Vessel / Customer Image</label>
+          <input type="file" id="cover-image-input" accept="image/*" style="display:none" onchange="App.onCoverImageSelect(event)" />
+          <button class="cover-img-clear hidden" id="cover-image-clear" onclick="App.clearCoverImage()">✕ Remove</button>
+        </div>
         <div class="wcr-cover-grid">
           <div class="cover-item"><label>Customer</label><span id="wcr-cover-customer"></span></div>
           <div class="cover-item"><label>Contract No.</label><span id="wcr-cover-contract"></span></div>
