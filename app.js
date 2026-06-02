@@ -1279,6 +1279,19 @@ const App = {
     document.getElementById("bd-error").classList.add("hidden");
   },
 
+  setEngineType(type, btn) {
+    State._engineType = type;
+    document.querySelectorAll('.engine-type-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    document.getElementById('bd-other-engine-row')?.classList.toggle('hidden', type !== 'other');
+    const labels = App.ENGINE_TYPE_LABELS[type] || App.ENGINE_TYPE_LABELS.niigata;
+    const setLbl = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    setLbl('lbl-contract-no',   labels.contractNo);
+    setLbl('lbl-end-date',      labels.endDate);
+    setLbl('lbl-overhaul-type', labels.overhaulType);
+    setLbl('lbl-arrangement',   labels.arrangement);
+  },
+
   onOverhaulTypeChange() {
     const val = document.getElementById("bd-overhaul-type").value;
     document.getElementById("bd-overhaul-custom-row").classList.toggle("hidden", val !== "Other");
