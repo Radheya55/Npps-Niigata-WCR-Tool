@@ -713,7 +713,7 @@ const App = {
       const existing = (data.values||[[]])[0];
       const required = ["ProjectCode","CustomerName","ContractNo","StartDate","EndDate","OverhaulType",
         "EngineModel","EngineSerial","EngineArrangement","RPMCapacity","RunningHours",
-        "CustomerIncharge","TeamLeader","Members","Vessel","Location","VesselImageBase64","CreatedDate","EngineType"];
+        "CustomerIncharge","TeamLeader","Members","Vessel","Location","CreatedDate","VesselImageBase64","EngineType"];
       // Find missing headers and append them
       const missing = required.filter(h => !existing.includes(h));
       if (missing.length > 0) {
@@ -1228,7 +1228,7 @@ const App = {
       }
       const cr = await gapi_fetch("https://www.googleapis.com/drive/v3/files", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ name:CONFIG.BASE_DATA_SHEET_NAME, mimeType:"application/vnd.google-apps.spreadsheet", parents:[CONFIG.DRIVE_FOLDER_ID] }) });
       State.baseSheetId = (await cr.json()).id;
-      const headers = ["ProjectCode","CustomerName","ContractNo","StartDate","EndDate","OverhaulType","EngineModel","EngineSerial","EngineArrangement","RPMCapacity","RunningHours","CustomerIncharge","TeamLeader","Members","Vessel","Location","VesselImageBase64","CreatedDate","EngineType"];
+      const headers = ["ProjectCode","CustomerName","ContractNo","StartDate","EndDate","OverhaulType","EngineModel","EngineSerial","EngineArrangement","RPMCapacity","RunningHours","CustomerIncharge","TeamLeader","Members","Vessel","Location","CreatedDate","VesselImageBase64","EngineType"];
       await gapi_fetch(`https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A1:R1?valueInputOption=RAW`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({values:[headers]}) });
     } catch (err) { console.error("ensureBaseSheet:", err); Toast.show("Could not access Drive.", "error"); }
   },
@@ -1333,8 +1333,8 @@ const App = {
       getValue("bd-end-date"), overhaulType, engineModel, getValue("bd-engine-serial"),
       getValue("bd-engine-arrangement"), getValue("bd-rpm"), getValue("bd-running-hours"),
       getValue("bd-customer-incharge"), getValue("bd-team-leader"), membersStr,
-      getValue("bd-vessel"), getValue("bd-location"), State.vesselImageBase64 || "", new Date().toISOString(),
-      engineType,
+      getValue("bd-vessel"), getValue("bd-location"), new Date().toISOString(),
+      State.vesselImageBase64 || "", engineType,
     ];
 
     try {
@@ -1367,7 +1367,7 @@ const App = {
     const engineModel = engineType === 'other' && otherEngineName
       ? otherEngineName
       : getValue("bd-engine-model");
-    const row = [projectCode, getValue("bd-customer"), getValue("bd-contract-no"), getValue("bd-start-date"), getValue("bd-end-date"), overhaulType, engineModel, getValue("bd-engine-serial"), getValue("bd-engine-arrangement"), getValue("bd-rpm"), getValue("bd-running-hours"), getValue("bd-customer-incharge"), getValue("bd-team-leader"), members, getValue("bd-vessel"), getValue("bd-location"), State.vesselImageBase64 || "", new Date().toISOString(), engineType];
+    const row = [projectCode, getValue("bd-customer"), getValue("bd-contract-no"), getValue("bd-start-date"), getValue("bd-end-date"), overhaulType, engineModel, getValue("bd-engine-serial"), getValue("bd-engine-arrangement"), getValue("bd-rpm"), getValue("bd-running-hours"), getValue("bd-customer-incharge"), getValue("bd-team-leader"), members, getValue("bd-vessel"), getValue("bd-location"), new Date().toISOString(), State.vesselImageBase64 || "", engineType];
 
     const rangeRow = rowIndex + 2;
     try {
@@ -1414,6 +1414,19 @@ const App = {
     const type = document.getElementById('bd-engine-type')?.value || 'niigata';
     State._engineType = type;
     document.getElementById('bd-other-engine-row')?.classList.toggle('hidden', type !== 'other');
+
+    // For CAT/EMD: "Project Code" field duplicates the first Project Code field
+    // So hide it and auto-populate from the main project code
+    const isCatEmd = (type === 'cat' || type === 'emd');
+    const contractRow = document.getElementById('bd-contract-no-row');
+    if (contractRow) contractRow.classList.toggle('hidden', isCatEmd);
+    if (isCatEmd) {
+      // Auto-copy project code into contract-no so it saves correctly
+      const projCode = document.getElementById('bd-project-code')?.value || '';
+      const contractNo = document.getElementById('bd-contract-no');
+      if (contractNo) contractNo.value = projCode;
+    }
+
     const labels = App.ENGINE_TYPE_LABELS[type] || App.ENGINE_TYPE_LABELS.niigata;
     const setLbl = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
     setLbl('lbl-contract-no',   labels.contractNo);
