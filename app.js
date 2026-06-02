@@ -573,10 +573,10 @@ const App = {
   },
 
   ENGINE_TYPE_LABELS: {
-    niigata: { contractNo:"Project / Contract Number", endDate:"Handing Over Date", overhaulType:"Type of Overhaul", arrangement:"Engine Arrangement" },
-    cat:     { contractNo:"Project Code", endDate:"Handover Date", overhaulType:"Type of Job", arrangement:"Engine Arrangement No." },
-    emd:     { contractNo:"Project Code", endDate:"Handover Date", overhaulType:"Type of Job", arrangement:"Engine Arrangement No." },
-    other:   { contractNo:"Project / Contract Number", endDate:"Handover / Completion Date", overhaulType:"Type of Job / Overhaul", arrangement:"Engine Arrangement" },
+    niigata: { contractNo:"Project / Contract Number", endDate:"Handing Over Date",  overhaulType:"Type of Overhaul", arrangement:"Engine Arrangement" },
+    cat:     { contractNo:"Project Code",              endDate:"Handover Date",       overhaulType:"Type of Job",      arrangement:"Engine Arrangement No." },
+    emd:     { contractNo:"Project Code",              endDate:"Handover Date",       overhaulType:"Type of Job",      arrangement:"Engine Arrangement No." },
+    other:   { contractNo:"Project / Contract Number", endDate:"Handover Date",       overhaulType:"Type of Job / Overhaul", arrangement:"Engine Arrangement" },
   },
 
   async init() { Auth.restore(); await App.loadEmployees(); },
@@ -970,12 +970,15 @@ const App = {
     let coverHtml = "";
     if (p.VesselImageBase64) coverHtml += `<img src="${p.VesselImageBase64}" class="rp-cover-img" />`;
     coverHtml += `<table class="rp-table">
-      <tr><td class="rp-lc">Customer Name</td><td><strong>${p.CustomerName||"—"}</strong></td><td class="rp-lc">Contract No.</td><td>${p.ContractNo||"—"}</td></tr>
-      <tr><td class="rp-lc">Start Date</td><td>${p.StartDate||"—"}</td><td class="rp-lc">${(App.ENGINE_TYPE_LABELS[p.EngineType||'niigata']||App.ENGINE_TYPE_LABELS.niigata).endDate}</td><td>${p.EndDate||"—"}</td></tr>
-      <tr><td class="rp-lc">${(App.ENGINE_TYPE_LABELS[p.EngineType||'niigata']||App.ENGINE_TYPE_LABELS.niigata).overhaulType}</td><td>${p.OverhaulType||"—"}</td><td class="rp-lc">Engine Model</td><td>${p.EngineModel||"—"}</td></tr>
-      <tr><td class="rp-lc">Serial No.</td><td>${p.EngineSerial||"—"}</td><td class="rp-lc">Arrangement</td><td>${p.EngineArrangement||"—"}</td></tr>
-      <tr><td class="rp-lc">RPM / Capacity</td><td>${p.RPMCapacity||"—"}</td><td class="rp-lc">Running Hours</td><td>${p.RunningHours||"—"}</td></tr>
-      <tr><td class="rp-lc">Team Leader</td><td>${p.TeamLeader||"—"}</td><td class="rp-lc">Members</td><td>${p.Members||"—"}</td></tr>
+      ${(()=>{ const L=App.ENGINE_TYPE_LABELS[p.EngineType||'niigata']||App.ENGINE_TYPE_LABELS.niigata; return `
+      <tr><td class="rp-lc">Customer Name</td><td><strong>${p.CustomerName||"—"}</strong></td><td class="rp-lc">${L.contractNo}</td><td>${p.ContractNo||"—"}</td></tr>
+      <tr><td class="rp-lc">Start Date of Job</td><td>${p.StartDate||"—"}</td><td class="rp-lc">${L.endDate}</td><td>${p.EndDate||"—"}</td></tr>
+      <tr><td class="rp-lc">${L.overhaulType}</td><td>${p.OverhaulType||"—"}</td><td class="rp-lc">Engine Make and Model</td><td>${p.EngineModel||"—"}</td></tr>
+      <tr><td class="rp-lc">Engine Serial Number</td><td>${p.EngineSerial||"—"}</td><td class="rp-lc">${L.arrangement}</td><td>${p.EngineArrangement||"—"}</td></tr>
+      <tr><td class="rp-lc">RPM and Capacity</td><td>${p.RPMCapacity||"—"}</td><td class="rp-lc">Current Running Hours</td><td>${p.RunningHours||"—"}</td></tr>
+      <tr><td class="rp-lc">Customer In-Charge</td><td>${p.CustomerIncharge||"—"}</td><td class="rp-lc">Neptunus Team Leader</td><td>${p.TeamLeader||"—"}</td></tr>
+      <tr><td class="rp-lc" colspan="1">Neptunus Members</td><td colspan="3">${p.Members||"—"}</td></tr>
+      `; })()}
     </table>`;
     html += section("cover", "Cover Details", coverHtml);
 
@@ -2335,13 +2338,15 @@ const App = {
     if (p.CustomerName) pages += `<p style="text-align:center;font-size:12pt;font-weight:bold;color:#003366;margin:4px 0 10px">${p.CustomerName}</p>`;
     if (p.VesselImageBase64) pages += `<div style="text-align:center;margin:10px 0"><img src="${p.VesselImageBase64}" style="max-width:90%;max-height:200px;object-fit:contain"/></div>`;
     pages += `<table>
-      <tr><td class="lc">Customer Name</td><td><strong>${p.CustomerName||"—"}</strong></td><td class="lc">Project/Contract No.</td><td>${p.ContractNo||"—"}</td></tr>
-      <tr><td class="lc">Start Date</td><td>${p.StartDate||"—"}</td><td class="lc">${(App.ENGINE_TYPE_LABELS[p.EngineType||'niigata']||App.ENGINE_TYPE_LABELS.niigata).endDate}</td><td>${p.EndDate||"—"}</td></tr>
-      <tr><td class="lc">${(App.ENGINE_TYPE_LABELS[p.EngineType||'niigata']||App.ENGINE_TYPE_LABELS.niigata).overhaulType}</td><td>${p.OverhaulType||"—"}</td><td class="lc">Engine Model</td><td>${p.EngineModel||"—"}</td></tr>
-      <tr><td class="lc">Engine Serial No.</td><td>${p.EngineSerial||"—"}</td><td class="lc">Arrangement No.</td><td>${p.EngineArrangement||"—"}</td></tr>
-      <tr><td class="lc">RPM and Capacity</td><td>${p.RPMCapacity||"—"}</td><td class="lc">Running Hours</td><td>${p.RunningHours||"—"}</td></tr>
+      ${(()=>{ const L=App.ENGINE_TYPE_LABELS[p.EngineType||'niigata']||App.ENGINE_TYPE_LABELS.niigata; return `
+      <tr><td class="lc">Customer Name</td><td><strong>${p.CustomerName||"—"}</strong></td><td class="lc">${L.contractNo}</td><td>${p.ContractNo||"—"}</td></tr>
+      <tr><td class="lc">Start Date of Job</td><td>${p.StartDate||"—"}</td><td class="lc">${L.endDate}</td><td>${p.EndDate||"—"}</td></tr>
+      <tr><td class="lc">${L.overhaulType}</td><td>${p.OverhaulType||"—"}</td><td class="lc">Engine Make and Model</td><td>${p.EngineModel||"—"}</td></tr>
+      <tr><td class="lc">Engine Serial Number</td><td>${p.EngineSerial||"—"}</td><td class="lc">${L.arrangement}</td><td>${p.EngineArrangement||"—"}</td></tr>
+      <tr><td class="lc">RPM and Capacity</td><td>${p.RPMCapacity||"—"}</td><td class="lc">Current Running Hours</td><td>${p.RunningHours||"—"}</td></tr>
       <tr><td class="lc">Customer In-Charge</td><td>${p.CustomerIncharge||"—"}</td><td class="lc">Neptunus Team Leader</td><td>${p.TeamLeader||"—"}</td></tr>
       <tr><td class="lc">Neptunus Members</td><td colspan="3">${p.Members||"—"}</td></tr>
+      `; })()}
     </table>`;
     pages += ftr() + `</div>`;
 
