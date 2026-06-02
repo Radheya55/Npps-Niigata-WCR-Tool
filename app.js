@@ -1342,7 +1342,7 @@ const App = {
     document.getElementById("bd-error").classList.add("hidden");
 
     // Check for empty fields and warn
-    const optionalFields = { "bd-customer":"Customer Name","bd-contract-no":"Contract Number","bd-start-date":"Start Date","bd-end-date":"Completion Date","bd-overhaul-type":"Type of Overhaul","bd-engine-model":"Engine Model","bd-engine-serial":"Engine Serial Number","bd-engine-arrangement":"Engine Arrangement","bd-rpm":"RPM and Capacity","bd-running-hours":"Running Hours","bd-customer-incharge":"Customer In-Charge","bd-team-leader":"Team Leader","bd-vessel":"Vessel / Rig","bd-location":"Location" };
+    const optionalFields = { "bd-customer":"Customer Name","bd-contract-no":"Contract / Project Number","bd-start-date":"Start Date of Job","bd-end-date":"Handover Date","bd-overhaul-type":"Type of Overhaul / Job","bd-engine-model":"Engine Make and Model","bd-engine-serial":"Engine Serial Number","bd-engine-arrangement":"Engine Arrangement","bd-rpm":"RPM and Capacity","bd-running-hours":"Current Running Hours","bd-customer-incharge":"Customer In-Charge","bd-team-leader":"Neptunus Team Leader","bd-vessel":"Vessel / Rig","bd-location":"Location" };
     const emptyFields = Object.entries(optionalFields).filter(([id]) => !getValue(id)).map(([,label]) => label);
     const hasImage = !!State.vesselImageBase64;
     if (!hasImage) emptyFields.push("Vessel / Customer Image");
@@ -2493,13 +2493,15 @@ const App = {
       ${p.VesselImageBase64 ? `<img src="${p.VesselImageBase64}" class="sf-cover-img" />` : ""}
       <h1 class="sf-title">Work Completion Report</h1>
       <div class="sf-cover-table">
-        <div class="sf-row"><label>Customer Name</label><span>${p.CustomerName||"—"}</span><label>Contract No.</label><span>${p.ContractNo||"—"}</span></div>
-        <div class="sf-row"><label>Start Date</label><span>${p.StartDate||"—"}</span><label>Completion Date</label><span>${p.EndDate||"—"}</span></div>
-        <div class="sf-row"><label>Overhaul Type</label><span>${p.OverhaulType||"—"}</span><label>Engine Model</label><span>${p.EngineModel||"—"}</span></div>
-        <div class="sf-row"><label>Engine Serial</label><span>${p.EngineSerial||"—"}</span><label>Arrangement</label><span>${p.EngineArrangement||"—"}</span></div>
-        <div class="sf-row"><label>RPM / Capacity</label><span>${p.RPMCapacity||"—"}</span><label>Running Hours</label><span>${p.RunningHours||"—"}</span></div>
-        <div class="sf-row"><label>Customer In-Charge</label><span>${p.CustomerIncharge||"—"}</span><label>Team Leader</label><span>${p.TeamLeader||"—"}</span></div>
-        <div class="sf-row full"><label>Members</label><span>${p.Members||"—"}</span></div>
+        ${(()=>{ const L=App.ENGINE_TYPE_LABELS[p.EngineType||'niigata']||App.ENGINE_TYPE_LABELS.niigata; return `
+        <div class="sf-row"><label>Customer Name</label><span>${p.CustomerName||"—"}</span><label>${L.contractNo}</label><span>${p.ContractNo||"—"}</span></div>
+        <div class="sf-row"><label>Start Date of Job</label><span>${p.StartDate||"—"}</span><label>${L.endDate}</label><span>${p.EndDate||"—"}</span></div>
+        <div class="sf-row"><label>${L.overhaulType}</label><span>${p.OverhaulType||"—"}</span><label>Engine Make and Model</label><span>${p.EngineModel||"—"}</span></div>
+        <div class="sf-row"><label>Engine Serial Number</label><span>${p.EngineSerial||"—"}</span><label>${L.arrangement}</label><span>${p.EngineArrangement||"—"}</span></div>
+        <div class="sf-row"><label>RPM and Capacity</label><span>${p.RPMCapacity||"—"}</span><label>Current Running Hours</label><span>${p.RunningHours||"—"}</span></div>
+        <div class="sf-row"><label>Customer In-Charge</label><span>${p.CustomerIncharge||"—"}</span><label>Neptunus Team Leader</label><span>${p.TeamLeader||"—"}</span></div>
+        <div class="sf-row full"><label>Neptunus Members</label><span>${p.Members||"—"}</span></div>
+        `; })()}
       </div>
     </div>`;
 
