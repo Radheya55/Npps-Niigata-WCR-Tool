@@ -486,6 +486,92 @@ const Auth = {
 ════════════════════════════════════════════════════════ */
 const App = {
 
+
+  // ── History row templates per engine type ────────────────
+  HISTORY_TEMPLATES: {
+
+    niigata: [
+      {type:'simple', label:'Last overhauling type and carried by', value:''},
+      {type:'simple', label:'Running hours at the time of above maintenance', value:''},
+      {type:'simple', label:'Observations recorded (prior dismantling)', value:''},
+      {type:'simple', label:'Log leakages noted; any abnormalities recorded (prior job start)', value:''},
+      {type:'simple', label:'Bearing size — Con Rod Journal (mention part no.)', value:''},
+      {type:'simple', label:'Bearing size — Main Journal (mention part no.)', value:''},
+      {type:'simple', label:'Turbo details to record here', value:''},
+      {type:'simple', label:'Flexible coupling details to record here', value:''},
+      {type:'simple', label:'Governor details to record here', value:''},
+      {type:'simple', label:'Conditions of the Gauges on the Instrument Panel', value:''},
+    ],
+
+    cat: [
+      {type:'simple', label:'Last overhauling type and carried out by', value:''},
+      {type:'simple', label:'Running hours at the time of above maintenance', value:''},
+      {type:'simple', label:'Any discrepancies noted by customer during engine run after last overhaul', value:''},
+      {type:'simple', label:'Observations recorded prior dismantling', value:''},
+      {type:'simple', label:'Log leakages noted, any abnormalities recorded prior job start', value:''},
+      {type:'subtable', label:'Log all gauge readings and load prior dismantling',
+        headers:['','Temperature (UOM)','','','','Pressure','','Load (KW)'],
+        subheaders:['','WATER IN','WATER OUT','LO IN','LO OUT','FO (UOM)','LO (UOM)',''],
+        rows:[['Reading','','','','','','','']]
+      },
+      {type:'subtable', label:'Alignment readings prior dismantling (as per clock dial position)',
+        headers:['','Axial (UOM)','','','','Radial (UOM)','','',''],
+        subheaders:['','0','3','6','9','0','3','6','9'],
+        rows:[['Reading','','','','','','','','']]
+      },
+      {type:'simple', label:'Bearing size: Connecting rod journal — Size', value:''},
+      {type:'simple', label:'Bearing size: Connecting rod journal — Part No.', value:''},
+      {type:'simple', label:'Bearing size: Main journal — Size', value:''},
+      {type:'simple', label:'Bearing size: Main journal — Part No.', value:''},
+      {type:'simple', label:'Record the coupling type (take photo). Confirm alignment limits at site.', value:''},
+      {type:'simple', label:'Air Starter: Make & model', value:''},
+      {type:'simple', label:'Air Starter: Sr. no.', value:''},
+      {type:'simple', label:'Air Starter: Last maintenance details', value:''},
+      {type:'simple', label:'Turbocharger: Make & model', value:''},
+      {type:'simple', label:'Turbocharger: Sr. no.', value:''},
+      {type:'simple', label:'Turbocharger: Last maintenance details', value:''},
+      {type:'simple', label:'Record compression pressure of all the power packs prior dismantling', value:''},
+      {type:'simple', label:'Record thermostat element part no. and valve opening temp', value:''},
+      {type:'simple', label:'Safety checks and conditions of the gauges on the instrument panel', value:''},
+      {type:'simple', label:'Confirm photo evidences for the above have been captured', value:''},
+    ],
+
+    emd: [
+      {type:'simple', label:'Last overhauling type and carried out by', value:''},
+      {type:'simple', label:'Running hours at the time of above maintenance', value:''},
+      {type:'simple', label:'Any discrepancies noted by customer during engine run after last overhaul', value:''},
+      {type:'simple', label:'Observations recorded prior dismantling', value:''},
+      {type:'simple', label:'Log leakages noted, any abnormalities recorded prior job start', value:''},
+      {type:'subtable', label:'Log all gauge readings and load prior dismantling',
+        headers:['','Temperature (UOM)','','','','Pressure','','Load (KW)'],
+        subheaders:['','WATER IN','WATER OUT','LO IN','LO OUT','FO (UOM)','LO (UOM)',''],
+        rows:[['Reading','','','','','','','']]
+      },
+      {type:'subtable', label:'Alignment readings prior dismantling (as per clock dial position)',
+        headers:['','Axial (UOM)','','','','Radial (UOM)','','',''],
+        subheaders:['','0','3','6','9','0','3','6','9'],
+        rows:[['Reading','','','','','','','','']]
+      },
+      {type:'simple', label:'Bearing size: Connecting rod journal — Size', value:''},
+      {type:'simple', label:'Bearing size: Connecting rod journal — Part No.', value:''},
+      {type:'simple', label:'Bearing size: Main journal — Size', value:''},
+      {type:'simple', label:'Bearing size: Main journal — Part No.', value:''},
+      {type:'simple', label:'Record the coupling type (take photo). Confirm alignment limits at site.', value:''},
+      {type:'simple', label:'Air Starter: Make & model', value:''},
+      {type:'simple', label:'Air Starter: Sr. no.', value:''},
+      {type:'simple', label:'Air Starter: Last maintenance details', value:''},
+      {type:'simple', label:'Turbocharger: Make & model', value:''},
+      {type:'simple', label:'Turbocharger: Sr. no.', value:''},
+      {type:'simple', label:'Turbocharger: Last maintenance details', value:''},
+      {type:'simple', label:'Record compression pressure of all the power packs prior dismantling', value:''},
+      {type:'simple', label:'Record thermostat element part no. and valve opening temp', value:''},
+      {type:'simple', label:'Safety checks and conditions of the gauges on the instrument panel', value:''},
+      {type:'simple', label:'Confirm photo evidences for the above have been captured', value:''},
+    ],
+
+    other: null, // falls back to niigata
+  },
+
   ENGINE_TYPE_LABELS: {
     niigata: { contractNo:"Project / Contract Number", endDate:"Handing Over Date", overhaulType:"Type of Overhaul", arrangement:"Engine Arrangement" },
     cat:     { contractNo:"Project Code", endDate:"Handover Date", overhaulType:"Type of Job", arrangement:"Engine Arrangement No." },
@@ -872,9 +958,23 @@ const App = {
     html += section("cover", "Cover Details", coverHtml);
 
     // History
-    if (w.historyActive) {
-      const rows = w.historyRows || [];
-      let hHtml = `<table class="rp-table">${rows.map(r => `<tr><td class="rp-lc">${r.label||"—"}</td><td>${r.value||"—"}</td></tr>`).join("")}</table>`;
+    if (w.historyActive && w.historyRows?.length) {
+      let hHtml = '<table class="rp-table">';
+      w.historyRows.forEach(r => {
+        if (r.type === 'subtable') {
+          hHtml += `<tr><td class="rp-lc" style="vertical-align:top">${r.label}</td><td>
+            <table style="width:100%;border-collapse:collapse;font-size:8.5pt">
+              <tr>${(r.headers||[]).map(h=>`<th style="border:1px solid var(--border);padding:3px 5px;background:var(--navy-light);font-size:8pt">${h}</th>`).join('')}</tr>
+              <tr>${(r.subheaders||[]).map(h=>`<th style="border:1px solid var(--border);padding:3px 5px;background:rgba(255,255,255,0.03);font-size:7.5pt">${h}</th>`).join('')}</tr>
+              ${(r.rows||[]).map(row=>`<tr>${row.map((c,ci)=>`<td style="border:1px solid var(--border);padding:3px 5px">${c||'—'}</td>`).join('')}</tr>`).join('')}
+            </table>
+          </td></tr>`;
+        } else {
+          const val = r.value && r.value.trim() ? r.value : 'NA';
+          hHtml += `<tr><td class="rp-lc">${r.label||"—"}</td><td>${val}</td></tr>`;
+        }
+      });
+      hHtml += '</table>';
       html += section("history", "History", hHtml);
     }
 
@@ -1568,22 +1668,17 @@ const App = {
     const body = document.getElementById("history-body");
     body.classList.toggle("hidden", !active);
     if (active) {
-      // Migrate old format to new editable rows format
       const w = State.currentDraft.wcr;
-      if (!w.historyRows) {
-        const h = w.history || {};
-        w.historyRows = [
-          { label:"Last Overhauling Type and Carried By", value: h.lastOverhaulType || "" },
-          { label:"Running Hours at Time of Last Maintenance", value: h.runningHoursAtMaint || "" },
-          { label:"Observations Recorded (Prior Dismantling)", value: h.observations || "" },
-          { label:"Log Leakages / Abnormalities (Prior Job Start)", value: h.logLeakages || "" },
-          { label:"Bearing Size – Con Rod Journal (Part No.)", value: h.bearingConRod || "" },
-          { label:"Bearing Size – Main Journal (Part No.)", value: h.bearingMainJournal || "" },
-          { label:"Turbo Details", value: h.turboDetails || "" },
-          { label:"Geislinger Coupling Details", value: h.geislingerDetails || "" },
-          { label:"Governor Details", value: h.governorDetails || "" },
-          { label:"Conditions of Gauges on Instrument Panel", value: h.gaugeConditions || "" },
-        ];
+      const engineType = State.currentDraft.projectData?.EngineType || State._engineType || 'niigata';
+      // Initialise historyRows from template if not already set or if engine type changed
+      if (!w.historyRows || w.historyRows.length === 0 || w._historyEngineType !== engineType) {
+        const tmpl = App.HISTORY_TEMPLATES[engineType] || App.HISTORY_TEMPLATES.niigata;
+        w.historyRows = tmpl.map(r => ({...r,
+          rows: r.rows ? r.rows.map(row => [...row]) : undefined,
+          headers: r.headers ? [...r.headers] : undefined,
+          subheaders: r.subheaders ? [...r.subheaders] : undefined,
+        }));
+        w._historyEngineType = engineType;
       }
       App.renderHistoryRows();
     }
@@ -1591,23 +1686,79 @@ const App = {
 
   renderHistoryRows() {
     const rows = State.currentDraft.wcr.historyRows || [];
-    document.getElementById("history-body").innerHTML = `
-      <div class="editable-kv-list">
-        ${rows.map((r, i) => `
-          <div class="editable-kv-row">
-            <input class="form-input editable-kv-label" value="${r.label}" placeholder="Field name..." oninput="App.updateHistoryRow(${i},'label',this.value)" />
-            <textarea class="form-input editable-kv-value" placeholder="Value..." oninput="App.updateHistoryRow(${i},'value',this.value)">${r.value}</textarea>
-            <button class="row-del-btn" onclick="App.deleteHistoryRow(${i})">✕</button>
-          </div>`).join("")}
-      </div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="add-row-btn" onclick="App.addHistoryRow()">+ Add Row</button>
-      </div>`;
+    const body = document.getElementById("history-body");
+
+    let html = '<div class="history-table">';
+    rows.forEach((r, i) => {
+      if (r.type === 'subtable') {
+        html += `<div class="history-row history-row-subtable">
+          <div class="history-label">${r.label}</div>
+          <div class="history-value-cell">
+            <table class="history-subtable">
+              <thead>
+                <tr>${(r.headers||[]).map(h => `<th>${h}</th>`).join('')}</tr>
+                <tr>${(r.subheaders||[]).map(h => `<th class="history-subheader">${h}</th>`).join('')}</tr>
+              </thead>
+              <tbody>
+                ${(r.rows||[]).map((row, ri) => `<tr>${row.map((cell, ci) =>
+                  ci === 0
+                    ? `<td class="history-subtable-rowlabel">${cell}</td>`
+                    : `<td><input class="history-subtable-input" value="${cell}" oninput="App.updateHistorySubCell(${i},${ri},${ci},this.value)"/></td>`
+                ).join('')}</tr>`).join('')}
+              </tbody>
+            </table>
+            <button class="add-row-btn" style="margin-top:4px;font-size:10px" onclick="App.addHistorySubRow(${i})">+ Add Row</button>
+          </div>
+          <button class="row-del-btn history-del" onclick="App.deleteHistoryRow(${i})">✕</button>
+        </div>`;
+      } else {
+        // simple or custom row
+        const isCustom = r.type === 'custom';
+        html += `<div class="history-row">
+          ${isCustom
+            ? `<input class="history-label history-label-editable form-input" value="${r.label}" placeholder="Field name..." oninput="App.updateHistoryRowLabel(${i},this.value)"/>`
+            : `<div class="history-label">${r.label}</div>`
+          }
+          <textarea class="history-value form-input" placeholder="Enter value (leave blank for NA)" oninput="App.updateHistoryRowValue(${i},this.value)">${r.value||''}</textarea>
+          <button class="row-del-btn history-del" onclick="App.deleteHistoryRow(${i})">✕</button>
+        </div>`;
+      }
+    });
+    html += '</div>';
+    html += `<div class="history-footer">
+      <button class="add-row-btn" onclick="App.addHistoryRow()">+ Add Custom Row</button>
+      <button class="btn-save-history" onclick="App.saveHistorySection()">💾 Save History</button>
+    </div>`;
+
+    body.innerHTML = html;
   },
 
-  updateHistoryRow(i, field, val) { State.currentDraft.wcr.historyRows[i][field] = val; },
-  addHistoryRow() { if (!State.currentDraft.wcr.historyRows) State.currentDraft.wcr.historyRows = []; State.currentDraft.wcr.historyRows.push({label:"New Field",value:""}); App.renderHistoryRows(); },
+  updateHistoryRowValue(i, val) { State.currentDraft.wcr.historyRows[i].value = val; },
+  updateHistoryRowLabel(i, val) { State.currentDraft.wcr.historyRows[i].label = val; },
+  updateHistorySubCell(i, ri, ci, val) { State.currentDraft.wcr.historyRows[i].rows[ri][ci] = val; },
+  addHistorySubRow(i) {
+    const r = State.currentDraft.wcr.historyRows[i];
+    const cols = (r.headers || r.subheaders || []).length;
+    r.rows.push(new Array(cols).fill(''));
+    r.rows[r.rows.length-1][0] = 'Reading';
+    App.renderHistoryRows();
+  },
+  addHistoryRow() {
+    if (!State.currentDraft.wcr.historyRows) State.currentDraft.wcr.historyRows = [];
+    State.currentDraft.wcr.historyRows.push({type:'custom', label:'New Field', value:''});
+    App.renderHistoryRows();
+  },
   deleteHistoryRow(i) { State.currentDraft.wcr.historyRows.splice(i,1); App.renderHistoryRows(); },
+  saveHistorySection() {
+    State.currentDraft.updatedAt = new Date().toISOString();
+    Toast.show("History section saved.", "success");
+  },
+
+  // Legacy compat
+  updateHistoryRow(i, field, val) {
+    if (field === 'label') App.updateHistoryRowLabel(i, val);
+    else App.updateHistoryRowValue(i, val);
+  },
 
   // ── Scope of Work ──
   toggleScope() { State.currentDraft.wcr.scopeActive = !State.currentDraft.wcr.scopeActive; App.renderScopeSection(); },
@@ -2053,7 +2204,20 @@ const App = {
     // History
     if (w.historyActive && w.historyRows?.length) {
       body += `<h2>History</h2><table>`;
-      w.historyRows.forEach(r => { body += `<tr><td class="lc">${r.label||"—"}</td><td>${r.value||"—"}</td></tr>`; });
+      w.historyRows.forEach(r => {
+        if (r.type === 'subtable') {
+          body += `<tr><td class="lc" style="vertical-align:top">${r.label}</td><td>
+            <table style="width:100%;border-collapse:collapse;font-size:8pt;margin:0">
+              <tr>${(r.headers||[]).map(h=>`<th style="border:1px solid #aaa;padding:3px 5px;background:#dde4ef;font-size:7.5pt">${h}</th>`).join('')}</tr>
+              <tr>${(r.subheaders||[]).map(h=>`<th style="border:1px solid #aaa;padding:3px 5px;background:#f0f0f0;font-size:7pt">${h}</th>`).join('')}</tr>
+              ${(r.rows||[]).map(row=>`<tr>${row.map(c=>`<td style="border:1px solid #aaa;padding:3px 5px">${c||'—'}</td>`).join('')}</tr>`).join('')}
+            </table>
+          </td></tr>`;
+        } else {
+          const val = r.value && r.value.trim() ? r.value : 'NA';
+          body += `<tr><td class="lc">${r.label||"—"}</td><td>${val}</td></tr>`;
+        }
+      });
       body += `</table>`;
     }
 
