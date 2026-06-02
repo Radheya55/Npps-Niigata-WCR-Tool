@@ -705,6 +705,28 @@ const App = {
   /* ══════════════════════════════════════════════════════
      DRIVE FILE HELPERS — per-user JSON files
   ══════════════════════════════════════════════════════ */
+
+  async ensureSheetHeaders() {
+    try {
+      const resp = await gapi_fetch(`https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A1:T1`);
+      const data = await resp.json();
+      const existing = (data.values||[[]])[0];
+      const required = ["ProjectCode","CustomerName","ContractNo","StartDate","EndDate","OverhaulType",
+        "EngineModel","EngineSerial","EngineArrangement","RPMCapacity","RunningHours",
+        "CustomerIncharge","TeamLeader","Members","Vessel","Location","VesselImageBase64","CreatedDate","EngineType"];
+      // Find missing headers and append them
+      const missing = required.filter(h => !existing.includes(h));
+      if (missing.length > 0) {
+        const nextCol = existing.length;
+        const colLetter = (n) => { let s=''; while(n>=0){s=String.fromCharCode(65+(n%26))+s;n=Math.floor(n/26)-1;} return s; };
+        const range = `Sheet1!${colLetter(nextCol)}1:${colLetter(nextCol+missing.length-1)}1`;
+        await gapi_fetch(`https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/${range}?valueInputOption=RAW`,
+          {method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({values:[missing]})});
+        console.log("Added missing sheet headers:", missing);
+      }
+    } catch(e) { console.error("ensureSheetHeaders:", e); }
+  },
+
   async _loadJsonFile(fileName, stateKey, fileIdKey) {
     try {
       const resp = await gapi_fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and '${CONFIG.DRIVE_FOLDER_ID}' in parents and trashed=false&fields=files(id,name)`);
@@ -1198,7 +1220,12 @@ const App = {
     try {
       const resp = await gapi_fetch(`https://www.googleapis.com/drive/v3/files?q=name='${CONFIG.BASE_DATA_SHEET_NAME}' and '${CONFIG.DRIVE_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&fields=files(id,name)`);
       const data = await resp.json();
-      if (data.files && data.files.length > 0) { State.baseSheetId = data.files[0].id; return; }
+      if (data.files && data.files.length > 0) {
+        State.baseSheetId = data.files[0].id;
+        // Check if headers are complete — add missing columns if old sheet format
+        await App.ensureSheetHeaders();
+        return;
+      }
       const cr = await gapi_fetch("https://www.googleapis.com/drive/v3/files", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ name:CONFIG.BASE_DATA_SHEET_NAME, mimeType:"application/vnd.google-apps.spreadsheet", parents:[CONFIG.DRIVE_FOLDER_ID] }) });
       State.baseSheetId = (await cr.json()).id;
       const headers = ["ProjectCode","CustomerName","ContractNo","StartDate","EndDate","OverhaulType","EngineModel","EngineSerial","EngineArrangement","RPMCapacity","RunningHours","CustomerIncharge","TeamLeader","Members","Vessel","Location","VesselImageBase64","CreatedDate","EngineType"];
@@ -1424,7 +1451,9 @@ const App = {
       wrap.innerHTML = `<table class="data-table"><thead><tr><th>Code</th><th>Customer</th><th>Engine</th><th>Type</th><th>Leader</th><th>Location</th><th>Start</th><th>Added</th><th></th></tr></thead><tbody>${validRows.map(({r, originalIndex}) => {
         const createdAt = createdIdx >= 0 ? r[createdIdx] : "";
         const addedDate = createdAt ? new Date(createdAt).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}) : "—";
-        return `<tr><td><strong>${r[0]||"—"}</strong></td><td>${r[1]||"—"}</td><td>${r[6]||"—"}</td><td>${r[5]||"—"}</td><td>${r[12]||"—"}</td><td>${r[15]||"—"}</td><td>${r[3]||"—"}</td><td class="expiry-pill">${addedDate}</td><td><button class="edit-btn" onclick="App.editProject(${originalIndex})">Edit</button></td></tr>`;
+        // Use header-based lookup so old and new sheet formats both work
+        const hi = (name) => { const idx = headers.indexOf(name); return idx >= 0 ? r[idx] || "—" : "—"; };
+        return `<tr><td><strong>${hi("ProjectCode")}</strong></td><td>${hi("CustomerName")}</td><td>${hi("EngineModel")}</td><td>${hi("OverhaulType")}</td><td>${hi("TeamLeader")}</td><td>${hi("Location")}</td><td>${hi("StartDate")}</td><td class="expiry-pill">${addedDate}</td><td><button class="edit-btn" onclick="App.editProject(${originalIndex})">Edit</button></td></tr>`;
       }).join("")}</tbody></table>`;
       setTimeout(() => wrap.scrollIntoView({ behavior:"smooth", block:"nearest" }), 200);
     } catch (err) { wrap.innerHTML = `<div class="empty-state">Could not load projects.</div>`; }
@@ -1432,13 +1461,26 @@ const App = {
 
   async editProject(rowIndex) {
     try {
-      const resp = await gapi_fetch(`https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A${rowIndex+1}:R${rowIndex+1}`);
+      const resp = await gapi_fetch(`https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A${rowIndex+1}:T${rowIndex+1}`);
       const data = await resp.json();
       const row = (data.values || [[]])[0];
-      const fields = ["bd-project-code","bd-customer","bd-contract-no","bd-start-date","bd-end-date","bd-overhaul-type","bd-engine-model","bd-engine-serial","bd-engine-arrangement","bd-rpm","bd-running-hours","bd-customer-incharge","bd-team-leader","bd-vessel","bd-location"];
-      fields.forEach((id, i) => { const el = document.getElementById(id); if (el && row[i] !== undefined) el.value = row[i]; });
-      // Restore engine type (column index 18)
-      const savedEngineType = row[18] || 'niigata';
+      // Fetch headers to do name-based mapping (handles old and new sheet formats)
+      const hResp = await gapi_fetch(`https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1!A1:T1`);
+      const hData = await hResp.json();
+      const hdrs = (hData.values||[[]])[0];
+      const getCol = (name) => { const i = hdrs.indexOf(name); return i >= 0 ? row[i] || "" : ""; };
+      const fieldMap = {
+        "bd-project-code": "ProjectCode", "bd-customer": "CustomerName",
+        "bd-contract-no": "ContractNo", "bd-start-date": "StartDate",
+        "bd-end-date": "EndDate", "bd-overhaul-type": "OverhaulType",
+        "bd-engine-model": "EngineModel", "bd-engine-serial": "EngineSerial",
+        "bd-engine-arrangement": "EngineArrangement", "bd-rpm": "RPMCapacity",
+        "bd-running-hours": "RunningHours", "bd-customer-incharge": "CustomerIncharge",
+        "bd-team-leader": "TeamLeader", "bd-vessel": "Vessel", "bd-location": "Location"
+      };
+      Object.entries(fieldMap).forEach(([id, col]) => { const el = document.getElementById(id); if (el) el.value = getCol(col); });
+      // Restore engine type using header lookup
+      const savedEngineType = getCol("EngineType") || 'niigata';
       State._engineType = savedEngineType;
 
       App.onEngineTypeChange();
@@ -1447,7 +1489,7 @@ const App = {
         document.getElementById('bd-engine-model').value = '';
       }
       // Handle members
-      const membersStr = row[13] || "";
+      const membersStr = getCol("Members") || "";
       State._tempMembers = membersStr ? membersStr.split(",").map(m => m.trim()) : ["","",""];
       App.renderMemberFields();
       // Handle overhaul type
@@ -1456,7 +1498,8 @@ const App = {
       if (knownTypes.includes(ovType)) { document.getElementById("bd-overhaul-type").value = ovType; }
       else { document.getElementById("bd-overhaul-type").value = "Other"; document.getElementById("bd-overhaul-custom").value = ovType; document.getElementById("bd-overhaul-custom-row").classList.remove("hidden"); }
       // Handle image
-      if (row[16]) { State.vesselImageBase64 = row[16]; document.getElementById("bd-image-preview").src = row[16]; document.getElementById("bd-image-preview").classList.remove("hidden"); document.getElementById("bd-image-placeholder").classList.add("hidden"); document.getElementById("bd-image-clear").classList.remove("hidden"); }
+      const vesselImg = getCol("VesselImageBase64");
+      if (vesselImg) { State.vesselImageBase64 = vesselImg; document.getElementById("bd-image-preview").src = vesselImg; document.getElementById("bd-image-preview").classList.remove("hidden"); document.getElementById("bd-image-placeholder").classList.add("hidden"); document.getElementById("bd-image-clear").classList.remove("hidden"); }
       // Switch button to Update
       document.getElementById("save-base-btn").textContent = "Update Project →";
       document.getElementById("save-base-btn").onclick = () => App.updateBaseData(rowIndex);
@@ -1485,8 +1528,10 @@ const App = {
       if (!match) { document.getElementById("project-not-found").classList.remove("hidden"); return; }
       const project = {};
       headers.forEach((h, i) => { project[h] = match[i] || ""; });
-      // Ensure EngineType has a default
+      // Ensure EngineType has a default for old rows
       if (!project.EngineType) project.EngineType = 'niigata';
+      // Ensure ContractNo is populated (old sheets may use different column name)
+      if (!project.ContractNo && project['ContractNo']) project.ContractNo = project['ContractNo'];
       State.currentProject = project;
       State.dvrParsedData = null;
       const labels = { CustomerName:"Customer", ContractNo:"Contract No.", StartDate:"Start Date", EndDate:"Est. Completion", OverhaulType:"Type of Overhaul", EngineModel:"Engine Model", EngineSerial:"Serial No.", Vessel:"Vessel / Rig", Location:"Location", TeamLeader:"Team Leader" };
