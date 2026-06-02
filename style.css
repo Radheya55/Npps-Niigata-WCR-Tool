@@ -1260,3 +1260,19 @@ html, body {
   flex-shrink: 0;
 }
 .dwr-point-toggle:hover { border-color: var(--amber); color: var(--amber); }
+
+/* ── Engine Type Selector ──────────────────────────────── */
+.engine-type-selector {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.engine-type-btn {
+  padding: 8px 22px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; border: 2px solid var(--border);
+  background: var(--navy-mid); color: var(--white-dim);
+  transition: all 0.18s;
+}
+.engine-type-btn:hover { border-color: var(--amber-dim); color: var(--amber); }
+.engine-type-btn.active {
+  background: var(--amber); color: var(--navy-dark);
+  border-color: var(--amber);
+}
