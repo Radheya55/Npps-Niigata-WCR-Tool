@@ -1343,3 +1343,30 @@ html, body {
   margin-left: 8px; background: none; border: none;
   color: #f07070; font-size: 11px; cursor: pointer;
 }
+
+/* ── CAT/EMD Scope of Work Table ───────────────────────── */
+.cat-scope-wrap { overflow-x: auto; }
+.cat-scope-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.cat-scope-table th {
+  background: var(--navy-light); border: 1px solid var(--border);
+  padding: 6px 8px; text-align: left; font-size: 10px; color: var(--amber-dim);
+}
+.cat-scope-heading-row td {
+  background: rgba(232,160,32,0.08); border: 1px solid var(--border);
+  padding: 0;
+}
+.cat-scope-heading-input {
+  width: 100%; background: transparent; border: none; color: var(--amber);
+  font-weight: 700; font-size: 11px; padding: 7px 10px;
+}
+.cat-scope-item-row td { border: 1px solid var(--border); padding: 2px 4px; vertical-align: middle; }
+.cat-scope-sr { text-align: center; color: var(--white-dim); font-size: 10px; width: 40px; }
+.cat-scope-contents {
+  width: 100%; background: transparent; border: none; color: var(--fg);
+  font-size: 11px; padding: 4px 6px; resize: vertical; min-height: 32px; line-height: 1.4;
+}
+.cat-scope-contents:focus { background: rgba(255,255,255,0.03); outline: none; }
+.cat-scope-included { font-size: 11px; text-align: center; }
+
+/* ── Niigata scope wrap ─────────────────────────────────── */
+.scope-niigata-wrap { display: flex; flex-direction: column; gap: 0; }
