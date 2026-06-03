@@ -11,7 +11,7 @@ const CONFIG = {
   BASE_DATA_SHEET_NAME: "NPPS_WCR_BaseData",
   DRAFT_EXPIRY_DAYS: 365,
   BASE_DATA_EXPIRY_DAYS: 1000,
-  MAX_DRAFTS: 10,
+  MAX_DRAFTS: 50,
   HOD_EMP_NO: "666",
   EMPLOYEES_URL: "https://raw.githubusercontent.com/Radheya55/Npps-Niigata-WCR-Tool/main/employees.json",
 };
@@ -572,6 +572,84 @@ const App = {
     other: null, // falls back to niigata
   },
 
+
+  CAT_EMD_SCOPE_TEMPLATE: [
+    { type:'heading', text:'Cylinder Head' },
+    { type:'item', sr:'1', contents:'Inspect / renew cylinder heads', included:'' },
+    { type:'item', sr:'2', contents:'Seals, gaskets and O ring replacement', included:'' },
+    { type:'item', sr:'3', contents:'Rocker arm Asly, shaft: inspect bush and tappet screws for wear and tear; renew as necessary', included:'' },
+    { type:'item', sr:'4', contents:'Inspect valve lifter mechanism', included:'' },
+    { type:'item', sr:'5', contents:'Inspect the head mounting studs and nuts; replace as necessary', included:'' },
+    { type:'heading', text:'Liner, Piston and Connecting Rod (Power Pack)' },
+    { type:'item', sr:'1', contents:'Inspect / renew power pack assembly with new seals', included:'' },
+    { type:'item', sr:'2', contents:'Record liner projection', included:'' },
+    { type:'item', sr:'3', contents:'Inspect piston cooling nozzles for any blockages prior installation', included:'' },
+    { type:'item', sr:'4', contents:'Renew the bottom end bearings', included:'' },
+    { type:'item', sr:'5', contents:'Record connecting rod bearing clearances', included:'' },
+    { type:'heading', text:'Water / Lube Oil Pump' },
+    { type:'item', sr:'1', contents:'Inspect / renew water pump', included:'' },
+    { type:'item', sr:'2', contents:'Inspect / renew lube oil pump', included:'' },
+    { type:'item', sr:'3', contents:'Inspect and if required renew the main oil strainer installed in the oil sump', included:'' },
+    { type:'heading', text:'Fuel System' },
+    { type:'item', sr:'1', contents:'Renew the fuel injectors', included:'' },
+    { type:'item', sr:'2', contents:'Inspect / replace / recondition the fuel pump and governor drive', included:'' },
+    { type:'item', sr:'3', contents:'Record the lifter heights and confirm fuel timing', included:'' },
+    { type:'item', sr:'4', contents:'Renew the fuel transfer pump', included:'' },
+    { type:'item', sr:'5', contents:'Inspect / renew the high pressure fuel supply lines and related seals and gaskets', included:'' },
+    { type:'heading', text:'Pre Lube Pump & Air Starting Motor' },
+    { type:'item', sr:'1', contents:'Renew / repair the pre lube pump', included:'' },
+    { type:'item', sr:'2', contents:'Renew / repair the air starting motor', included:'' },
+    { type:'heading', text:'Governor and Governor Drive' },
+    { type:'item', sr:'1', contents:'Governor drive serviced and installed', included:'' },
+    { type:'item', sr:'2', contents:'Inspect the governor linkages', included:'' },
+    { type:'item', sr:'3', contents:'Renew the actuator', included:'' },
+    { type:'heading', text:'HMSO' },
+    { type:'item', sr:'1', contents:'Inspect and renewal of HMSO complete assembly', included:'' },
+    { type:'item', sr:'2', contents:'Inspect and renew attached hoses', included:'' },
+    { type:'heading', text:'Camshaft & Lifter Group' },
+    { type:'item', sr:'1', contents:'Inspect and renew camshaft bearings', included:'' },
+    { type:'item', sr:'2', contents:'Inspect or renew camshaft', included:'' },
+    { type:'item', sr:'3', contents:'Renew the cam lifters', included:'' },
+    { type:'item', sr:'4', contents:'Record camshaft bearing clearances and end play', included:'' },
+    { type:'heading', text:'Crankshaft' },
+    { type:'item', sr:'1', contents:'Visual inspection and calibration of crank pin and main journals or renew', included:'' },
+    { type:'item', sr:'2', contents:'Record the clearances: Thrust bearing and main bearing', included:'' },
+    { type:'item', sr:'3', contents:'Inspect and renew the Thrust and main bearings as necessary', included:'' },
+    { type:'item', sr:'4', contents:'Main bearing tightening force check', included:'' },
+    { type:'heading', text:'Front End' },
+    { type:'item', sr:'1', contents:'Inspect and renew the crank seal', included:'' },
+    { type:'item', sr:'2', contents:'Inspect the gears; bushes and record clearances', included:'' },
+    { type:'item', sr:'3', contents:'Renew the vibration damper', included:'' },
+    { type:'heading', text:'Rear End' },
+    { type:'item', sr:'1', contents:'Inspect and renew the crank seal', included:'' },
+    { type:'item', sr:'2', contents:'Inspect the flywheel teeth', included:'' },
+    { type:'item', sr:'3', contents:'Inspect or renew the cam gear', included:'' },
+    { type:'item', sr:'4', contents:'Record the alternator alignment; renew the coupling bolts as necessary', included:'' },
+    { type:'heading', text:'Engine Block' },
+    { type:'item', sr:'1', contents:'Engine block visual inspection, calibration; requalify', included:'' },
+    { type:'item', sr:'2', contents:'If Necessary: 3rd party NDT inspection', included:'' },
+    { type:'heading', text:'Turbocharger' },
+    { type:'item', sr:'1', contents:'Renew the turbo cartridge (only new Cartridge — do not use REMAN CAT)', included:'' },
+    { type:'item', sr:'2', contents:'Inspect the outlet housing; bellow for any visual damages for any possible leaks', included:'' },
+    { type:'heading', text:'Aftercooler & Lube Oil Cooler' },
+    { type:'item', sr:'1', contents:'Renew the aftercooler core', included:'' },
+    { type:'item', sr:'2', contents:'Renew the lube oil cooler core', included:'' },
+    { type:'item', sr:'3', contents:'Inspect and renew the corroded sleeves', included:'' },
+    { type:'heading', text:'Thermostat Housing and Expansion Tank' },
+    { type:'item', sr:'1', contents:'Renew the thermostat elements, seal and gaskets', included:'' },
+    { type:'item', sr:'2', contents:'Inspect and renew the pressure cap/vent line', included:'' },
+    { type:'item', sr:'3', contents:'Renew all the associated gaskets and seals', included:'' },
+    { type:'heading', text:'Air Inlet and Exhaust Manifold' },
+    { type:'item', sr:'1', contents:'Inspect and clean the air intake manifold', included:'' },
+    { type:'item', sr:'2', contents:'Inspect the exhaust manifold; renew the bellows; seals and mounting bolts', included:'' },
+    { type:'item', sr:'3', contents:'Inspect and pressure test the heat shield', included:'' },
+    { type:'item', sr:'4', contents:'Mounted new exhaust bellow (after turbo) with new gaskets', included:'' },
+    { type:'heading', text:'Pre Commissioning Checks and Safety Cut Outs' },
+    { type:'item', sr:'1', contents:'Inspect and confirm the healthiness of all the safety cut outs Installed (Mechanical); electrical with rig staff assistance', included:'' },
+    { type:'item', sr:'2', contents:'No load and load trials followed by joint inspections of the tappet cover and crankcase', included:'' },
+    { type:'item', sr:'3', contents:'Re confirm tightness of all critical bolts prior handing over', included:'' },
+  ],
+
   ENGINE_TYPE_LABELS: {
     niigata: { contractNo:"Project/Contract Number", endDate:"Handing over date", overhaulType:"Type of Overhaul", arrangement:"Engine Arrangement" },
     cat:     { contractNo:"Project Code",              endDate:"Handover Date",       overhaulType:"Type of Job",      arrangement:"Engine Arrangement No." },
@@ -1004,9 +1082,26 @@ const App = {
     }
 
     // Scope of Work
-    if (w.scopeActive && w.scopeOfWork?.length) {
-      let sHtml = `<table class="rp-table"><tr><th>Original Scope</th><th>What Was Done</th></tr>${w.scopeOfWork.map(r => `<tr><td>${r.original||"—"}</td><td>${r.done||"—"}</td></tr>`).join("")}</table>`;
-      html += section("scope", "Scope of Work", sHtml);
+    if (w.scopeActive) {
+      const engineType = p.EngineType || 'niigata';
+      const isCatEmd = (engineType === 'cat' || engineType === 'emd');
+      let sHtml = '';
+      if (isCatEmd && w.catEmdScope?.length) {
+        sHtml = `<table class="rp-table">
+          <thead><tr><th style="width:6%">Sr.</th><th>Contents</th><th style="width:15%">Included</th></tr></thead><tbody>`;
+        w.catEmdScope.forEach(r => {
+          if (r.type === 'heading') {
+            sHtml += `<tr><td colspan="3" style="background:var(--navy-light);font-weight:700;font-size:9pt">${r.text}</td></tr>`;
+          } else {
+            const inc = r.included && r.included.trim() ? r.included : 'NA';
+            sHtml += `<tr><td>${r.sr}</td><td>${r.contents||'—'}</td><td style="text-align:center">${inc}</td></tr>`;
+          }
+        });
+        sHtml += `</tbody></table>`;
+      } else if (!isCatEmd && w.scopeOfWork?.length) {
+        sHtml = `<table class="rp-table"><tr><th>Original Scope</th><th>What Was Done</th></tr>${w.scopeOfWork.map(r => `<tr><td>${r.original||'—'}</td><td>${r.done||'—'}</td></tr>`).join("")}</table>`;
+      }
+      if (sHtml) html += section("scope", "Scope of Work", sHtml);
     }
 
     // Deviations
@@ -1696,6 +1791,7 @@ const App = {
         history: { lastOverhaulType:"", lastOverhaulBy:"", runningHoursAtMaint:"", observations:"", logLeakages:"", bearingConRod:"", bearingMainJournal:"", turboDetails:"", geislingerDetails:"", governorDetails:"", gaugeConditions:"" },
         scopeActive: false,
         scopeOfWork: [{ original:"", done:"" }],
+        catEmdScope: [],
         deviationsActive: false,
         deviations: { nextMaintType:"", nextMaintDate:"", partsRenewal:"" },
         maintItems,
@@ -1919,17 +2015,92 @@ const App = {
     const active = State.currentDraft.wcr.scopeActive;
     document.getElementById("scope-toggle-btn").textContent = active ? "— Remove Scope of Work" : "+ Add Scope of Work";
     document.getElementById("scope-body").classList.toggle("hidden", !active);
-    if (active) App.renderScopeOfWork();
+    if (!active) return;
+    const engineType = State.currentDraft.projectData?.EngineType || 'niigata';
+    const isCatEmd = (engineType === 'cat' || engineType === 'emd');
+    if (isCatEmd) {
+      // Init CAT/EMD scope from template if not yet done
+      if (!State.currentDraft.wcr.catEmdScope || State.currentDraft.wcr.catEmdScope.length === 0) {
+        State.currentDraft.wcr.catEmdScope = App.CAT_EMD_SCOPE_TEMPLATE.map(r => ({...r}));
+      }
+      App.renderCatEmdScope();
+    } else {
+      App.renderScopeOfWork();
+    }
   },
 
+  // ── Niigata/Other scope ──────────────────────────────
   renderScopeOfWork() {
     const rows = State.currentDraft.wcr.scopeOfWork;
-    document.getElementById("scope-rows").innerHTML = rows.map((r, i) => `
-      <div class="scope-row">
-        <textarea class="form-input scope-cell" placeholder="Original scope..." oninput="App.updateScopeRow(${i},'original',this.value)">${r.original}</textarea>
-        <textarea class="form-input scope-cell" placeholder="What was done..." oninput="App.updateScopeRow(${i},'done',this.value)">${r.done}</textarea>
-        <button class="row-del-btn" onclick="App.deleteScopeRow(${i})">✕</button>
-      </div>`).join("");
+    document.getElementById("scope-rows").innerHTML = `
+      <div class="scope-niigata-wrap">
+        <div class="scope-header-row">
+          <span class="scope-col-label">Describe what the original scope of work was</span>
+          <span class="scope-col-label">Describe what was done (include additions and omissions, with reasons)</span>
+          <span></span>
+        </div>
+        ${rows.map((r, i) => `
+        <div class="scope-row">
+          <textarea class="form-input scope-cell" placeholder="Add original scope point..." oninput="App.updateScopeRow(${i},'original',this.value)">${r.original}</textarea>
+          <textarea class="form-input scope-cell" placeholder="Describe what was done..." oninput="App.updateScopeRow(${i},'done',this.value)">${r.done}</textarea>
+          <button class="row-del-btn" onclick="App.deleteScopeRow(${i})">✕</button>
+        </div>`).join("")}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+        <button class="add-row-btn" onclick="App.addScopeRow()">+ Add Row</button>
+        <button class="btn-save-history" onclick="App.saveScopeSection()">💾 Save Scope</button>
+      </div>`;
+  },
+
+  // ── CAT/EMD scope ────────────────────────────────────
+  renderCatEmdScope() {
+    const rows = State.currentDraft.wcr.catEmdScope || [];
+    let html = `<div class="cat-scope-wrap">
+      <table class="cat-scope-table">
+        <thead><tr><th style="width:6%">Sr. No.</th><th>Contents</th><th style="width:15%">Included (Yes/No)</th><th style="width:36px"></th></tr></thead>
+        <tbody>`;
+    rows.forEach((r, i) => {
+      if (r.type === 'heading') {
+        html += `<tr class="cat-scope-heading-row">
+          <td colspan="3"><input class="cat-scope-heading-input" value="${r.text}" oninput="App.updateCatScopeHeading(${i},this.value)" /></td>
+          <td><button class="row-del-btn" onclick="App.deleteCatScopeRow(${i})">✕</button></td>
+        </tr>`;
+      } else {
+        html += `<tr class="cat-scope-item-row">
+          <td class="cat-scope-sr">${r.sr}</td>
+          <td><textarea class="cat-scope-contents" oninput="App.updateCatScopeField(${i},'contents',this.value)">${r.contents}</textarea></td>
+          <td><input class="cat-scope-included form-input" value="${r.included}" placeholder="Yes / No / NA" oninput="App.updateCatScopeField(${i},'included',this.value)" /></td>
+          <td><button class="row-del-btn" onclick="App.deleteCatScopeRow(${i})">✕</button></td>
+        </tr>`;
+      }
+    });
+    html += `</tbody></table></div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button class="add-row-btn" onclick="App.addCatScopeHeading()">+ Add Section</button>
+      <button class="add-row-btn" onclick="App.addCatScopeItem()">+ Add Item</button>
+      <button class="btn-save-history" onclick="App.saveScopeSection()">💾 Save Scope</button>
+    </div>`;
+    document.getElementById("scope-rows").innerHTML = html;
+  },
+
+  updateCatScopeHeading(i, v) { State.currentDraft.wcr.catEmdScope[i].text = v; },
+  updateCatScopeField(i, f, v) { State.currentDraft.wcr.catEmdScope[i][f] = v; },
+  addCatScopeHeading() {
+    State.currentDraft.wcr.catEmdScope.push({ type:'heading', text:'New Section' });
+    App.renderCatEmdScope();
+  },
+  addCatScopeItem() {
+    const items = State.currentDraft.wcr.catEmdScope.filter(r => r.type === 'item');
+    State.currentDraft.wcr.catEmdScope.push({ type:'item', sr: String(items.length + 1), contents:'', included:'' });
+    App.renderCatEmdScope();
+  },
+  deleteCatScopeRow(i) {
+    State.currentDraft.wcr.catEmdScope.splice(i, 1);
+    App.renderCatEmdScope();
+  },
+  saveScopeSection() {
+    State.currentDraft.updatedAt = new Date().toISOString();
+    Toast.show("Scope of Work saved.", "success");
   },
 
   updateScopeRow(i, f, v) { State.currentDraft.wcr.scopeOfWork[i][f] = v; },
@@ -2376,10 +2547,25 @@ const App = {
     }
 
     // Scope of Work
-    if (w.scopeActive && w.scopeOfWork?.length) {
-      body += `<h2>Scope of Work</h2><table><tr><th>Original Scope</th><th>What Was Done</th></tr>`;
-      w.scopeOfWork.forEach(r => { body += `<tr><td>${r.original||"—"}</td><td>${r.done||"—"}</td></tr>`; });
-      body += `</table>`;
+    if (w.scopeActive) {
+      const et = p.EngineType || 'niigata';
+      const isCE = (et === 'cat' || et === 'emd');
+      if (isCE && w.catEmdScope?.length) {
+        body += `<h2>Scope of Work</h2><table><thead><tr><th style="width:6%">Sr.</th><th>Contents</th><th style="width:15%">Included (Yes/No)</th></tr></thead><tbody>`;
+        w.catEmdScope.forEach(r => {
+          if (r.type === 'heading') {
+            body += `<tr><td colspan="3" style="background:#dde4ef;font-weight:bold;text-align:center">${r.text}</td></tr>`;
+          } else {
+            const inc = r.included && r.included.trim() ? r.included : 'NA';
+            body += `<tr><td style="text-align:center">${r.sr}</td><td>${r.contents||'—'}</td><td style="text-align:center">${inc}</td></tr>`;
+          }
+        });
+        body += `</tbody></table>`;
+      } else if (!isCE && w.scopeOfWork?.length) {
+        body += `<h2>Scope of Work</h2><table><tr><th>Describe what the original scope of work was</th><th>Describe what was done (include additions and omissions, with reasons)</th></tr>`;
+        w.scopeOfWork.forEach(r => { body += `<tr><td>${r.original||"—"}</td><td>${r.done||"—"}</td></tr>`; });
+        body += `</table>`;
+      }
     }
 
     // Deviations
@@ -2525,11 +2711,23 @@ const App = {
     }
 
     // Scope of Work
-    if (w.scopeActive && w.scopeOfWork.length) {
-      html += `<div class="sf-section"><h2 class="sf-heading">Scope of Work</h2>
-        <table class="sf-table"><thead><tr><th>Original Scope</th><th>What Was Done</th></tr></thead><tbody>
-          ${w.scopeOfWork.map(r => `<tr><td contenteditable="true">${r.original}</td><td contenteditable="true">${r.done}</td></tr>`).join("")}
-        </tbody></table></div>`;
+    if (w.scopeActive) {
+      const etSf = p.EngineType || 'niigata';
+      const isCESf = (etSf === 'cat' || etSf === 'emd');
+      if (isCESf && w.catEmdScope?.length) {
+        html += `<div class="sf-section"><h2 class="sf-heading">Scope of Work</h2>
+          <table class="sf-table"><thead><tr><th style="width:6%">Sr.</th><th>Contents</th><th style="width:15%">Included (Yes/No)</th></tr></thead><tbody>
+            ${w.catEmdScope.map(r => r.type === 'heading'
+              ? `<tr><td colspan="3" style="background:rgba(255,255,255,0.06);font-weight:700;text-align:center" contenteditable="true">${r.text}</td></tr>`
+              : `<tr><td>${r.sr}</td><td contenteditable="true">${r.contents}</td><td contenteditable="true">${r.included||'NA'}</td></tr>`
+            ).join("")}
+          </tbody></table></div>`;
+      } else if (!isCESf && w.scopeOfWork?.length) {
+        html += `<div class="sf-section"><h2 class="sf-heading">Scope of Work</h2>
+          <table class="sf-table"><thead><tr><th>Original Scope</th><th>What Was Done</th></tr></thead><tbody>
+            ${w.scopeOfWork.map(r => `<tr><td contenteditable="true">${r.original}</td><td contenteditable="true">${r.done}</td></tr>`).join("")}
+          </tbody></table></div>`;
+      }
     }
 
     // Deviations
