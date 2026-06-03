@@ -2047,7 +2047,6 @@ const App = {
         </div>`).join("")}
       </div>
       <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-        <button class="add-row-btn" onclick="App.addScopeRow()">+ Add Row</button>
         <button class="btn-save-history" onclick="App.saveScopeSection()">💾 Save Scope</button>
       </div>`;
   },
