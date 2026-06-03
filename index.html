@@ -24,7 +24,7 @@
     </div>
     <div class="home-hero">
       <h1 class="hero-title">Work Completion<br /><em>Report Builder</em></h1>
-      <p class="hero-sub">Making a Work Completion Report ( WCR ) is now very Simple...</p>
+      <p class="hero-sub">Making WCRs just got easier</p>
     </div>
     <div class="home-actions">
       <button class="btn-primary" onclick="App.goToLogin('wcr')">
@@ -461,18 +461,14 @@
 
   <!-- HOD Dashboard -->
   <div class="screen" id="screen-hod-dashboard">
-    <div class="screen-header">
-      <button class="back-btn" onclick="App.goHome()">← Home</button>
-      <h1 class="screen-title">HOD Review Queue</h1>
-      <span class="user-pill" id="hod-user-pill"></span>
-      <button class="logout-btn" onclick="App.logout()">Sign Out</button>
-    </div>
-    <div class="screen-body">
-      <div class="dashboard-section">
-        <div class="dashboard-section-header">
-          <h3 class="section-heading">WCRs Pending Review</h3>
-        </div>
-        <div id="hod-queue-list"></div>
+    <header class="app-header">
+      <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">HOD Review Queue</span></div>
+      <div class="app-header-right"><span class="user-pill" id="hod-user-pill"></span><button class="logout-btn" onclick="App.logout()">Sign Out</button></div>
+    </header>
+    <div class="dashboard-body">
+      <div class="dash-section">
+        <h2 class="dash-heading">WCRs Pending Review</h2>
+        <div id="hod-queue-list"><div class="empty-state">No WCRs pending review.</div></div>
       </div>
     </div>
   </div>
