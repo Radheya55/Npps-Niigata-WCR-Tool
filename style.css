@@ -1380,12 +1380,40 @@ html, body {
 .cat-maint-brief { min-width: 280px; }
 .verb-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 .verb-chip {
-  padding: 3px 9px; border-radius: 20px; font-size: 10px; cursor: pointer;
-  border: 1px solid var(--border); background: var(--navy-mid); color: var(--white-dim);
+  padding: 3px 10px; border-radius: 20px; font-size: 10px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: linear-gradient(145deg, rgba(255,220,100,0.08), rgba(255,200,50,0.04));
+  color: var(--amber-dim);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
   transition: all 0.15s;
 }
-.verb-chip:hover { border-color: var(--amber-dim); color: var(--amber-dim); }
-.verb-chip.active { background: var(--amber); color: var(--navy-dark); border-color: var(--amber); font-weight: 600; }
+.verb-chip:hover {
+  border-color: var(--amber-dim);
+  background: linear-gradient(145deg, rgba(255,220,100,0.16), rgba(255,200,50,0.08));
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.verb-chip.active {
+  background: linear-gradient(145deg, #f0c040, #d4a020);
+  color: var(--navy-dark); border-color: #d4a020; font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+  transform: translateY(0);
+}
 .verb-sentence { font-size: 10.5px; color: var(--fg); line-height: 1.4; padding: 2px 0; min-height: 18px; }
 .maint-checkbox { width: 16px; height: 16px; cursor: pointer; accent-color: var(--amber); }
 .cat-maint-remarks { margin-top: 14px; padding: 12px; background: var(--navy-light); border-radius: 8px; border: 1px solid var(--border); }
+
+/* ── Remark bullets ─────────────────────────────────────── */
+.remark-bullet-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 5px;
+}
+.remark-bullet-dot { color: var(--amber); font-size: 14px; flex-shrink: 0; }
+.remark-bullet-input {
+  flex: 1; padding: 5px 10px; font-size: 12px;
+}
+
+/* ── Custom verb input ──────────────────────────────────── */
+.custom-verb-input {
+  flex: 1; padding: 4px 8px; font-size: 10px; border-radius: 20px;
+  border-color: rgba(255,255,255,0.1);
+}
