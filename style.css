@@ -1576,13 +1576,14 @@ html, body {
   border: 1.5px solid #c0d0ee;
   padding: 14px 14px 12px;
 }
-.maint-remarks-title {
-  font-size: 12px; font-weight: 700; color: #1e3f80;
-  margin-bottom: 10px; padding-bottom: 8px;
-  border-bottom: 2px solid #e4ecfc;
-  display: flex; align-items: center; gap: 6px;
+.maint-remarks-title-bar {
+  display: flex; align-items: center; gap: 10px;
+  background: #1e3f80; color: #fff;
+  padding: 10px 14px; border-radius: 6px;
+  margin-bottom: 12px; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.3px;
 }
-.maint-remarks-title::before { content: "📝"; font-size: 13px; }
+.maint-remarks-icon { font-size: 15px; }
 
 /* Remark bullet rows */
 .remark-bullet-row {
@@ -1594,3 +1595,11 @@ html, body {
   border: 1.5px solid #c0d0ee; background: #f7f9ff; color: #1a2a50;
 }
 .remark-bullet-input:focus { border-color: #2e5cba; outline: none; background: #fff; }
+
+/* ── Undo button in WCR builder ─────────────────────────── */
+.btn-undo-wcr {
+  padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  cursor: pointer; background: var(--navy-light); color: var(--amber-dim);
+  border: 1px solid var(--border); transition: all 0.15s;
+}
+.btn-undo-wcr:hover { border-color: var(--amber); color: var(--amber); background: rgba(232,160,32,0.08); }
