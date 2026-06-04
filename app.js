@@ -397,9 +397,17 @@ const Screen = {
 };
 
 const Undo = {
-  push(action) { State.undoStack.push(action); if (State.undoStack.length > 50) State.undoStack.shift(); },
+  push(action, label) {
+    State.undoStack.push({ fn: action, label: label || "Last action" });
+    if (State.undoStack.length > 50) State.undoStack.shift();
+  },
   pop() { return State.undoStack.pop(); },
-  last() { const a = this.pop(); if (!a) { Toast.show("Nothing to undo."); return; } a(); Toast.show("Action undone."); }
+  last() {
+    const entry = this.pop();
+    if (!entry) { Toast.show("Nothing to undo.", "error"); return; }
+    entry.fn();
+    Toast.show(`↩ Undid: ${entry.label}`, "success");
+  }
 };
 
 /* ════════════════════════════════════════════════════════
@@ -2089,10 +2097,18 @@ const App = {
   },
   addHistoryRow() {
     if (!State.currentDraft.wcr.historyRows) State.currentDraft.wcr.historyRows = [];
+    const prev = State.currentDraft.wcr.historyRows.map(r=>({...r}));
+    Undo.push(() => { State.currentDraft.wcr.historyRows = prev; App.renderHistoryRows(); }, "Add history row");
     State.currentDraft.wcr.historyRows.push({type:'custom', label:'New Field', value:''});
     App.renderHistoryRows();
   },
-  deleteHistoryRow(i) { State.currentDraft.wcr.historyRows.splice(i,1); App.renderHistoryRows(); },
+  deleteHistoryRow(i) {
+    const prev = State.currentDraft.wcr.historyRows.map(r=>({...r}));
+    const label = State.currentDraft.wcr.historyRows[i]?.label || 'history row';
+    Undo.push(() => { State.currentDraft.wcr.historyRows = prev; App.renderHistoryRows(); }, `Delete "${label.substring(0,30)}"`);
+    State.currentDraft.wcr.historyRows.splice(i,1);
+    App.renderHistoryRows();
+  },
   saveHistorySection() {
     State.currentDraft.updatedAt = new Date().toISOString();
     Toast.show("History section saved.", "success");
@@ -2153,8 +2169,16 @@ const App = {
   },
 
   updateMandaysRow(i, val) { State.currentDraft.wcr.mandaysRows[i].value = val; },
-  deleteMandaysRow(i) { State.currentDraft.wcr.mandaysRows.splice(i,1); App.renderMandaysRows(); },
+  deleteMandaysRow(i) {
+    const prev = State.currentDraft.wcr.mandaysRows.map(r=>({...r}));
+    const label = State.currentDraft.wcr.mandaysRows[i]?.label || 'mandays row';
+    Undo.push(() => { State.currentDraft.wcr.mandaysRows = prev; App.renderMandaysRows(); }, `Delete "${label.substring(0,30)}"`);
+    State.currentDraft.wcr.mandaysRows.splice(i,1);
+    App.renderMandaysRows();
+  },
   addMandaysRow() {
+    const prev = State.currentDraft.wcr.mandaysRows.map(r=>({...r}));
+    Undo.push(() => { State.currentDraft.wcr.mandaysRows = prev; App.renderMandaysRows(); }, "Add mandays row");
     State.currentDraft.wcr.mandaysRows.push({ label:'New Field', value:'' });
     App.renderMandaysRows();
   },
@@ -2287,6 +2311,8 @@ const App = {
   },
 
   addCatMaintRow() {
+    const prev = State.currentDraft.wcr.catEmdMaintSummary.map(r=>({...r, verbs:[...r.verbs]}));
+    Undo.push(() => { State.currentDraft.wcr.catEmdMaintSummary = prev; App.renderCatEmdMaintSummary(); }, "Add maintenance row");
     State.currentDraft.wcr.catEmdMaintSummary.push({
       part: 'New Part', verbs: [], customVerb: '', replaced: false, reused: false, isCustom: true
     });
@@ -2294,6 +2320,9 @@ const App = {
   },
 
   deleteCatMaintRow(i) {
+    const row = State.currentDraft.wcr.catEmdMaintSummary[i];
+    const prev = State.currentDraft.wcr.catEmdMaintSummary.map(r=>({...r, verbs:[...r.verbs]}));
+    Undo.push(() => { State.currentDraft.wcr.catEmdMaintSummary = prev; App.renderCatEmdMaintSummary(); }, `Delete "${row.part.substring(0,30)}"`);
     State.currentDraft.wcr.catEmdMaintSummary.splice(i, 1);
     App.renderCatEmdMaintSummary();
   },
@@ -2309,6 +2338,8 @@ const App = {
   // Remarks as individual bullet inputs
   addRemarkBullet() {
     if (!State.currentDraft.wcr.catEmdRemarksBullets) State.currentDraft.wcr.catEmdRemarksBullets = [];
+    const prev = [...State.currentDraft.wcr.catEmdRemarksBullets];
+    Undo.push(() => { State.currentDraft.wcr.catEmdRemarksBullets = prev; App.renderRemarkBullets(); }, "Add remark bullet");
     State.currentDraft.wcr.catEmdRemarksBullets.push('');
     App.renderRemarkBullets();
     setTimeout(() => {
@@ -2341,6 +2372,8 @@ const App = {
   },
 
   deleteRemarkBullet(i) {
+    const prev = [...State.currentDraft.wcr.catEmdRemarksBullets];
+    Undo.push(() => { State.currentDraft.wcr.catEmdRemarksBullets = prev; App.renderRemarkBullets(); }, "Delete remark bullet");
     State.currentDraft.wcr.catEmdRemarksBullets.splice(i, 1);
     App.renderRemarkBullets();
   },
@@ -2465,11 +2498,15 @@ const App = {
   updateCatScopeHeading(i, v) { State.currentDraft.wcr.catEmdScope[i].text = v; },
   updateCatScopeField(i, f, v) { State.currentDraft.wcr.catEmdScope[i][f] = v; },
   addCatScopeHeading() {
+    const prev = State.currentDraft.wcr.catEmdScope.map(r=>({...r}));
+    Undo.push(() => { State.currentDraft.wcr.catEmdScope = prev; App.renderCatEmdScope(); }, "Add scope section");
     State.currentDraft.wcr.catEmdScope.push({ type:'heading', text:'New Section' });
     App.renderCatEmdScope();
   },
   addCatScopeItem(afterIndex) {
     const scope = State.currentDraft.wcr.catEmdScope;
+    const prev = scope.map(r=>({...r}));
+    Undo.push(() => { State.currentDraft.wcr.catEmdScope = prev; App.renderCatEmdScope(); }, "Add scope item");
     const items = scope.filter(r => r.type === 'item');
     const newItem = { type:'item', sr: String(items.length + 1), contents:'', included:'' };
     if (afterIndex !== undefined) {
@@ -2482,11 +2519,13 @@ const App = {
   deleteCatScopeRow(i) {
     const scope = State.currentDraft.wcr.catEmdScope;
     const row = scope[i];
+    const prev = scope.map(r=>({...r}));
+    const label = row.type === 'heading' ? `Delete scope section "${row.text}"` : `Delete scope item "${row.contents?.substring(0,30)||'item'}"`;
+    Undo.push(() => { State.currentDraft.wcr.catEmdScope = prev; App.renderCatEmdScope(); }, label);
     if (row.type === 'heading') {
-      // Delete all items belonging to this heading (until next heading or end)
       let j = i + 1;
       while (j < scope.length && scope[j].type !== 'heading') j++;
-      scope.splice(i, j - i); // remove heading + all its items
+      scope.splice(i, j - i);
     } else {
       scope.splice(i, 1);
     }
@@ -2498,8 +2537,8 @@ const App = {
   },
 
   updateScopeRow(i, f, v) { State.currentDraft.wcr.scopeOfWork[i][f] = v; },
-  addScopeRow() { const prev = [...State.currentDraft.wcr.scopeOfWork]; Undo.push(() => { State.currentDraft.wcr.scopeOfWork = prev; App.renderScopeOfWork(); }); State.currentDraft.wcr.scopeOfWork.push({original:"",done:""}); App.renderScopeOfWork(); },
-  deleteScopeRow(i) { const prev = [...State.currentDraft.wcr.scopeOfWork]; Undo.push(() => { State.currentDraft.wcr.scopeOfWork = prev; App.renderScopeOfWork(); }); State.currentDraft.wcr.scopeOfWork.splice(i,1); App.renderScopeOfWork(); },
+  addScopeRow() { const prev = [...State.currentDraft.wcr.scopeOfWork]; Undo.push(() => { State.currentDraft.wcr.scopeOfWork = prev; App.renderScopeOfWork(); }, "Add scope row"); State.currentDraft.wcr.scopeOfWork.push({original:"",done:""}); App.renderScopeOfWork(); },
+  deleteScopeRow(i) { const prev = [...State.currentDraft.wcr.scopeOfWork]; Undo.push(() => { State.currentDraft.wcr.scopeOfWork = prev; App.renderScopeOfWork(); }, "Delete scope row"); State.currentDraft.wcr.scopeOfWork.splice(i,1); App.renderScopeOfWork(); },
 
   // ── Deviations ──
   toggleDeviations() { State.currentDraft.wcr.deviationsActive = !State.currentDraft.wcr.deviationsActive; App.renderDeviationsSection(); },
@@ -2572,7 +2611,7 @@ const App = {
 
   addMaintItem(afterIndex, type) {
     const prev = State.currentDraft.wcr.maintItems.map(m => ({...m}));
-    Undo.push(() => { State.currentDraft.wcr.maintItems = prev; App.renderMaintSummary(); });
+    Undo.push(() => { State.currentDraft.wcr.maintItems = prev; App.renderMaintSummary(); }, `Add ${type} to Maintenance Summary`);
     const newItem = { type, text: type === "heading" ? "New Section" : "", id: "mi_" + Math.random().toString(36).substr(2,8) };
     State.currentDraft.wcr.maintItems.splice(afterIndex + 1, 0, newItem);
     App.renderMaintSummary();
@@ -2580,7 +2619,7 @@ const App = {
 
   deleteMaintItem(id) {
     const prev = State.currentDraft.wcr.maintItems.map(m => ({...m}));
-    Undo.push(() => { State.currentDraft.wcr.maintItems = prev; App.renderMaintSummary(); });
+    Undo.push(() => { State.currentDraft.wcr.maintItems = prev; App.renderMaintSummary(); }, "Delete from Maintenance Summary");
     State.currentDraft.wcr.maintItems = State.currentDraft.wcr.maintItems.filter(m => m.id !== id);
     App.renderMaintSummary();
   },
@@ -2599,8 +2638,8 @@ const App = {
   },
 
   updateSFI(i, f, v) { State.currentDraft.wcr.scopeForImprovement[i][f] = v; },
-  addSFI() { const prev = State.currentDraft.wcr.scopeForImprovement.map(r => ({...r})); Undo.push(() => { State.currentDraft.wcr.scopeForImprovement = prev; App.renderScopeForImprovement(); }); State.currentDraft.wcr.scopeForImprovement.push({area:"",observations:"",recommendations:""}); App.renderScopeForImprovement(); },
-  deleteSFI(i) { const prev = State.currentDraft.wcr.scopeForImprovement.map(r => ({...r})); Undo.push(() => { State.currentDraft.wcr.scopeForImprovement = prev; App.renderScopeForImprovement(); }); State.currentDraft.wcr.scopeForImprovement.splice(i,1); App.renderScopeForImprovement(); },
+  addSFI() { const prev = State.currentDraft.wcr.scopeForImprovement.map(r => ({...r})); Undo.push(() => { State.currentDraft.wcr.scopeForImprovement = prev; App.renderScopeForImprovement(); }, "Add Scope for Improvement row"); State.currentDraft.wcr.scopeForImprovement.push({area:"",observations:"",recommendations:""}); App.renderScopeForImprovement(); },
+  deleteSFI(i) { const prev = State.currentDraft.wcr.scopeForImprovement.map(r => ({...r})); Undo.push(() => { State.currentDraft.wcr.scopeForImprovement = prev; App.renderScopeForImprovement(); }, "Delete Scope for Improvement row"); State.currentDraft.wcr.scopeForImprovement.splice(i,1); App.renderScopeForImprovement(); },
 
   // ── Recommendations ──
   renderRecommendations() {
@@ -2614,8 +2653,8 @@ const App = {
   },
 
   updateRec(i, v) { State.currentDraft.wcr.recommendations[i] = v; },
-  addRec() { const prev = [...State.currentDraft.wcr.recommendations]; Undo.push(() => { State.currentDraft.wcr.recommendations = prev; App.renderRecommendations(); }); State.currentDraft.wcr.recommendations.push(""); App.renderRecommendations(); },
-  deleteRec(i) { const prev = [...State.currentDraft.wcr.recommendations]; Undo.push(() => { State.currentDraft.wcr.recommendations = prev; App.renderRecommendations(); }); State.currentDraft.wcr.recommendations.splice(i,1); App.renderRecommendations(); },
+  addRec() { const prev = [...State.currentDraft.wcr.recommendations]; Undo.push(() => { State.currentDraft.wcr.recommendations = prev; App.renderRecommendations(); }, "Add Recommendation"); State.currentDraft.wcr.recommendations.push(""); App.renderRecommendations(); },
+  deleteRec(i) { const prev = [...State.currentDraft.wcr.recommendations]; Undo.push(() => { State.currentDraft.wcr.recommendations = prev; App.renderRecommendations(); }, "Delete Recommendation"); State.currentDraft.wcr.recommendations.splice(i,1); App.renderRecommendations(); },
 
   // ── Calibration Tables ──
   showTablePalette() { document.getElementById("table-palette").classList.toggle("hidden"); },
@@ -2626,7 +2665,7 @@ const App = {
     const builtinImg = (typeof DIAGRAMS !== 'undefined') && DIAGRAMS[imgKey] ? DIAGRAMS[imgKey] : null;
     const table = { id:"tbl_"+Date.now(), templateKey, name:tmpl.name, note:tmpl.note, hasImage:tmpl.hasImage||false, imageBase64:builtinImg, imageSrc:null, headers:[...tmpl.headers], rows:tmpl.rows.map(r=>[...r]) };
     const prev = State.currentDraft.wcr.calibrationTables.map(t => ({...t, rows:t.rows.map(r=>[...r]), headers:[...t.headers]}));
-    Undo.push(() => { State.currentDraft.wcr.calibrationTables = prev; App.renderCalibrationTables(); });
+    Undo.push(() => { State.currentDraft.wcr.calibrationTables = prev; App.renderCalibrationTables(); }, `Add ${tmpl.name}`);
     State.currentDraft.wcr.calibrationTables.push(table);
     document.getElementById("table-palette").classList.add("hidden");
     App.renderCalibrationTables();
@@ -2682,7 +2721,7 @@ const App = {
   deleteTable(ti) {
     if (!confirm("Delete this table?")) return;
     const prev = State.currentDraft.wcr.calibrationTables.map(t => ({...t}));
-    Undo.push(() => { State.currentDraft.wcr.calibrationTables = prev; App.renderCalibrationTables(); });
+    Undo.push(() => { State.currentDraft.wcr.calibrationTables = prev; App.renderCalibrationTables(); }, `Delete calibration table`);
     State.currentDraft.wcr.calibrationTables.splice(ti,1); App.renderCalibrationTables();
   },
 
