@@ -258,15 +258,6 @@
       </div>
     </div>
 
-    <!-- Mandays (CAT/EMD only, collapsible) -->
-    <div class="wcr-section hidden" id="mandays-section">
-      <div class="wcr-section-toggle-row">
-        <div class="wcr-section-label">Mandays</div>
-        <button class="toggle-section-btn" id="mandays-toggle-btn" onclick="App.toggleMandays()">+ Add Mandays Section</button>
-      </div>
-      <div id="mandays-body" class="hidden"></div>
-    </div>
-
     <!-- History (collapsible) -->
     <div class="wcr-section">
       <div class="wcr-section-toggle-row">
@@ -302,19 +293,13 @@
       </div>
     </div>
 
-    <!-- Deviations (collapsible) -->
-    <div class="wcr-section">
+    <!-- Mandays (CAT/EMD only, collapsible) -->
+    <div class="wcr-section hidden" id="mandays-section">
       <div class="wcr-section-toggle-row">
-        <div class="wcr-section-label">Deviations & Reference Notes for Next Overhaul</div>
-        <button class="toggle-section-btn" id="dev-toggle-btn" onclick="App.toggleDeviations()">+ Add Deviations Section</button>
+        <div class="wcr-section-label">Mandays</div>
+        <button class="toggle-section-btn" id="mandays-toggle-btn" onclick="App.toggleMandays()">+ Add Mandays Section</button>
       </div>
-      <div id="dev-body" class="hidden">
-        <div class="wcr-field-grid">
-          <div class="wcr-field"><label>Next Maintenance Type</label><input id="dev-nextType" class="form-input" placeholder="e.g. MOH" /></div>
-          <div class="wcr-field"><label>Tentative Due Date</label><input id="dev-nextDate" class="form-input" placeholder="e.g. Oct 2026" /></div>
-          <div class="wcr-field wcr-field-full"><label>Notes on Parts Renewal for Next Maintenance</label><textarea id="dev-parts" class="form-input" rows="2"></textarea></div>
-        </div>
-      </div>
+      <div id="mandays-body" class="hidden"></div>
     </div>
 
     <!-- Maintenance Summary -->
@@ -335,6 +320,21 @@
       </div>
       <p class="wcr-section-hint" style="color:var(--amber-dim);font-size:11px;margin-bottom:10px">These points were extracted from your DWR PDFs. Review and remove anything not relevant. Remaining points will appear in the PDF below the Maintenance Summary.</p>
       <div id="dwr-points-container"></div>
+    </div>
+
+    <!-- Deviations (collapsible) -->
+    <div class="wcr-section">
+      <div class="wcr-section-toggle-row">
+        <div class="wcr-section-label">Deviations & Reference Notes for Next Overhaul</div>
+        <button class="toggle-section-btn" id="dev-toggle-btn" onclick="App.toggleDeviations()">+ Add Deviations Section</button>
+      </div>
+      <div id="dev-body" class="hidden">
+        <div class="wcr-field-grid">
+          <div class="wcr-field"><label>Next Maintenance Type</label><input id="dev-nextType" class="form-input" placeholder="e.g. MOH" /></div>
+          <div class="wcr-field"><label>Tentative Due Date</label><input id="dev-nextDate" class="form-input" placeholder="e.g. Oct 2026" /></div>
+          <div class="wcr-field wcr-field-full"><label>Notes on Parts Renewal for Next Maintenance</label><textarea id="dev-parts" class="form-input" rows="2"></textarea></div>
+        </div>
+      </div>
     </div>
 
     <!-- Scope for Improvement -->
