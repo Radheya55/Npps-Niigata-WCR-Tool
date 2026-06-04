@@ -573,6 +573,56 @@ const App = {
   },
 
 
+
+  MANDAYS_TEMPLATE: [
+    { label:'Onshore standby man days', value:'' },
+    { label:'Travel man days', value:'' },
+    { label:'Total working man days on board', value:'' },
+    { label:'List reasons for Idle days (include rigging and shifting)', value:'' },
+    { label:'Total idle man days on board', value:'' },
+    { label:'List additional chargeable scope', value:'' },
+    { label:'Additional man days for the extra scope', value:'' },
+    { label:'Total mandays for this job', value:'' },
+  ],
+
+  VERB_CHIPS: ['Renewed','Inspected','Calibrated','Found within limits','Not found within limits','Overhauled','Cleaned','Pressure tested','DP Tested','Adjusted'],
+
+  CAT_EMD_MAINT_PARTS: [
+    'Cylinder head assembly',
+    'Valve mechanism and rocker arm and shaft',
+    'Cam follower and push rod',
+    'Liner, piston & connecting rod and bearings',
+    'Crankshaft assembly; crank seal and bearings',
+    'Engine block',
+    'Piston cooling nozzles',
+    'Camshaft and bearings',
+    'FO injection pump assembly and nozzles',
+    'Fuel pump elements',
+    'Fuel pump rack',
+    'Fuel Pump camshaft and bushes',
+    'Governor drive and coupling',
+    'Actuator and its linkages',
+    'Fuel oil transfer pump',
+    'Water pump',
+    'LO pump and pre lube oil pump',
+    'LO pump strainer',
+    'HMSO assembly',
+    'LO cooler assembly',
+    'Aftercooler assembly',
+    'Turbo cartridge',
+    'Thermostat elements and gaskets',
+    'Front end gear train: gears and bushes',
+    'Rear end gear train: gears and bushes',
+    'Vibration damper',
+    'Flywheel ring gear teeth and starter',
+    'Breather assembly',
+    'All seals and gaskets',
+    'All LO and FO lines',
+    'All filters',
+    'Instrumentation and safety cut outs',
+    'Gauge panel',
+  ],
+
   CAT_EMD_SCOPE_TEMPLATE: [
     { type:'heading', text:'Cylinder Head' },
     { type:'item', sr:'1', contents:'Inspect / renew cylinder heads', included:'' },
@@ -1081,6 +1131,16 @@ const App = {
       html += section("history", "History", hHtml);
     }
 
+    // Mandays (CAT/EMD)
+    const isCatEmdRp = (p.EngineType === 'cat' || p.EngineType === 'emd');
+    if (isCatEmdRp && w.mandaysActive && w.mandaysRows?.length) {
+      let mdHtml = '<table class="rp-table"><tr><th colspan="2" style="text-align:center;font-weight:700">Mandays</th></tr>';
+      w.mandaysRows.forEach(r => {
+        mdHtml += `<tr><td class="rp-lc">${r.label}</td><td>${r.value && r.value.trim() ? r.value : 'NA'}</td></tr>`;
+      });
+      mdHtml += '<tr><td colspan="2" style="font-size:8pt;font-style:italic;color:var(--white-dim)">Note: All days to be on calendar day basis</td></tr></table>';
+      html += section("mandays", "Mandays", mdHtml);
+    }
     // Scope of Work
     if (w.scopeActive) {
       const engineType = p.EngineType || 'niigata';
@@ -1113,6 +1173,23 @@ const App = {
     }
 
     // Maintenance Summary
+    if (isCatEmdRp) {
+      let cmHtml = '';
+      if (w.catEmdMaintSummary?.length) {
+        cmHtml = `<table class="rp-table"><thead><tr><th style="width:22%">Parts Description</th><th>Brief Description</th><th style="width:8%;text-align:center">Replaced</th><th style="width:8%;text-align:center">Reused</th></tr></thead><tbody>`;
+        w.catEmdMaintSummary.forEach(row => {
+          const sentence = row.verbs?.length > 0
+            ? `${row.part} was ${row.verbs.slice(0,-1).join(', ')}${row.verbs.length > 1 ? ' and ' : ''}${row.verbs[row.verbs.length-1]}.`
+            : 'NA';
+          cmHtml += `<tr><td>${row.part}</td><td>${sentence}</td><td style="text-align:center">${row.replaced ? '✓' : ''}</td><td style="text-align:center">${row.reused ? '✓' : ''}</td></tr>`;
+        });
+        cmHtml += `</tbody></table>`;
+        if (w.catEmdRemarks) {
+          cmHtml += `<div style="margin-top:10px;padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-weight:600;margin-bottom:4px;font-size:9pt">Additional Remarks / Non-Conformities:</div><div style="white-space:pre-line;font-size:9pt">${w.catEmdRemarks}</div></div>`;
+        }
+      }
+      html += section("maint", "Maintenance Summary", cmHtml);
+    } else {
     let mHtml = (w.maintItems||[]).map(item =>
       item.type === "heading" ? `<h3 class="rp-maint-h">${item.text}</h3>` : `<div class="rp-bullet"><span>•</span><span>${item.text}</span></div>`
     ).join("");
@@ -1122,6 +1199,7 @@ const App = {
       mHtml += `<div style="margin-top:10px;padding:8px;border-left:3px solid var(--amber);background:rgba(232,160,32,0.07)"><div style="font-size:9px;color:var(--amber);font-weight:700;margin-bottom:6px;text-transform:uppercase">Points from DWR</div>${keptDWRPts.map(p=>`<div class="rp-bullet"><span style="color:var(--amber)">▸</span><span>${p.text}</span></div>`).join("")}</div>`;
     }
     html += section("maint", "Maintenance Summary", mHtml);
+    } // end else (Niigata maint)
 
     // Scope for Improvement
     let sfiHtml = `<table class="rp-table"><tr><th style="width:4%">No.</th><th>Area</th><th>Observations</th><th>Recommendations</th></tr>
@@ -1792,6 +1870,10 @@ const App = {
         scopeActive: false,
         scopeOfWork: [{ original:"", done:"" }],
         catEmdScope: [],
+        mandaysActive: false,
+        mandaysRows: [],
+        catEmdMaintSummary: [],
+        catEmdRemarks: "",
         deviationsActive: false,
         deviations: { nextMaintType:"", nextMaintDate:"", partsRenewal:"" },
         maintItems,
@@ -1866,6 +1948,8 @@ const App = {
     const img = document.getElementById("wcr-cover-image");
     if (p.VesselImageBase64) { img.src = p.VesselImageBase64; img.classList.remove("hidden"); } else { img.classList.add("hidden"); }
 
+    // Mandays toggle (CAT/EMD only)
+    App.renderMandaysSection();
     // History toggle
     App.renderHistorySection();
     // Scope of Work toggle
@@ -2008,6 +2092,174 @@ const App = {
     else App.updateHistoryRowValue(i, val);
   },
 
+
+  // ── Mandays (CAT/EMD only, optional) ─────────────────
+  toggleMandays() {
+    State.currentDraft.wcr.mandaysActive = !State.currentDraft.wcr.mandaysActive;
+    App.renderMandaysSection();
+  },
+
+  renderMandaysSection() {
+    const w = State.currentDraft.wcr;
+    const engineType = State.currentDraft.projectData?.EngineType || 'niigata';
+    const isCatEmd = (engineType === 'cat' || engineType === 'emd');
+    const toggleBtn = document.getElementById("mandays-toggle-btn");
+    const body = document.getElementById("mandays-body");
+    if (!toggleBtn || !body) return;
+    if (!isCatEmd) { toggleBtn.closest('.wcr-section').classList.add('hidden'); return; }
+    toggleBtn.closest('.wcr-section').classList.remove('hidden');
+    toggleBtn.textContent = w.mandaysActive ? "— Remove Mandays Section" : "+ Add Mandays Section";
+    body.classList.toggle("hidden", !w.mandaysActive);
+    if (!w.mandaysActive) return;
+    if (!w.mandaysRows || w.mandaysRows.length === 0) {
+      w.mandaysRows = App.MANDAYS_TEMPLATE.map(r => ({...r}));
+    }
+    App.renderMandaysRows();
+  },
+
+  renderMandaysRows() {
+    const rows = State.currentDraft.wcr.mandaysRows;
+    const body = document.getElementById("mandays-body");
+    body.innerHTML = `
+      <div class="history-table">
+        <div class="history-row" style="background:var(--navy-light)">
+          <div class="history-label" style="font-weight:700;color:var(--amber);text-align:center;justify-content:center">Mandays</div>
+          <div style="padding:8px;font-size:10px;color:var(--amber-dim);font-style:italic;display:flex;align-items:center">Note: All days to be on calendar day basis</div>
+          <div style="width:36px"></div>
+        </div>
+        ${rows.map((r, i) => `
+        <div class="history-row">
+          <div class="history-label">${r.label}</div>
+          <textarea class="history-value form-input" placeholder="Enter value (leave blank for NA)" oninput="App.updateMandaysRow(${i},this.value)">${r.value||''}</textarea>
+          <button class="row-del-btn history-del" onclick="App.deleteMandaysRow(${i})">✕</button>
+        </div>`).join('')}
+      </div>
+      <div class="history-footer">
+        <button class="add-row-btn" onclick="App.addMandaysRow()">+ Add Row</button>
+        <button class="btn-save-history" onclick="App.saveMandaysSection()">💾 Save Mandays</button>
+      </div>`;
+  },
+
+  updateMandaysRow(i, val) { State.currentDraft.wcr.mandaysRows[i].value = val; },
+  deleteMandaysRow(i) { State.currentDraft.wcr.mandaysRows.splice(i,1); App.renderMandaysRows(); },
+  addMandaysRow() {
+    State.currentDraft.wcr.mandaysRows.push({ label:'New Field', value:'' });
+    App.renderMandaysRows();
+  },
+  saveMandaysSection() {
+    State.currentDraft.updatedAt = new Date().toISOString();
+    Toast.show("Mandays saved.", "success");
+  },
+
+  // ── CAT/EMD Maintenance Summary ───────────────────────
+  initCatEmdMaint() {
+    const w = State.currentDraft.wcr;
+    if (!w.catEmdMaintSummary || w.catEmdMaintSummary.length === 0) {
+      w.catEmdMaintSummary = App.CAT_EMD_MAINT_PARTS.map(part => ({
+        part, verbs: [], replaced: false, reused: false
+      }));
+    }
+  },
+
+  renderCatEmdMaintSummary() {
+    App.initCatEmdMaint();
+    const w = State.currentDraft.wcr;
+    const container = document.getElementById("maint-items");
+    const VERBS = App.VERB_CHIPS;
+
+    let html = `<div class="cat-maint-wrap">
+      <table class="cat-maint-table">
+        <thead>
+          <tr>
+            <th style="width:22%">Parts Description</th>
+            <th>Brief Description</th>
+            <th style="width:8%;text-align:center">Replaced</th>
+            <th style="width:8%;text-align:center">Reused</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+    w.catEmdMaintSummary.forEach((row, i) => {
+      const sentence = row.verbs.length > 0
+        ? `${row.part} was ${row.verbs.slice(0,-1).join(', ')}${row.verbs.length > 1 ? ' and ' : ''}${row.verbs[row.verbs.length-1]}.`
+        : '';
+      html += `<tr class="cat-maint-row">
+        <td class="cat-maint-part">${row.part}</td>
+        <td class="cat-maint-brief">
+          <div class="verb-chips">
+            ${VERBS.map(v => `<button class="verb-chip ${row.verbs.includes(v) ? 'active' : ''}" onclick="App.toggleVerb(${i},'${v}')">${v}</button>`).join('')}
+          </div>
+          <div class="verb-sentence">${sentence || '<span style="color:var(--white-dim);font-style:italic;font-size:10px">Select verbs above to build description</span>'}</div>
+        </td>
+        <td style="text-align:center;vertical-align:middle">
+          <input type="checkbox" class="maint-checkbox" ${row.replaced ? 'checked' : ''} onchange="App.setMaintStatus(${i},'replaced',this.checked)" />
+        </td>
+        <td style="text-align:center;vertical-align:middle">
+          <input type="checkbox" class="maint-checkbox" ${row.reused ? 'checked' : ''} onchange="App.setMaintStatus(${i},'reused',this.checked)" />
+        </td>
+      </tr>`;
+    });
+
+    html += `</tbody></table>
+    <div class="cat-maint-remarks">
+      <label class="form-label" style="margin-bottom:6px;display:block">Additional Remarks on any other Non-Conformities / observations:</label>
+      <div class="remarks-bullets" id="cat-remarks-list"></div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="add-row-btn" onclick="App.addRemark()">+ Add Bullet Point</button>
+        <button class="btn-save-history" onclick="App.saveCatMaint()">💾 Save Summary</button>
+      </div>
+    </div>
+    </div>`;
+
+    container.innerHTML = html;
+    App.renderRemarks();
+
+    // Hide the standard maint add bar for CAT/EMD
+    const addBar = document.querySelector('.maint-add-bar');
+    if (addBar) addBar.style.display = 'none';
+  },
+
+  toggleVerb(i, verb) {
+    const row = State.currentDraft.wcr.catEmdMaintSummary[i];
+    const idx = row.verbs.indexOf(verb);
+    if (idx >= 0) row.verbs.splice(idx, 1);
+    else row.verbs.push(verb);
+    App.renderCatEmdMaintSummary();
+  },
+
+  setMaintStatus(i, field, val) {
+    const row = State.currentDraft.wcr.catEmdMaintSummary[i];
+    // Mutually exclusive
+    if (field === 'replaced' && val) row.reused = false;
+    if (field === 'reused' && val) row.replaced = false;
+    row[field] = val;
+    App.renderCatEmdMaintSummary();
+  },
+
+  addRemark() {
+    if (!State.currentDraft.wcr.catEmdRemarks) State.currentDraft.wcr.catEmdRemarks = '';
+    State.currentDraft.wcr.catEmdRemarks += (State.currentDraft.wcr.catEmdRemarks ? '\n' : '') + '• ';
+    App.renderRemarks();
+    // Focus last textarea
+    setTimeout(() => {
+      const ta = document.getElementById('cat-remarks-ta');
+      if (ta) { ta.focus(); ta.selectionStart = ta.selectionEnd = ta.value.length; }
+    }, 50);
+  },
+
+  renderRemarks() {
+    const list = document.getElementById('cat-remarks-list');
+    if (!list) return;
+    list.innerHTML = `<textarea id="cat-remarks-ta" class="form-input" rows="5" style="width:100%;resize:vertical"
+      placeholder="Add additional remarks here..." oninput="App.updateRemarks(this.value)">${State.currentDraft.wcr.catEmdRemarks||''}</textarea>`;
+  },
+
+  updateRemarks(val) { State.currentDraft.wcr.catEmdRemarks = val; },
+  saveCatMaint() {
+    State.currentDraft.updatedAt = new Date().toISOString();
+    Toast.show("Maintenance Summary saved.", "success");
+  },
+
   // ── Scope of Work ──
   toggleScope() { State.currentDraft.wcr.scopeActive = !State.currentDraft.wcr.scopeActive; App.renderScopeSection(); },
 
@@ -2123,6 +2375,9 @@ const App = {
 
   // ── Maintenance Summary ──
   renderMaintSummary() {
+    const engineType = State.currentDraft.projectData?.EngineType || 'niigata';
+    const isCatEmd = (engineType === 'cat' || engineType === 'emd');
+    if (isCatEmd) { App.renderCatEmdMaintSummary(); return; }
     const items = State.currentDraft.wcr.maintItems;
     const container = document.getElementById("maint-items");
     container.innerHTML = items.map((item, i) => {
@@ -2148,6 +2403,10 @@ const App = {
     }).join("");
   },
 
+  _restoreMaintAddBar() {
+    const addBar = document.querySelector('.maint-add-bar');
+    if (addBar) addBar.style.display = '';
+  },
   updateMaintItem(id, field, val) { const item = State.currentDraft.wcr.maintItems.find(m => m.id === id); if (item) item[field] = val; },
 
   renderDWRPoints() {
@@ -2545,6 +2804,25 @@ const App = {
       body += `</table>`;
     }
 
+    // Mandays (CAT/EMD)
+    const isCatEmdRp = (p.EngineType === 'cat' || p.EngineType === 'emd');
+    if (isCatEmdRp && w.mandaysActive && w.mandaysRows?.length) {
+      let mdHtml = '<table class="rp-table"><tr><th colspan="2" style="text-align:center;font-weight:700">Mandays</th></tr>';
+      w.mandaysRows.forEach(r => {
+        mdHtml += `<tr><td class="rp-lc">${r.label}</td><td>${r.value && r.value.trim() ? r.value : 'NA'}</td></tr>`;
+      });
+      mdHtml += '<tr><td colspan="2" style="font-size:8pt;font-style:italic;color:var(--white-dim)">Note: All days to be on calendar day basis</td></tr></table>';
+      html += section("mandays", "Mandays", mdHtml);
+    }
+    // Mandays (CAT/EMD)
+    const isCatEmdPdf = (p.EngineType === 'cat' || p.EngineType === 'emd');
+    if (isCatEmdPdf && w.mandaysActive && w.mandaysRows?.length) {
+      body += `<h2>Mandays</h2><table><tr><th colspan="2" style="text-align:center">Mandays</th></tr>`;
+      w.mandaysRows.forEach(r => {
+        body += `<tr><td class="lc">${r.label}</td><td>${r.value && r.value.trim() ? r.value : 'NA'}</td></tr>`;
+      });
+      body += `<tr><td colspan="2" style="font-size:7.5pt;font-style:italic">Note: All days to be on calendar day basis</td></tr></table>`;
+    }
     // Scope of Work
     if (w.scopeActive) {
       const et = p.EngineType || 'niigata';
@@ -2577,12 +2855,26 @@ const App = {
 
     // Maintenance Summary
     body += `<h2>Maintenance Summary</h2>`;
-    let inUL = false;
-    (w.maintItems||[]).forEach(item => {
-      if (item.type === "heading") { if (inUL) { body += `</ul>`; inUL = false; } body += `<h3>${item.text}</h3>`; }
-      else { if (!inUL) { body += `<ul>`; inUL = true; } body += `<li>${item.text}</li>`; }
-    });
-    if (inUL) body += `</ul>`;
+    if (isCatEmdPdf && w.catEmdMaintSummary?.length) {
+      body += `<table><thead><tr><th style="width:22%">Parts Description</th><th>Brief Description</th><th style="width:8%;text-align:center">Replaced</th><th style="width:8%;text-align:center">Reused</th></tr></thead><tbody>`;
+      w.catEmdMaintSummary.forEach(row => {
+        const sentence = row.verbs?.length > 0
+          ? `${row.part} was ${row.verbs.slice(0,-1).join(', ')}${row.verbs.length > 1 ? ' and ' : ''}${row.verbs[row.verbs.length-1]}.`
+          : 'NA';
+        body += `<tr><td>${row.part}</td><td>${sentence}</td><td style="text-align:center">${row.replaced ? '✓' : ''}</td><td style="text-align:center">${row.reused ? '✓' : ''}</td></tr>`;
+      });
+      body += `</tbody></table>`;
+      if (w.catEmdRemarks) {
+        body += `<h3 style="margin-top:10px">Additional Remarks / Non-Conformities</h3><p style="white-space:pre-line;font-size:9pt">${w.catEmdRemarks}</p>`;
+      }
+    } else {
+      let inUL = false;
+      (w.maintItems||[]).forEach(item => {
+        if (item.type === "heading") { if (inUL) { body += `</ul>`; inUL = false; } body += `<h3>${item.text}</h3>`; }
+        else { if (!inUL) { body += `<ul>`; inUL = true; } body += `<li>${item.text}</li>`; }
+      });
+      if (inUL) body += `</ul>`;
+    }
 
     // Scope for Improvement
     body += `<h2>Scope for Improvement</h2><table><tr><th>No.</th><th>Area</th><th>Observations</th><th>Recommendations</th></tr>`;
@@ -2709,6 +3001,16 @@ const App = {
       </div>`;
     }
 
+    // Mandays (CAT/EMD)
+    const isCatEmdRp = (p.EngineType === 'cat' || p.EngineType === 'emd');
+    if (isCatEmdRp && w.mandaysActive && w.mandaysRows?.length) {
+      let mdHtml = '<table class="rp-table"><tr><th colspan="2" style="text-align:center;font-weight:700">Mandays</th></tr>';
+      w.mandaysRows.forEach(r => {
+        mdHtml += `<tr><td class="rp-lc">${r.label}</td><td>${r.value && r.value.trim() ? r.value : 'NA'}</td></tr>`;
+      });
+      mdHtml += '<tr><td colspan="2" style="font-size:8pt;font-style:italic;color:var(--white-dim)">Note: All days to be on calendar day basis</td></tr></table>';
+      html += section("mandays", "Mandays", mdHtml);
+    }
     // Scope of Work
     if (w.scopeActive) {
       const etSf = p.EngineType || 'niigata';
