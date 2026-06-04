@@ -24,7 +24,7 @@
     </div>
     <div class="home-hero">
       <h1 class="hero-title">Work Completion<br /><em>Report Builder</em></h1>
-      <p class="hero-sub">Making WCRs just got easier...</p>
+      <p class="hero-sub">Making WCRs just got easier</p>
     </div>
     <div class="home-actions">
       <button class="btn-primary" onclick="App.goToLogin('wcr')">
@@ -256,6 +256,15 @@
         </div>
         <p class="cover-note">↑ To update, go to Add Base Data screen.</p>
       </div>
+    </div>
+
+    <!-- Mandays (CAT/EMD only, collapsible) -->
+    <div class="wcr-section hidden" id="mandays-section">
+      <div class="wcr-section-toggle-row">
+        <div class="wcr-section-label">Mandays</div>
+        <button class="toggle-section-btn" id="mandays-toggle-btn" onclick="App.toggleMandays()">+ Add Mandays Section</button>
+      </div>
+      <div id="mandays-body" class="hidden"></div>
     </div>
 
     <!-- History (collapsible) -->
