@@ -1417,3 +1417,136 @@ html, body {
   flex: 1; padding: 4px 8px; font-size: 10px; border-radius: 20px;
   border-color: rgba(255,255,255,0.1);
 }
+
+/* ── Scope Yes/No/NA buttons ────────────────────────────── */
+.scope-yesno-btns { display: flex; gap: 3px; justify-content: center; }
+.scope-yn-btn {
+  padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--border); background: var(--navy-mid); color: var(--white-dim);
+  transition: all 0.15s;
+}
+.scope-yn-btn:hover { opacity: 0.85; }
+.yn-yes { background: #1a5c2a; color: #7ef59a; border-color: #2d8c44; }
+.yn-no  { background: #5c1a1a; color: #f59a9a; border-color: #8c2d2d; }
+.yn-na  { background: var(--navy-light); color: var(--amber-dim); border-color: var(--amber-dim); }
+.scope-action-btn {
+  font-size: 9px; padding: 2px 7px; border-radius: 5px; cursor: pointer;
+  background: var(--navy-light); border: 1px solid var(--border); color: var(--amber-dim);
+  margin-right: 3px;
+}
+.scope-action-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+/* ── Bright Maintenance Summary ─────────────────────────── */
+.cat-maint-wrap.maint-bright {
+  background: #f0f4ff;
+  border-radius: 10px;
+  padding: 0 0 16px 0;
+  border: 1px solid #c8d4ef;
+}
+.maint-bright-header {
+  background: linear-gradient(135deg, #1a3a6b, #2a5298);
+  color: #fff; padding: 14px 18px; border-radius: 10px 10px 0 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.maint-bright-title {
+  font-size: 14px; font-weight: 700; letter-spacing: 1px;
+}
+.maint-bright-sub {
+  font-size: 10px; color: rgba(255,255,255,0.7);
+}
+.maint-bright-table {
+  background: #fff; margin: 0; font-size: 11px;
+}
+.maint-bright-table th {
+  background: #e8eef8; color: #1a3a6b; border: 1px solid #c8d4ef;
+  padding: 8px 10px; font-size: 10.5px;
+}
+.maint-bright-table .cat-maint-row td {
+  background: #fff; border: 1px solid #dde6f5; vertical-align: top;
+}
+.maint-bright-table .cat-maint-row:nth-child(even) td { background: #f7f9ff; }
+.maint-bright-table .cat-maint-row:hover td { background: #eef2fc; }
+
+.maint-part-label { font-size: 11px; color: #1a2a4a; font-weight: 500; line-height: 1.4; }
+.maint-part-input {
+  width: 100%; border: 1px solid #c8d4ef; border-radius: 5px;
+  padding: 4px 7px; font-size: 11px; color: #1a2a4a; background: #f7f9ff;
+}
+
+/* Verb chips — bright theme */
+.maint-bright .verb-chips { gap: 4px; }
+.maint-bright .verb-chip {
+  background: linear-gradient(145deg, #e8f0ff, #dce6ff);
+  color: #2a5298; border: 1px solid #b0c4ef;
+  box-shadow: 0 2px 3px rgba(42,82,152,0.15), inset 0 1px 0 rgba(255,255,255,0.8);
+}
+.maint-bright .verb-chip:hover {
+  background: linear-gradient(145deg, #d0e0ff, #c0d0f8);
+  border-color: #2a5298; transform: translateY(-1px);
+  box-shadow: 0 3px 5px rgba(42,82,152,0.2), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+.maint-bright .verb-chip.active {
+  background: linear-gradient(145deg, #2a5298, #1a3a6b);
+  color: #fff; border-color: #1a3a6b;
+  box-shadow: 0 2px 4px rgba(26,58,107,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+
+.custom-verb-row { display: flex; gap: 5px; margin-top: 5px; align-items: center; }
+.maint-custom-verb-input {
+  flex: 1; padding: 4px 8px; font-size: 10px; border-radius: 20px;
+  border: 1px solid #b0c4ef; background: #f0f4ff; color: #1a2a4a;
+}
+.maint-add-verb-btn {
+  padding: 3px 10px; border-radius: 20px; font-size: 10px; cursor: pointer;
+  background: #2a5298; color: #fff; border: none;
+}
+.maint-add-verb-btn:hover { background: #1a3a6b; }
+
+.verb-sentence-bright {
+  margin-top: 6px; font-size: 10.5px; color: #1a3a6b; font-weight: 500;
+  line-height: 1.5; min-height: 18px; padding: 4px 6px;
+  background: #eef2fc; border-radius: 5px; border-left: 3px solid #2a5298;
+}
+.verb-placeholder { color: #8a9abf; font-style: italic; font-size: 10px; }
+
+.maint-check-cell { text-align: center; vertical-align: middle; padding: 4px !important; }
+.maint-radio-label {
+  display: inline-block; padding: 5px 10px; border-radius: 20px; font-size: 10px;
+  font-weight: 600; cursor: pointer; border: 1px solid #c8d4ef;
+  background: #f0f4ff; color: #6a80aa; transition: all 0.15s; white-space: nowrap;
+}
+.maint-radio-label:hover { border-color: #2a5298; color: #2a5298; }
+.checked-replaced { background: #1a5c2a; color: #fff; border-color: #1a5c2a; }
+.checked-reused { background: #2a5298; color: #fff; border-color: #2a5298; }
+
+.maint-del-cell { text-align: center; vertical-align: middle; padding: 4px !important; }
+.maint-del-btn {
+  background: none; border: 1px solid #f0c0c0; color: #c05050;
+  border-radius: 4px; padding: 3px 7px; font-size: 11px; cursor: pointer;
+}
+.maint-del-btn:hover { background: #fee; }
+
+.maint-add-row-btn {
+  padding: 6px 14px; border-radius: 7px; font-size: 11px; cursor: pointer;
+  background: #fff; border: 1px dashed #2a5298; color: #2a5298; font-weight: 600;
+}
+.maint-add-row-btn:hover { background: #e8f0ff; }
+
+.maint-save-btn {
+  padding: 8px 20px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+  background: linear-gradient(135deg, #2a5298, #1a3a6b);
+  color: #fff; border: none;
+  box-shadow: 0 3px 8px rgba(42,82,152,0.3);
+}
+.maint-save-btn:hover { background: linear-gradient(135deg, #1a3a6b, #0d2040); }
+
+.maint-bright-remarks {
+  margin: 14px 16px 0;
+  background: #fff; border-radius: 8px;
+  border: 1px solid #c8d4ef; padding: 12px;
+}
+
+.maint-bright .remark-bullet-row .remark-bullet-dot { color: #2a5298; }
+.maint-bright .remark-bullet-input {
+  border-color: #b0c4ef; background: #f7f9ff; color: #1a2a4a;
+}
