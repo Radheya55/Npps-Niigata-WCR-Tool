@@ -834,7 +834,10 @@ const App = {
   },
 
   async proceedAfterAuth() {
-    await App.ensureBaseSheet();
+    // HOD doesn't need base sheet — skip it and go straight to queue
+    if (State.pendingFlow !== "hod") {
+      await App.ensureBaseSheet();
+    }
     if (State.pendingFlow === "hod") {
       await App.loadHODQueue();
       App.renderHODDashboard();
@@ -2031,6 +2034,8 @@ const App = {
     App.renderPartsSection();
     // Photos
     App.renderPhotos();
+    // DWR Points (shown for all engine types)
+    App.renderDWRPoints();
     // Signoff
     const so = w.signoff;
     ["maker","checker","approver","makerdate","custname","custdate"].forEach(k => { const el = document.getElementById(`so-${k}`); if (el) el.value = so[k === "maker" ? "makerName" : k === "checker" ? "checkerName" : k === "approver" ? "approverName" : k === "makerdate" ? "makerDate" : k === "custname" ? "customerName" : "customerDate"] || ""; });
@@ -2860,6 +2865,7 @@ const App = {
     }
     p.rows = rows;
     App.renderPartsTable();
+    App.saveDrafts(); // auto-save when parts table is built
   },
 
   renderPartsTable() {
@@ -2893,6 +2899,7 @@ const App = {
       reader.onload = e => {
         State.currentDraft.wcr.photos.push({ src:e.target.result, title:"", description:"", fromDWR:false });
         App.renderPhotos();
+        App.saveDrafts(); // auto-save when photos added
       };
       reader.readAsDataURL(file);
     });
@@ -3267,6 +3274,14 @@ const App = {
       ${w.maintItems.map(item => item.type === "heading" ? `<h3 class="sf-maint-heading" contenteditable="true">${item.text}</h3>` : `<div class="sf-bullet"><span>•</span><span contenteditable="true">${item.text}</span></div>`).join("")}
     </div>`;
 
+    // DWR Points in semi-final
+    const keptDWRSF = (w.dwrPoints||[]).filter(p=>p.keep);
+    if (keptDWRSF.length) {
+      html += `<div class="sf-section"><h2 class="sf-heading" style="color:var(--amber)">▸ Points from DWR</h2>
+        <p style="font-size:9.5pt;color:var(--amber-dim);margin-bottom:8px">Review and copy relevant points into the Maintenance Summary above.</p>
+        ${keptDWRSF.map(p=>`<div class="sf-bullet"><span style="color:var(--amber)">▸</span><span contenteditable="true">${p.text}</span></div>`).join('')}
+      </div>`;
+    }
     // Scope for Improvement
     html += `<div class="sf-section"><h2 class="sf-heading">Scope for Improvement</h2>
       <table class="sf-table"><thead><tr><th>Sr. No.</th><th>Area</th><th>Observations</th><th>Recommendations</th></tr></thead><tbody>
