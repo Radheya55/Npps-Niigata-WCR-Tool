@@ -222,6 +222,7 @@
     <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">WCR — <span id="wcr-project-code"></span></span></div>
     <div class="app-header-right">
       <span class="wcr-customer-pill" id="wcr-customer"></span>
+      <button class="btn-undo-wcr" onclick="Undo.last()" title="Undo last action">↩ Undo</button>
       <button class="btn-save-wcr" onclick="App.saveWCRSection()">💾 Save Draft</button>
       <button class="btn-save-wcr" style="background:var(--green);color:#fff" onclick="App.openSemiFinalise()">📋 Preview & Finalise</button>
       <button class="logout-btn" onclick="App.backToDashboard()">← Dashboard</button>
@@ -415,6 +416,7 @@
     </div>
 
     <div class="wcr-bottom-actions">
+      <button class="btn-undo-wcr" onclick="Undo.last()" title="Undo">↩ Undo</button>
       <button class="btn-save-wcr-large" onclick="App.saveWCRSection()">💾 Save Draft</button>
       <button class="btn-save-wcr-large" style="background:var(--green)" onclick="App.openSemiFinalise()">📋 Preview & Finalise →</button>
       <button class="btn-back-dash" onclick="App.backToDashboard()">← Dashboard</button>
