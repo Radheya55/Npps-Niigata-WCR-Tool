@@ -1131,17 +1131,8 @@ const App = {
       html += section("history", "History", hHtml);
     }
 
-    // Mandays (CAT/EMD)
+    // Scope of Work — mandays will come after
     const isCatEmdRp = (p.EngineType === 'cat' || p.EngineType === 'emd');
-    if (isCatEmdRp && w.mandaysActive && w.mandaysRows?.length) {
-      let mdHtml = '<table class="rp-table"><tr><th colspan="2" style="text-align:center;font-weight:700">Mandays</th></tr>';
-      w.mandaysRows.forEach(r => {
-        mdHtml += `<tr><td class="rp-lc">${r.label}</td><td>${r.value && r.value.trim() ? r.value : 'NA'}</td></tr>`;
-      });
-      mdHtml += '<tr><td colspan="2" style="font-size:8pt;font-style:italic;color:var(--white-dim)">Note: All days to be on calendar day basis</td></tr></table>';
-      html += section("mandays", "Mandays", mdHtml);
-    }
-    // Scope of Work
     if (w.scopeActive) {
       const engineType = p.EngineType || 'niigata';
       const isCatEmd = (engineType === 'cat' || engineType === 'emd');
@@ -1172,6 +1163,15 @@ const App = {
       html += section("deviations", "Deviations & Reference Notes", dvHtml);
     }
 
+    // Mandays (CAT/EMD — after scope, before maint)
+    if (isCatEmdRp && w.mandaysActive && w.mandaysRows?.length) {
+      let mdHtml = '<table class="rp-table"><tr><th colspan="2" style="text-align:center;font-weight:700">Mandays</th></tr>';
+      w.mandaysRows.forEach(r => {
+        mdHtml += `<tr><td class="rp-lc">${r.label}</td><td>${r.value && r.value.trim() ? r.value : 'NA'}</td></tr>`;
+      });
+      mdHtml += '<tr><td colspan="2" style="font-size:8pt;font-style:italic;color:var(--white-dim)">Note: All days to be on calendar day basis</td></tr></table>';
+      html += section("mandays", "Mandays", mdHtml);
+    }
     // Maintenance Summary
     if (isCatEmdRp) {
       let cmHtml = '';
@@ -1184,8 +1184,13 @@ const App = {
           cmHtml += `<tr><td>${row.part}</td><td>${sentence}</td><td style="text-align:center">${row.replaced ? '✓' : ''}</td><td style="text-align:center">${row.reused ? '✓' : ''}</td></tr>`;
         });
         cmHtml += `</tbody></table>`;
-        if (w.catEmdRemarks) {
-          cmHtml += `<div style="margin-top:10px;padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-weight:600;margin-bottom:4px;font-size:9pt">Additional Remarks / Non-Conformities:</div><div style="white-space:pre-line;font-size:9pt">${w.catEmdRemarks}</div></div>`;
+        const bullets = w.catEmdRemarksBullets?.filter(b=>b.trim()) || [];
+        const legacyRemarks = w.catEmdRemarks ? w.catEmdRemarks.trim() : '';
+        if (bullets.length || legacyRemarks) {
+          const remarkContent = bullets.length
+            ? bullets.map(b=>`<div>• ${b}</div>`).join('')
+            : `<div style="white-space:pre-line">${legacyRemarks}</div>`;
+          cmHtml += `<div style="margin-top:10px;padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-weight:600;margin-bottom:4px;font-size:9pt">Additional Remarks / Non-Conformities:</div>${remarkContent}</div>`;
         }
       }
       html += section("maint", "Maintenance Summary", cmHtml);
@@ -1201,6 +1206,13 @@ const App = {
     html += section("maint", "Maintenance Summary", mHtml);
     } // end else (Niigata maint)
 
+    // Deviations (after maint summary)
+    if (w.deviationsActive) {
+      const dv = w.deviations || {};
+      const rows = w.deviationRows || [{label:"Next Maintenance Type & Date", value:`${dv.nextMaintType||"—"} ${dv.nextMaintDate||""}`},{label:"Parts Renewal Required", value:dv.partsRenewal||"—"}];
+      let dvHtml = `<table class="rp-table">${rows.map(r => `<tr><td class="rp-lc">${r.label||"—"}</td><td>${r.value||"—"}</td></tr>`).join("")}</table>`;
+      html += section("deviations", "Deviations & Reference Notes", dvHtml);
+    }
     // Scope for Improvement
     let sfiHtml = `<table class="rp-table"><tr><th style="width:4%">No.</th><th>Area</th><th>Observations</th><th>Recommendations</th></tr>
       ${(w.scopeForImprovement||[]).map((r,i) => `<tr><td>${i+1}</td><td>${r.area||"—"}</td><td>${r.observations||"—"}</td><td>${r.recommendations||"—"}</td></tr>`).join("")}</table>`;
@@ -1948,12 +1960,12 @@ const App = {
     const img = document.getElementById("wcr-cover-image");
     if (p.VesselImageBase64) { img.src = p.VesselImageBase64; img.classList.remove("hidden"); } else { img.classList.add("hidden"); }
 
-    // Mandays toggle (CAT/EMD only)
-    App.renderMandaysSection();
     // History toggle
     App.renderHistorySection();
     // Scope of Work toggle
     App.renderScopeSection();
+    // Mandays toggle (CAT/EMD only — appears after scope)
+    App.renderMandaysSection();
     // Deviations toggle
     App.renderDeviationsSection();
     // Maintenance Summary
@@ -2156,9 +2168,15 @@ const App = {
     const w = State.currentDraft.wcr;
     if (!w.catEmdMaintSummary || w.catEmdMaintSummary.length === 0) {
       w.catEmdMaintSummary = App.CAT_EMD_MAINT_PARTS.map(part => ({
-        part, verbs: [], replaced: false, reused: false
+        part, verbs: [], customVerb: '', replaced: false, reused: false, isCustom: false
       }));
     }
+    // Ensure existing rows have new fields
+    w.catEmdMaintSummary.forEach(row => {
+      if (row.customVerb === undefined) row.customVerb = '';
+      if (row.isCustom === undefined) row.isCustom = false;
+    });
+    if (!w.catEmdRemarksBullets) w.catEmdRemarksBullets = [];
   },
 
   renderCatEmdMaintSummary() {
@@ -2167,29 +2185,28 @@ const App = {
     const container = document.getElementById("maint-items");
     const VERBS = App.VERB_CHIPS;
 
-    let html = `<div class="cat-maint-wrap">
-      <table class="cat-maint-table">
-        <thead>
-          <tr>
-            <th style="width:22%">Parts Description</th>
-            <th>Brief Description</th>
-            <th style="width:8%;text-align:center">Replaced</th>
-            <th style="width:8%;text-align:center">Reused</th>
-          </tr>
-        </thead>
-        <tbody>`;
-
-    w.catEmdMaintSummary.forEach((row, i) => {
-      const sentence = row.verbs.length > 0
-        ? `${row.part} was ${row.verbs.slice(0,-1).join(', ')}${row.verbs.length > 1 ? ' and ' : ''}${row.verbs[row.verbs.length-1]}.`
+    const renderRow = (row, i) => {
+      const allVerbs = row.verbs || [];
+      const sentence = allVerbs.length > 0
+        ? `${row.part} was ${allVerbs.slice(0,-1).join(', ')}${allVerbs.length > 1 ? ' and ' : ''}${allVerbs[allVerbs.length-1]}.`
         : '';
-      html += `<tr class="cat-maint-row">
-        <td class="cat-maint-part">${row.part}</td>
+      const partCell = row.isCustom
+        ? `<input class="form-input" style="font-size:11px;padding:4px 6px" value="${row.part}" oninput="App.updateCatMaintPart(${i},this.value)" placeholder="Part description..." />`
+        : `<span>${row.part}</span>`;
+      return `<tr class="cat-maint-row">
+        <td class="cat-maint-part">${partCell}</td>
         <td class="cat-maint-brief">
+          <div style="font-size:9px;color:var(--white-dim);margin-bottom:4px">Brief Description <span style="color:var(--amber-dim)">(Choose all that you did)</span></div>
           <div class="verb-chips">
-            ${VERBS.map(v => `<button class="verb-chip ${row.verbs.includes(v) ? 'active' : ''}" onclick="App.toggleVerb(${i},'${v}')">${v}</button>`).join('')}
+            ${VERBS.map(v => `<button class="verb-chip ${allVerbs.includes(v) ? 'active' : ''}" onclick="App.toggleVerb(${i},'${v}')">${v}</button>`).join('')}
           </div>
-          <div class="verb-sentence">${sentence || '<span style="color:var(--white-dim);font-style:italic;font-size:10px">Select verbs above to build description</span>'}</div>
+          <div style="display:flex;gap:6px;margin-top:5px;align-items:center">
+            <input class="form-input custom-verb-input" placeholder="Add your own verb..." value="${row.customVerb||''}"
+              oninput="App.updateCustomVerb(${i},this.value)"
+              onkeydown="if(event.key==='Enter'){App.addCustomVerb(${i});event.preventDefault();}" />
+            <button class="add-row-btn" style="white-space:nowrap;font-size:10px" onclick="App.addCustomVerb(${i})">+ Add</button>
+          </div>
+          <div class="verb-sentence" style="margin-top:5px">${sentence || '<span style="color:var(--white-dim);font-style:italic;font-size:10px">Select verbs above to build description</span>'}</div>
         </td>
         <td style="text-align:center;vertical-align:middle">
           <input type="checkbox" class="maint-checkbox" ${row.replaced ? 'checked' : ''} onchange="App.setMaintStatus(${i},'replaced',this.checked)" />
@@ -2197,26 +2214,49 @@ const App = {
         <td style="text-align:center;vertical-align:middle">
           <input type="checkbox" class="maint-checkbox" ${row.reused ? 'checked' : ''} onchange="App.setMaintStatus(${i},'reused',this.checked)" />
         </td>
+        <td style="width:32px;text-align:center;vertical-align:middle">
+          <button class="row-del-btn" onclick="App.deleteCatMaintRow(${i})">✕</button>
+        </td>
       </tr>`;
-    });
+    };
 
-    html += `</tbody></table>
-    <div class="cat-maint-remarks">
-      <label class="form-label" style="margin-bottom:6px;display:block">Additional Remarks on any other Non-Conformities / observations:</label>
-      <div class="remarks-bullets" id="cat-remarks-list"></div>
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <button class="add-row-btn" onclick="App.addRemark()">+ Add Bullet Point</button>
-        <button class="btn-save-history" onclick="App.saveCatMaint()">💾 Save Summary</button>
+    let html = `<div class="cat-maint-wrap">
+      <table class="cat-maint-table">
+        <thead>
+          <tr>
+            <th style="width:20%">Parts Description</th>
+            <th>Brief Description <span style="font-weight:400;color:var(--amber-dim)">(Choose all that you did)</span></th>
+            <th style="width:7%;text-align:center">Replaced</th>
+            <th style="width:7%;text-align:center">Reused</th>
+            <th style="width:32px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${w.catEmdMaintSummary.map((row, i) => renderRow(row, i)).join('')}
+        </tbody>
+      </table>
+      <div style="margin-top:8px">
+        <button class="add-row-btn" onclick="App.addCatMaintRow()">+ Add Row</button>
       </div>
-    </div>
+      <div class="cat-maint-remarks">
+        <label class="form-label" style="margin-bottom:8px;display:block">Additional Remarks on any other Non-Conformities / observations:</label>
+        <div id="cat-remarks-list"></div>
+        <button class="add-row-btn" style="margin-top:6px" onclick="App.addRemarkBullet()">+ Add Bullet Point</button>
+        <div style="margin-top:8px">
+          <button class="btn-save-history" onclick="App.saveCatMaint()">💾 Save Summary</button>
+        </div>
+      </div>
     </div>`;
 
     container.innerHTML = html;
-    App.renderRemarks();
+    App.renderRemarkBullets();
 
-    // Hide the standard maint add bar for CAT/EMD
     const addBar = document.querySelector('.maint-add-bar');
     if (addBar) addBar.style.display = 'none';
+  },
+
+  updateCatMaintPart(i, val) {
+    State.currentDraft.wcr.catEmdMaintSummary[i].part = val;
   },
 
   toggleVerb(i, verb) {
@@ -2227,34 +2267,83 @@ const App = {
     App.renderCatEmdMaintSummary();
   },
 
+  updateCustomVerb(i, val) {
+    State.currentDraft.wcr.catEmdMaintSummary[i].customVerb = val;
+  },
+
+  addCustomVerb(i) {
+    const row = State.currentDraft.wcr.catEmdMaintSummary[i];
+    const verb = (row.customVerb || '').trim();
+    if (!verb) return;
+    if (!row.verbs.includes(verb)) row.verbs.push(verb);
+    row.customVerb = '';
+    App.renderCatEmdMaintSummary();
+  },
+
+  addCatMaintRow() {
+    State.currentDraft.wcr.catEmdMaintSummary.push({
+      part: 'New Part', verbs: [], customVerb: '', replaced: false, reused: false, isCustom: true
+    });
+    App.renderCatEmdMaintSummary();
+  },
+
+  deleteCatMaintRow(i) {
+    State.currentDraft.wcr.catEmdMaintSummary.splice(i, 1);
+    App.renderCatEmdMaintSummary();
+  },
+
   setMaintStatus(i, field, val) {
     const row = State.currentDraft.wcr.catEmdMaintSummary[i];
-    // Mutually exclusive
     if (field === 'replaced' && val) row.reused = false;
     if (field === 'reused' && val) row.replaced = false;
     row[field] = val;
     App.renderCatEmdMaintSummary();
   },
 
-  addRemark() {
-    if (!State.currentDraft.wcr.catEmdRemarks) State.currentDraft.wcr.catEmdRemarks = '';
-    State.currentDraft.wcr.catEmdRemarks += (State.currentDraft.wcr.catEmdRemarks ? '\n' : '') + '• ';
-    App.renderRemarks();
-    // Focus last textarea
+  // Remarks as individual bullet inputs
+  addRemarkBullet() {
+    if (!State.currentDraft.wcr.catEmdRemarksBullets) State.currentDraft.wcr.catEmdRemarksBullets = [];
+    State.currentDraft.wcr.catEmdRemarksBullets.push('');
+    App.renderRemarkBullets();
     setTimeout(() => {
-      const ta = document.getElementById('cat-remarks-ta');
-      if (ta) { ta.focus(); ta.selectionStart = ta.selectionEnd = ta.value.length; }
+      const inputs = document.querySelectorAll('.remark-bullet-input');
+      if (inputs.length) inputs[inputs.length-1].focus();
     }, 50);
   },
 
-  renderRemarks() {
+  renderRemarkBullets() {
     const list = document.getElementById('cat-remarks-list');
     if (!list) return;
-    list.innerHTML = `<textarea id="cat-remarks-ta" class="form-input" rows="5" style="width:100%;resize:vertical"
-      placeholder="Add additional remarks here..." oninput="App.updateRemarks(this.value)">${State.currentDraft.wcr.catEmdRemarks||''}</textarea>`;
+    const bullets = State.currentDraft.wcr.catEmdRemarksBullets || [];
+    if (bullets.length === 0) {
+      list.innerHTML = `<div style="font-size:10px;color:var(--white-dim);font-style:italic;padding:4px 0">No remarks added yet. Click "+ Add Bullet Point" to start.</div>`;
+      return;
+    }
+    list.innerHTML = bullets.map((b, i) => `
+      <div class="remark-bullet-row">
+        <span class="remark-bullet-dot">•</span>
+        <input class="form-input remark-bullet-input" value="${b}" placeholder="Enter remark..."
+          oninput="App.updateRemarkBullet(${i},this.value)"
+          onkeydown="if(event.key==='Enter'){App.addRemarkBullet();event.preventDefault();}" />
+        <button class="row-del-btn" onclick="App.deleteRemarkBullet(${i})">✕</button>
+      </div>`).join('');
   },
 
+  updateRemarkBullet(i, val) {
+    if (!State.currentDraft.wcr.catEmdRemarksBullets) State.currentDraft.wcr.catEmdRemarksBullets = [];
+    State.currentDraft.wcr.catEmdRemarksBullets[i] = val;
+  },
+
+  deleteRemarkBullet(i) {
+    State.currentDraft.wcr.catEmdRemarksBullets.splice(i, 1);
+    App.renderRemarkBullets();
+  },
+
+  // Legacy compat
+  addRemark() { App.addRemarkBullet(); },
+  renderRemarks() { App.renderRemarkBullets(); },
   updateRemarks(val) { State.currentDraft.wcr.catEmdRemarks = val; },
+
   saveCatMaint() {
     State.currentDraft.updatedAt = new Date().toISOString();
     Toast.show("Maintenance Summary saved.", "success");
@@ -2314,7 +2403,10 @@ const App = {
       if (r.type === 'heading') {
         html += `<tr class="cat-scope-heading-row">
           <td colspan="3"><input class="cat-scope-heading-input" value="${r.text}" oninput="App.updateCatScopeHeading(${i},this.value)" /></td>
-          <td><button class="row-del-btn" onclick="App.deleteCatScopeRow(${i})">✕</button></td>
+          <td style="white-space:nowrap">
+            <button class="add-row-btn" style="font-size:9px;padding:2px 7px;margin-right:2px" onclick="App.addCatScopeItem(${i})" title="Add item under this section">+ Item</button>
+            <button class="row-del-btn" onclick="App.deleteCatScopeRow(${i})">✕</button>
+          </td>
         </tr>`;
       } else {
         html += `<tr class="cat-scope-item-row">
@@ -2340,9 +2432,15 @@ const App = {
     State.currentDraft.wcr.catEmdScope.push({ type:'heading', text:'New Section' });
     App.renderCatEmdScope();
   },
-  addCatScopeItem() {
-    const items = State.currentDraft.wcr.catEmdScope.filter(r => r.type === 'item');
-    State.currentDraft.wcr.catEmdScope.push({ type:'item', sr: String(items.length + 1), contents:'', included:'' });
+  addCatScopeItem(afterIndex) {
+    const scope = State.currentDraft.wcr.catEmdScope;
+    const items = scope.filter(r => r.type === 'item');
+    const newItem = { type:'item', sr: String(items.length + 1), contents:'', included:'' };
+    if (afterIndex !== undefined) {
+      scope.splice(afterIndex + 1, 0, newItem);
+    } else {
+      scope.push(newItem);
+    }
     App.renderCatEmdScope();
   },
   deleteCatScopeRow(i) {
@@ -2864,8 +2962,15 @@ const App = {
         body += `<tr><td>${row.part}</td><td>${sentence}</td><td style="text-align:center">${row.replaced ? '✓' : ''}</td><td style="text-align:center">${row.reused ? '✓' : ''}</td></tr>`;
       });
       body += `</tbody></table>`;
-      if (w.catEmdRemarks) {
-        body += `<h3 style="margin-top:10px">Additional Remarks / Non-Conformities</h3><p style="white-space:pre-line;font-size:9pt">${w.catEmdRemarks}</p>`;
+      const pdfBullets = w.catEmdRemarksBullets?.filter(b=>b.trim()) || [];
+      const pdfLegacy = w.catEmdRemarks ? w.catEmdRemarks.trim() : '';
+      if (pdfBullets.length || pdfLegacy) {
+        body += `<h3 style="margin-top:10px">Additional Remarks / Non-Conformities</h3>`;
+        if (pdfBullets.length) {
+          body += `<ul>${pdfBullets.map(b=>`<li>${b}</li>`).join('')}</ul>`;
+        } else {
+          body += `<p style="white-space:pre-line;font-size:9pt">${pdfLegacy}</p>`;
+        }
       }
     } else {
       let inUL = false;
@@ -3001,17 +3106,8 @@ const App = {
       </div>`;
     }
 
-    // Mandays (CAT/EMD)
+    // Scope of Work — mandays will come after
     const isCatEmdRp = (p.EngineType === 'cat' || p.EngineType === 'emd');
-    if (isCatEmdRp && w.mandaysActive && w.mandaysRows?.length) {
-      let mdHtml = '<table class="rp-table"><tr><th colspan="2" style="text-align:center;font-weight:700">Mandays</th></tr>';
-      w.mandaysRows.forEach(r => {
-        mdHtml += `<tr><td class="rp-lc">${r.label}</td><td>${r.value && r.value.trim() ? r.value : 'NA'}</td></tr>`;
-      });
-      mdHtml += '<tr><td colspan="2" style="font-size:8pt;font-style:italic;color:var(--white-dim)">Note: All days to be on calendar day basis</td></tr></table>';
-      html += section("mandays", "Mandays", mdHtml);
-    }
-    // Scope of Work
     if (w.scopeActive) {
       const etSf = p.EngineType || 'niigata';
       const isCESf = (etSf === 'cat' || etSf === 'emd');
