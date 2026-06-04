@@ -24,7 +24,7 @@
     </div>
     <div class="home-hero">
       <h1 class="hero-title">Work Completion<br /><em>Report Builder</em></h1>
-      <p class="hero-sub">Making Work Completion Reports just got easier</p>
+      <p class="hero-sub">Making WCRs just got easier</p>
     </div>
     <div class="home-actions">
       <button class="btn-primary" onclick="App.goToLogin('wcr')">
@@ -486,11 +486,24 @@
 
   <!-- Review Preview Screen -->
   <div class="screen" id="screen-review-preview">
-    <div class="screen-header">
-      <button class="back-btn" onclick="App.backFromReview()">← Back</button>
-      <h1 class="screen-title" id="rp-project-title">WCR Preview</h1>
-      <span class="rp-mode-badge" id="rp-mode-label"></span>
-    </div>
+    <header class="app-header">
+      <div class="app-header-left">
+        <button class="logout-btn" onclick="App.backFromReview()">← Back</button>
+        <span class="app-header-title" id="rp-project-title">WCR Preview</span>
+      </div>
+      <div class="app-header-right">
+        <span class="rp-mode-badge" id="rp-mode-label" style="font-size:11px;color:var(--amber);padding:4px 10px;border:1px solid var(--amber);border-radius:6px"></span>
+        <!-- HOD action buttons in header -->
+        <div id="hod-controls" class="hidden" style="display:flex;gap:8px">
+          <button class="btn-save-wcr" style="background:#c8371a;color:#fff" onclick="App.hodSendBack()">↩ Send Back with Comments</button>
+          <button class="btn-save-wcr" style="background:#1a7a38;color:#fff" onclick="App.hodApprove()">✓ Approve WCR</button>
+        </div>
+        <!-- Engineer controls in header -->
+        <div id="engineer-controls" class="hidden">
+          <button class="logout-btn" onclick="App.backFromReview()">← Back to Dashboard</button>
+        </div>
+      </div>
+    </header>
     <div class="rp-layout">
       <!-- Main preview content -->
       <div class="rp-main">
@@ -499,8 +512,8 @@
       <!-- Comments sidebar -->
       <div class="rp-sidebar">
         <div class="rp-sidebar-header">
-          <h3>Comments</h3>
-          <span style="font-size:10px;color:var(--amber-dim)">HOD feedback appears here</span>
+          <h3>💬 Comments</h3>
+          <span style="font-size:10px;color:var(--amber-dim)" id="rp-comment-hint">HOD feedback appears here</span>
         </div>
         <!-- HOD comment input box (hidden by default) -->
         <div id="comment-input-box" class="comment-input-box hidden">
@@ -512,17 +525,8 @@
           </div>
         </div>
         <div id="rp-comments-sidebar"></div>
-
-        <!-- HOD action buttons -->
-        <div id="hod-controls" class="hod-controls hidden">
-          <button class="btn-sendback" onclick="App.hodSendBack()">↩ Send Back with Comments</button>
-          <button class="btn-approve" onclick="App.hodApprove()">✓ Approve WCR</button>
-        </div>
-
-        <!-- Engineer resubmit button -->
-        <div id="engineer-controls" class="engineer-controls hidden">
-          <p class="engineer-hint">Address HOD comments above, go back and update your WCR, then resubmit.</p>
-          <button class="btn-secondary" onclick="App.backFromReview()">← Back to Dashboard</button>
+        <div class="engineer-hint-box hidden" id="engineer-hint-box">
+          <p style="font-size:11px;color:var(--amber-dim);margin-bottom:8px">Address HOD comments above, go back and update your WCR, then resubmit.</p>
         </div>
       </div>
     </div>
