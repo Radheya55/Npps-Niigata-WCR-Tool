@@ -2242,7 +2242,10 @@ const App = {
         <button class="maint-add-row-btn" onclick="App.addCatMaintRow()">+ Add Row</button>
       </div>
       <div class="cat-maint-remarks maint-bright-remarks">
-        <div class="maint-remarks-title">Additional Remarks on any other Non-Conformities / observations</div>
+        <div class="maint-remarks-title-bar">
+          <span class="maint-remarks-icon">📝</span>
+          <span>Additional Remarks on any other Non-Conformities / observations</span>
+        </div>
         <div id="cat-remarks-list"></div>
         <button class="maint-add-row-btn" style="margin:8px 0 0 0" onclick="App.addRemarkBullet()">+ Add Bullet Point</button>
         <div style="margin-top:12px">
@@ -2477,7 +2480,16 @@ const App = {
     App.renderCatEmdScope();
   },
   deleteCatScopeRow(i) {
-    State.currentDraft.wcr.catEmdScope.splice(i, 1);
+    const scope = State.currentDraft.wcr.catEmdScope;
+    const row = scope[i];
+    if (row.type === 'heading') {
+      // Delete all items belonging to this heading (until next heading or end)
+      let j = i + 1;
+      while (j < scope.length && scope[j].type !== 'heading') j++;
+      scope.splice(i, j - i); // remove heading + all its items
+    } else {
+      scope.splice(i, 1);
+    }
     App.renderCatEmdScope();
   },
   saveScopeSection() {
