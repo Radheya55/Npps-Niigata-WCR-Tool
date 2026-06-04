@@ -2192,58 +2192,65 @@ const App = {
         : '';
       const partCell = row.isCustom
         ? `<input class="form-input" style="font-size:11px;padding:4px 6px" value="${row.part}" oninput="App.updateCatMaintPart(${i},this.value)" placeholder="Part description..." />`
-        : `<span>${row.part}</span>`;
+        : `<span class="maint-part-label">${row.part}</span>`;
       return `<tr class="cat-maint-row">
         <td class="cat-maint-part">${partCell}</td>
         <td class="cat-maint-brief">
-          <div style="font-size:9px;color:var(--white-dim);margin-bottom:4px">Brief Description <span style="color:var(--amber-dim)">(Choose all that you did)</span></div>
           <div class="verb-chips">
             ${VERBS.map(v => `<button class="verb-chip ${allVerbs.includes(v) ? 'active' : ''}" onclick="App.toggleVerb(${i},'${v}')">${v}</button>`).join('')}
           </div>
-          <div style="display:flex;gap:6px;margin-top:5px;align-items:center">
-            <input class="form-input custom-verb-input" placeholder="Add your own verb..." value="${row.customVerb||''}"
+          <div class="custom-verb-row">
+            <input class="maint-custom-verb-input" placeholder="Add your own verb and press Enter..." value="${row.customVerb||''}"
               oninput="App.updateCustomVerb(${i},this.value)"
               onkeydown="if(event.key==='Enter'){App.addCustomVerb(${i});event.preventDefault();}" />
-            <button class="add-row-btn" style="white-space:nowrap;font-size:10px" onclick="App.addCustomVerb(${i})">+ Add</button>
+            <button class="maint-add-verb-btn" onclick="App.addCustomVerb(${i})">+ Add</button>
           </div>
-          <div class="verb-sentence" style="margin-top:5px">${sentence || '<span style="color:var(--white-dim);font-style:italic;font-size:10px">Select verbs above to build description</span>'}</div>
+          <div class="verb-sentence-bright">${sentence || '<span class="verb-placeholder">Select verbs above — sentence will appear here</span>'}</div>
         </td>
-        <td style="text-align:center;vertical-align:middle">
-          <input type="checkbox" class="maint-checkbox" ${row.replaced ? 'checked' : ''} onchange="App.setMaintStatus(${i},'replaced',this.checked)" />
+        <td class="maint-check-cell">
+          <label class="maint-radio-label ${row.replaced ? 'checked-replaced' : ''}" onclick="App.setMaintStatus(${i},'replaced',${!row.replaced})">
+            ${row.replaced ? '✓' : ''} Replaced
+          </label>
         </td>
-        <td style="text-align:center;vertical-align:middle">
-          <input type="checkbox" class="maint-checkbox" ${row.reused ? 'checked' : ''} onchange="App.setMaintStatus(${i},'reused',this.checked)" />
+        <td class="maint-check-cell">
+          <label class="maint-radio-label ${row.reused ? 'checked-reused' : ''}" onclick="App.setMaintStatus(${i},'reused',${!row.reused})">
+            ${row.reused ? '✓' : ''} Reused
+          </label>
         </td>
-        <td style="width:32px;text-align:center;vertical-align:middle">
-          <button class="row-del-btn" onclick="App.deleteCatMaintRow(${i})">✕</button>
+        <td class="maint-del-cell">
+          <button class="maint-del-btn" onclick="App.deleteCatMaintRow(${i})">✕</button>
         </td>
       </tr>`;
     };
 
-    let html = `<div class="cat-maint-wrap">
-      <table class="cat-maint-table">
+    let html = `<div class="cat-maint-wrap maint-bright">
+      <div class="maint-bright-header">
+        <span class="maint-bright-title">MAINTENANCE SUMMARY</span>
+        <span class="maint-bright-sub">Select verbs to auto-build descriptions · Tick Replaced or Reused for each part</span>
+      </div>
+      <table class="cat-maint-table maint-bright-table">
         <thead>
           <tr>
             <th style="width:20%">Parts Description</th>
-            <th>Brief Description <span style="font-weight:400;color:var(--amber-dim)">(Choose all that you did)</span></th>
-            <th style="width:7%;text-align:center">Replaced</th>
-            <th style="width:7%;text-align:center">Reused</th>
-            <th style="width:32px"></th>
+            <th>Brief Description <span style="font-weight:400;font-size:9px;color:#5580cc">(Choose all that you did)</span></th>
+            <th style="width:8%;text-align:center">Replaced</th>
+            <th style="width:8%;text-align:center">Reused</th>
+            <th style="width:36px"></th>
           </tr>
         </thead>
         <tbody>
           ${w.catEmdMaintSummary.map((row, i) => renderRow(row, i)).join('')}
         </tbody>
       </table>
-      <div style="margin-top:8px">
-        <button class="add-row-btn" onclick="App.addCatMaintRow()">+ Add Row</button>
+      <div style="margin-top:10px">
+        <button class="maint-add-row-btn" onclick="App.addCatMaintRow()">+ Add Row</button>
       </div>
-      <div class="cat-maint-remarks">
-        <label class="form-label" style="margin-bottom:8px;display:block">Additional Remarks on any other Non-Conformities / observations:</label>
+      <div class="cat-maint-remarks maint-bright-remarks">
+        <label style="font-weight:700;font-size:11px;color:#1a2a4a;margin-bottom:8px;display:block">Additional Remarks on any other Non-Conformities / observations:</label>
         <div id="cat-remarks-list"></div>
-        <button class="add-row-btn" style="margin-top:6px" onclick="App.addRemarkBullet()">+ Add Bullet Point</button>
-        <div style="margin-top:8px">
-          <button class="btn-save-history" onclick="App.saveCatMaint()">💾 Save Summary</button>
+        <button class="maint-add-row-btn" style="margin-top:8px" onclick="App.addRemarkBullet()">+ Add Bullet Point</button>
+        <div style="margin-top:10px">
+          <button class="maint-save-btn" onclick="App.saveCatMaint()">💾 Save Summary</button>
         </div>
       </div>
     </div>`;
@@ -2395,35 +2402,65 @@ const App = {
   // ── CAT/EMD scope ────────────────────────────────────
   renderCatEmdScope() {
     const rows = State.currentDraft.wcr.catEmdScope || [];
+
+    // Recalculate sr numbers per section
+    let sectionItemCount = 0;
+    rows.forEach((r, i) => {
+      if (r.type === 'heading') { sectionItemCount = 0; }
+      else { sectionItemCount++; r.sr = String(sectionItemCount); }
+    });
+
     let html = `<div class="cat-scope-wrap">
       <table class="cat-scope-table">
-        <thead><tr><th style="width:6%">Sr. No.</th><th>Contents</th><th style="width:15%">Included (Yes/No)</th><th style="width:36px"></th></tr></thead>
+        <thead><tr>
+          <th style="width:6%">Sr. No.</th>
+          <th>Contents</th>
+          <th style="width:18%">Included</th>
+          <th style="width:80px"></th>
+        </tr></thead>
         <tbody>`;
+
     rows.forEach((r, i) => {
       if (r.type === 'heading') {
         html += `<tr class="cat-scope-heading-row">
-          <td colspan="3"><input class="cat-scope-heading-input" value="${r.text}" oninput="App.updateCatScopeHeading(${i},this.value)" /></td>
-          <td style="white-space:nowrap">
-            <button class="add-row-btn" style="font-size:9px;padding:2px 7px;margin-right:2px" onclick="App.addCatScopeItem(${i})" title="Add item under this section">+ Item</button>
+          <td colspan="2"><input class="cat-scope-heading-input" value="${r.text}" oninput="App.updateCatScopeHeading(${i},this.value)" /></td>
+          <td></td>
+          <td style="white-space:nowrap;text-align:right;padding:2px 4px">
+            <button class="scope-action-btn" onclick="App.addCatScopeItem(${i})" title="Add item under this section">+ Item</button>
             <button class="row-del-btn" onclick="App.deleteCatScopeRow(${i})">✕</button>
           </td>
         </tr>`;
       } else {
+        const inc = r.included || '';
         html += `<tr class="cat-scope-item-row">
           <td class="cat-scope-sr">${r.sr}</td>
           <td><textarea class="cat-scope-contents" oninput="App.updateCatScopeField(${i},'contents',this.value)">${r.contents}</textarea></td>
-          <td><input class="cat-scope-included form-input" value="${r.included}" placeholder="Yes / No / NA" oninput="App.updateCatScopeField(${i},'included',this.value)" /></td>
-          <td><button class="row-del-btn" onclick="App.deleteCatScopeRow(${i})">✕</button></td>
+          <td>
+            <div class="scope-yesno-btns">
+              <button class="scope-yn-btn ${inc==='Yes'?'yn-yes':''}" onclick="App.setCatScopeIncluded(${i},'Yes')">Yes</button>
+              <button class="scope-yn-btn ${inc==='No'?'yn-no':''}" onclick="App.setCatScopeIncluded(${i},'No')">No</button>
+              <button class="scope-yn-btn ${inc==='NA'||inc===''?'yn-na':''}" onclick="App.setCatScopeIncluded(${i},'NA')">NA</button>
+            </div>
+          </td>
+          <td style="text-align:right;padding:2px 4px;white-space:nowrap">
+            <button class="scope-action-btn" onclick="App.addCatScopeItem(${i})" title="Add item below">+ Item</button>
+            <button class="row-del-btn" onclick="App.deleteCatScopeRow(${i})">✕</button>
+          </td>
         </tr>`;
       }
     });
+
     html += `</tbody></table></div>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
       <button class="add-row-btn" onclick="App.addCatScopeHeading()">+ Add Section</button>
-      <button class="add-row-btn" onclick="App.addCatScopeItem()">+ Add Item</button>
       <button class="btn-save-history" onclick="App.saveScopeSection()">💾 Save Scope</button>
     </div>`;
     document.getElementById("scope-rows").innerHTML = html;
+  },
+
+  setCatScopeIncluded(i, val) {
+    State.currentDraft.wcr.catEmdScope[i].included = val;
+    App.renderCatEmdScope();
   },
 
   updateCatScopeHeading(i, v) { State.currentDraft.wcr.catEmdScope[i].text = v; },
