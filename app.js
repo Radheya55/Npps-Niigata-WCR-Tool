@@ -2208,14 +2208,10 @@ const App = {
           <div class="verb-sentence-bright">${sentence || '<span class="verb-placeholder">Select verbs above — sentence will appear here</span>'}</div>
         </td>
         <td class="maint-check-cell">
-          <label class="maint-radio-label ${row.replaced ? 'checked-replaced' : ''}" onclick="App.setMaintStatus(${i},'replaced',${!row.replaced})">
-            ${row.replaced ? '✓' : ''} Replaced
-          </label>
+          <label class="maint-radio-label ${row.replaced ? 'checked-replaced' : ''}" onclick="App.setMaintStatus(${i},'replaced',${!row.replaced})">Replaced</label>
         </td>
         <td class="maint-check-cell">
-          <label class="maint-radio-label ${row.reused ? 'checked-reused' : ''}" onclick="App.setMaintStatus(${i},'reused',${!row.reused})">
-            ${row.reused ? '✓' : ''} Reused
-          </label>
+          <label class="maint-radio-label ${row.reused ? 'checked-reused' : ''}" onclick="App.setMaintStatus(${i},'reused',${!row.reused})">Reused</label>
         </td>
         <td class="maint-del-cell">
           <button class="maint-del-btn" onclick="App.deleteCatMaintRow(${i})">✕</button>
@@ -2246,10 +2242,10 @@ const App = {
         <button class="maint-add-row-btn" onclick="App.addCatMaintRow()">+ Add Row</button>
       </div>
       <div class="cat-maint-remarks maint-bright-remarks">
-        <label style="font-weight:700;font-size:11px;color:#1a2a4a;margin-bottom:8px;display:block">Additional Remarks on any other Non-Conformities / observations:</label>
+        <div class="maint-remarks-title">Additional Remarks on any other Non-Conformities / observations</div>
         <div id="cat-remarks-list"></div>
-        <button class="maint-add-row-btn" style="margin-top:8px" onclick="App.addRemarkBullet()">+ Add Bullet Point</button>
-        <div style="margin-top:10px">
+        <button class="maint-add-row-btn" style="margin:8px 0 0 0" onclick="App.addRemarkBullet()">+ Add Bullet Point</button>
+        <div style="margin-top:12px">
           <button class="maint-save-btn" onclick="App.saveCatMaint()">💾 Save Summary</button>
         </div>
       </div>
@@ -2323,7 +2319,7 @@ const App = {
     if (!list) return;
     const bullets = State.currentDraft.wcr.catEmdRemarksBullets || [];
     if (bullets.length === 0) {
-      list.innerHTML = `<div style="font-size:10px;color:var(--white-dim);font-style:italic;padding:4px 0">No remarks added yet. Click "+ Add Bullet Point" to start.</div>`;
+      list.innerHTML = `<div style="font-size:10px;color:#9ab0d8;font-style:italic;padding:4px 0">No remarks yet — click "+ Add Bullet Point" to add one.</div>`;
       return;
     }
     list.innerHTML = bullets.map((b, i) => `
