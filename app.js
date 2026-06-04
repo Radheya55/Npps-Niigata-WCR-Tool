@@ -757,6 +757,22 @@ const App = {
     document.getElementById("emp-error").textContent = "";
     App.updateContinueBtn();
 
+    // For HOD login — only show Ashish in the dropdown
+    const select = document.getElementById("emp-name-select");
+    if (flow === "hod") {
+      select.innerHTML = '<option value="">— Select your name —</option>';
+      const ashish = State.employees.find(e => e.empNo === CONFIG.HOD_EMP_NO);
+      if (ashish) {
+        const opt = document.createElement("option");
+        opt.value = ashish.empNo;
+        opt.textContent = ashish.name;
+        select.appendChild(opt);
+      }
+      document.getElementById("emp-input").placeholder = "Enter your employee number";
+    } else {
+      App.populateNameDropdown(); // restore full list for non-HOD flows
+    }
+
     // If we already have a valid Google token, skip the connect button
     const connectBtn = document.getElementById("connect-google-btn");
     if (Auth.isValid()) {
@@ -1073,11 +1089,38 @@ const App = {
   ══════════════════════════════════════════════════════ */
   renderReviewPreview(draft, mode) {
     document.getElementById("rp-project-title").textContent = `${draft.projectCode} — ${draft.projectData?.CustomerName||""}`;
-    document.getElementById("rp-mode-label").textContent = mode === "hod" ? "HOD Review Mode — click any section to comment" : "Your submitted draft";
 
-    // Show/hide controls
-    document.getElementById("hod-controls").classList.toggle("hidden", mode !== "hod");
-    document.getElementById("engineer-controls").classList.toggle("hidden", mode !== "engineer");
+    const modeLabel = document.getElementById("rp-mode-label");
+    if (mode === "hod") {
+      modeLabel.textContent = "HOD Review Mode";
+      modeLabel.style.color = "var(--amber)";
+      modeLabel.style.borderColor = "var(--amber)";
+    } else {
+      modeLabel.textContent = draft.hodComments?.length ? `${draft.hodComments.length} Comment(s) from HOD` : "Submitted — Awaiting Review";
+      modeLabel.style.color = "#6fcf6f";
+      modeLabel.style.borderColor = "#6fcf6f";
+    }
+
+    // Show/hide HOD controls
+    const hodControls = document.getElementById("hod-controls");
+    const engControls = document.getElementById("engineer-controls");
+    const engHintBox = document.getElementById("engineer-hint-box");
+
+    if (mode === "hod") {
+      hodControls.classList.remove("hidden");
+      hodControls.style.display = "flex";
+      engControls.classList.add("hidden");
+      if (engHintBox) engHintBox.classList.add("hidden");
+    } else {
+      hodControls.classList.add("hidden");
+      hodControls.style.display = "none";
+      engControls.classList.remove("hidden");
+      if (engHintBox && draft.hodComments?.length) engHintBox.classList.remove("hidden");
+    }
+
+    // Update comment hint text
+    const hint = document.getElementById("rp-comment-hint");
+    if (hint) hint.textContent = mode === "hod" ? "Click any section to add a comment" : "HOD feedback appears here";
 
     App.renderReviewContent(draft, mode);
     App.renderCommentsSidebar(draft, mode);
