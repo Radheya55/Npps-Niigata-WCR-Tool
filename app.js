@@ -3226,16 +3226,6 @@ const App = {
     }
 
     // Mandays (CAT/EMD)
-    const isCatEmdRp = (p.EngineType === 'cat' || p.EngineType === 'emd');
-    if (isCatEmdRp && w.mandaysActive && w.mandaysRows?.length) {
-      let mdHtml = '<table class="rp-table"><tr><th colspan="2" style="text-align:center;font-weight:700">Mandays</th></tr>';
-      w.mandaysRows.forEach(r => {
-        mdHtml += `<tr><td class="rp-lc">${r.label}</td><td>${r.value && r.value.trim() ? r.value : 'NA'}</td></tr>`;
-      });
-      mdHtml += '<tr><td colspan="2" style="font-size:8pt;font-style:italic;color:var(--white-dim)">Note: All days to be on calendar day basis</td></tr></table>';
-      html += section("mandays", "Mandays", mdHtml);
-    }
-    // Mandays (CAT/EMD)
     const isCatEmdPdf = (p.EngineType === 'cat' || p.EngineType === 'emd');
     if (isCatEmdPdf && w.mandaysActive && w.mandaysRows?.length) {
       body += `<h2>Mandays</h2><table><tr><th colspan="2" style="text-align:center">Mandays</th></tr>`;
