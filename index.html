@@ -24,7 +24,7 @@
     </div>
     <div class="home-hero">
       <h1 class="hero-title">Work Completion<br /><em>Report Builder</em></h1>
-      <p class="hero-sub">Making "Work Completion Reports" just got easier</p>
+      <p class="hero-sub">Making WCRs just got easier</p>
     </div>
     <div class="home-actions">
       <button class="btn-primary" onclick="App.goToLogin('wcr')">
@@ -69,11 +69,11 @@
       </div>
       <button class="btn-full" id="continue-btn" onclick="App.verifyEmployee()" disabled style="opacity:0.5;cursor:not-allowed;">Continue</button>
       <div class="oauth-divider"><span>then</span></div>
-      <button class="btn-google" id="connect-google-btn" onclick="App.connectGoogle()">
+      <button class="btn-google btn-google-required" id="connect-google-btn" onclick="App.connectGoogle()">
         <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.5 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19.1 13 24 13c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.5 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.1 35.5 26.7 36.3 24 36.3c-5.2 0-9.6-3.3-11.2-8H6.3C9.7 37 18.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.2 5.2C37.2 36.2 44 31 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
-        Connect Google Drive
+        🔴 Connect Google Drive — Required to Continue
       </button>
-      <p class="oauth-note">One-time permission. Allows saving drafts to your Drive.</p>
+      <p class="oauth-note">⚠ You must connect Google Drive before proceeding. This is a one-time permission per session.</p>
     </div>
   </div>
 </div>
@@ -124,6 +124,11 @@
       <div id="submitted-list" class="drafts-list"><div class="empty-state">No submissions yet.</div></div>
     </div>
 
+    <div class="dash-section">
+      <h2 class="dash-heading" style="color:#7ab3ff">⬇ Downloaded WCRs</h2>
+      <p class="dash-sub" style="margin-top:-8px;margin-bottom:10px;font-size:11px;color:var(--white-dim)">These drafts have been downloaded as PDF. Click any to edit and re-download.</p>
+      <div id="downloaded-list" class="drafts-list"><div class="empty-state">No downloaded WCRs yet.</div></div>
+    </div>
     <div class="dash-section">
       <h2 class="dash-heading" style="color:#6fcf6f">✓ HOD Approved</h2>
       <div id="approved-list" class="drafts-list"><div class="empty-state">No approved WCRs yet.</div></div>
@@ -306,7 +311,10 @@
     <!-- Maintenance Summary -->
     <div class="wcr-section">
       <div class="wcr-section-label">Maintenance Summary</div>
-      <p class="wcr-section-hint">Template pre-loaded with standard activities. Edit, delete or add sections and bullet points as needed. DWR activities (if uploaded) appear at the bottom.</p>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+        <p class="wcr-section-hint" style="margin:0;flex:1">Template pre-loaded with standard activities. Edit, delete or add sections and bullet points as needed.</p>
+        <button class="btn-dwr-insights" onclick="App.showDWRInsights()" title="View activities extracted from your DWR PDFs">💡 DWR Insights</button>
+      </div>
       <div id="maint-items"></div>
       <div class="maint-add-bar">
         <button class="add-row-btn" onclick="App.addMaintItem(State.currentDraft.wcr.maintItems.length-1,'heading')">+ Add Section Heading</button>
@@ -314,14 +322,7 @@
       </div>
     </div>
 
-    <!-- DWR Points Section -->
-    <div class="wcr-section dwr-points-section">
-      <div class="wcr-section-title-row">
-        <h3 class="wcr-section-title" style="color:var(--amber)">▸ Points from DWR</h3>
-      </div>
-      <p class="wcr-section-hint" style="color:var(--amber-dim);font-size:11px;margin-bottom:10px">These points were extracted from your DWR PDFs. Review and remove anything not relevant. Remaining points will appear in the PDF below the Maintenance Summary.</p>
-      <div id="dwr-points-container"></div>
-    </div>
+    <!-- DWR Insights button shown inside Maintenance Summary section via JS -->
 
     <!-- Deviations (collapsible) -->
     <div class="wcr-section">
@@ -467,6 +468,18 @@
 </div>
 
 <div id="toast" class="toast"></div>
+<!-- DWR Insights Modal -->
+<div id="dwr-insights-modal" class="dwr-modal-overlay hidden" onclick="if(event.target===this)App.closeDWRInsights()">
+  <div class="dwr-modal-box">
+    <div class="dwr-modal-header">
+      <span>💡 Insights from DWR</span>
+      <button class="dwr-modal-close" onclick="App.closeDWRInsights()">✕ Close</button>
+    </div>
+    <p class="dwr-modal-sub">Activities extracted from your DWR PDFs. Use these as reference while filling the Maintenance Summary.</p>
+    <div class="dwr-modal-body" id="dwr-insights-body"></div>
+  </div>
+</div>
+
 <script src="https://apis.google.com/js/api.js"></script>
 <script src="https://accounts.google.com/gsi/client"></script>
 <script src="assets.js"></script>
