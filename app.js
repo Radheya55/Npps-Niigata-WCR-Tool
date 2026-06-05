@@ -940,21 +940,51 @@ const App = {
 
   renderDrafts() {
     const list = document.getElementById("drafts-list");
+    const dlList = document.getElementById("downloaded-list");
     const myDrafts = State.drafts.filter(d => d.empNo === State.currentUser.empNo);
-    document.getElementById("draft-count").textContent = `${myDrafts.length} / ${CONFIG.MAX_DRAFTS}`;
-    if (myDrafts.length === 0) { list.innerHTML = `<div class="empty-state">No drafts yet. Start a new report above.</div>`; return; }
-    list.innerHTML = myDrafts.map(d => `
-      <div class="draft-card" onclick="App.openDraft('${d.id}')">
-        <div class="draft-card-left">
-          <div class="draft-card-code">${d.projectCode}</div>
-          <div class="draft-card-name">${d.projectData?.CustomerName||"—"} · ${d.projectData?.Vessel||"—"}</div>
-          <div class="draft-card-meta">Updated ${formatDate(d.updatedAt)} · Expires ${expiryDate(d.createdAt, CONFIG.DRAFT_EXPIRY_DAYS)}</div>
-        </div>
-        <div class="draft-card-right">
-          <span class="status-pill draft">Draft</span>
-          <button class="delete-draft" onclick="event.stopPropagation(); App.deleteDraft('${d.id}')" title="Delete">✕</button>
-        </div>
-      </div>`).join("");
+    const wip = myDrafts.filter(d => !d.downloadedAt);
+    const downloaded = myDrafts.filter(d => d.downloadedAt);
+
+    document.getElementById("draft-count").textContent = `${wip.length} / ${CONFIG.MAX_DRAFTS}`;
+
+    if (wip.length === 0) {
+      list.innerHTML = `<div class="empty-state">No drafts yet. Start a new report above.</div>`;
+    } else {
+      list.innerHTML = wip.map(d => `
+        <div class="draft-card" onclick="App.openDraft('${d.id}')">
+          <div class="draft-card-left">
+            <div class="draft-card-code">${d.projectCode}</div>
+            <div class="draft-card-name">${d.projectData?.CustomerName||"—"} · ${d.projectData?.Vessel||"—"}</div>
+            <div class="draft-card-meta">Updated ${formatDate(d.updatedAt)}</div>
+          </div>
+          <div class="draft-card-right">
+            <span class="status-pill draft">Draft</span>
+            <button class="btn-download-pdf" onclick="event.stopPropagation(); App.downloadDraftPDF('${d.id}')" title="Download PDF">⬇ PDF</button>
+            <button class="delete-draft" onclick="event.stopPropagation(); App.deleteDraft('${d.id}')" title="Delete">✕</button>
+          </div>
+        </div>`).join("");
+    }
+
+    // Downloaded section
+    if (dlList) {
+      if (downloaded.length === 0) {
+        dlList.innerHTML = `<div class="empty-state">No downloaded WCRs yet. Download a PDF from any draft above.</div>`;
+      } else {
+        dlList.innerHTML = downloaded.map(d => `
+          <div class="draft-card downloaded-card" onclick="App.openDraft('${d.id}')">
+            <div class="draft-card-left">
+              <div class="draft-card-code">${d.projectCode}</div>
+              <div class="draft-card-name">${d.projectData?.CustomerName||"—"} · ${d.projectData?.Vessel||"—"}</div>
+              <div class="draft-card-meta">Downloaded ${formatDate(d.downloadedAt)} · Click to edit and re-download</div>
+            </div>
+            <div class="draft-card-right">
+              <span class="status-pill" style="background:rgba(100,180,255,0.15);color:#7ab3ff;border:1px solid #7ab3ff">⬇ Downloaded</span>
+              <button class="btn-download-pdf" onclick="event.stopPropagation(); App.downloadDraftPDF('${d.id}')" title="Re-download PDF">⬇ PDF</button>
+              <button class="delete-draft" onclick="event.stopPropagation(); App.deleteDraft('${d.id}')" title="Delete">✕</button>
+            </div>
+          </div>`).join("");
+      }
+    }
   },
 
   renderSubmitted() {
@@ -1252,11 +1282,7 @@ const App = {
     let mHtml = (w.maintItems||[]).map(item =>
       item.type === "heading" ? `<h3 class="rp-maint-h">${item.text}</h3>` : `<div class="rp-bullet"><span>•</span><span>${item.text}</span></div>`
     ).join("");
-    // Add DWR points to maintenance preview
-    const keptDWRPts = (w.dwrPoints || []).filter(p => p.keep);
-    if (keptDWRPts.length) {
-      mHtml += `<div style="margin-top:10px;padding:8px;border-left:3px solid var(--amber);background:rgba(232,160,32,0.07)"><div style="font-size:9px;color:var(--amber);font-weight:700;margin-bottom:6px;text-transform:uppercase">Points from DWR</div>${keptDWRPts.map(p=>`<div class="rp-bullet"><span style="color:var(--amber)">▸</span><span>${p.text}</span></div>`).join("")}</div>`;
-    }
+    // DWR points removed from final WCR preview — insights only in builder
     html += section("maint", "Maintenance Summary", mHtml);
     } // end else (Niigata maint)
 
@@ -1863,38 +1889,74 @@ const App = {
     if (files.length === 0) { Toast.show("Please select at least one DWR PDF.", "error"); return; }
 
     const btn = document.getElementById("load-dwr-btn");
-    btn.textContent = "⏳ Parsing DWRs...";
+    const statusEl = document.getElementById("dwr-status");
     btn.disabled = true;
 
     try {
-      const pdfBase64Array = await Promise.all(files.map(f => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = e => resolve(e.target.result.split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(f);
-      })));
-
+      // Step 1: Read files with progress
+      const pdfBase64Array = [];
+      for (let i = 0; i < files.length; i++) {
+        const pct = Math.round(((i) / files.length) * 50);
+        btn.textContent = `⏳ Reading files… ${pct}%`;
+        statusEl.textContent = `Reading file ${i+1} of ${files.length}: ${files[i].name}`;
+        statusEl.className = "dwr-status";
+        const b64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result.split(",")[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(files[i]);
+        });
+        pdfBase64Array.push(b64);
+      }
+      // Step 2: Parse with AI
+      btn.textContent = "⏳ Parsing with AI… 60%";
+      statusEl.textContent = `Sending ${files.length} file(s) to AI for analysis…`;
       const resp = await fetch(`${CONFIG.WORKER_URL}/parse-dwr`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pdfBase64Array })
       });
-
+      btn.textContent = "⏳ Processing… 90%";
       const parsed = await resp.json();
       State.dvrParsedData = parsed;
-      document.getElementById("dwr-status").textContent = `✓ Added all necessary inputs from ${files.length} DWR(s) — ${parsed.maintPoints?.length || 0} maintenance points, ${parsed.recommendations?.length || 0} recommendations, ${parsed.photoDescriptions?.length || 0} photo references extracted.`;
-      document.getElementById("dwr-status").className = "dwr-status success";
-      Toast.show("DWR data loaded successfully.", "success");
+      State.dvrInsights = parsed.maintPoints || [];
+      const mPts = parsed.maintPoints?.length || 0;
+      const recs = parsed.recommendations?.length || 0;
+      const photos = parsed.photoDescriptions?.length || 0;
+      statusEl.innerHTML = `<strong>✓ ${files.length} DWR file(s) parsed successfully</strong><br/>
+        ${mPts} maintenance activities &nbsp;·&nbsp; ${recs} recommendations &nbsp;·&nbsp; ${photos} photo references<br/>
+        <span style="font-size:10px;color:var(--amber-dim)">Use the 💡 DWR Insights button in the Maintenance Summary section to view extracted activities.</span>`;
+      statusEl.className = "dwr-status success";
+      Toast.show(`✓ ${files.length} DWR(s) parsed — ${mPts} maintenance points found.`, "success");
     } catch (err) {
-      document.getElementById("dwr-status").textContent = "Failed to parse DWRs. Check your connection.";
-      document.getElementById("dwr-status").className = "dwr-status error";
+      statusEl.textContent = "Failed to parse DWRs. Check your connection and try again.";
+      statusEl.className = "dwr-status error";
     } finally {
-      btn.textContent = "Load Data from DWRs";
+      btn.textContent = "Load Data from DWRs →";
       btn.disabled = false;
     }
   },
 
-  /* ══════════════════════════════════════════════════════
+  showDWRInsights() {
+    const insights = State.dvrInsights
+      || (State.currentDraft?.wcr?.dwrPoints||[]).map(p=>p.text)
+      || [];
+    const modal = document.getElementById("dwr-insights-modal");
+    const body = document.getElementById("dwr-insights-body");
+    if (!modal || !body) return;
+    if (!insights.length) {
+      body.innerHTML = `<div class="empty-state" style="color:var(--white-dim);padding:20px 0">No DWR insights available. Upload and parse DWR PDFs before starting the WCR to see insights here.</div>`;
+    } else {
+      body.innerHTML = insights.map(pt => `<div class="dwr-insight-item"><span class="dwr-insight-dot">▸</span><span>${pt}</span></div>`).join('');
+    }
+    modal.classList.remove("hidden");
+  },
+
+  closeDWRInsights() {
+    const modal = document.getElementById("dwr-insights-modal");
+    if (modal) modal.classList.add("hidden");
+  },
+
+    /* ══════════════════════════════════════════════════════
      START WCR
   ══════════════════════════════════════════════════════ */
   startWCR() {
@@ -2946,6 +3008,20 @@ const App = {
     App._generateAndPrintPDF(draft);
   },
 
+  // Download PDF directly from any draft (no HOD approval needed for now)
+  downloadDraftPDF(draftId) {
+    const draft = State.drafts.find(d => d.id === draftId);
+    if (!draft) { Toast.show("Draft not found.", "error"); return; }
+    // Mark as downloaded
+    if (!draft.downloadedAt) {
+      draft.downloadedAt = new Date().toISOString();
+      App.saveDrafts();
+      App.renderDrafts();
+    }
+    App._generateAndPrintPDF(draft);
+    Toast.show("PDF opened — use Print → Save as PDF.", "success");
+  },
+
   _generateAndPrintPDF(draft) {
     const w = draft.wcr;
     const p = draft.projectData;
@@ -3274,14 +3350,7 @@ const App = {
       ${w.maintItems.map(item => item.type === "heading" ? `<h3 class="sf-maint-heading" contenteditable="true">${item.text}</h3>` : `<div class="sf-bullet"><span>•</span><span contenteditable="true">${item.text}</span></div>`).join("")}
     </div>`;
 
-    // DWR Points in semi-final
-    const keptDWRSF = (w.dwrPoints||[]).filter(p=>p.keep);
-    if (keptDWRSF.length) {
-      html += `<div class="sf-section"><h2 class="sf-heading" style="color:var(--amber)">▸ Points from DWR</h2>
-        <p style="font-size:9.5pt;color:var(--amber-dim);margin-bottom:8px">Review and copy relevant points into the Maintenance Summary above.</p>
-        ${keptDWRSF.map(p=>`<div class="sf-bullet"><span style="color:var(--amber)">▸</span><span contenteditable="true">${p.text}</span></div>`).join('')}
-      </div>`;
-    }
+    // DWR points removed from final preview — use 💡 DWR Insights button in builder instead
     // Scope for Improvement
     html += `<div class="sf-section"><h2 class="sf-heading">Scope for Improvement</h2>
       <table class="sf-table"><thead><tr><th>Sr. No.</th><th>Area</th><th>Observations</th><th>Recommendations</th></tr></thead><tbody>
