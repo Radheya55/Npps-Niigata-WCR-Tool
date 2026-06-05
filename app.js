@@ -968,7 +968,7 @@ const App = {
     // Downloaded section
     if (dlList) {
       if (downloaded.length === 0) {
-        dlList.innerHTML = `<div class="empty-state">No downloaded WCRs yet. Download a PDF from any draft above.</div>`;
+        dlList.innerHTML = `<div class="empty-state">No PDF downloads yet. Use the ⬇ Download PDF button inside any WCR to save it here.</div>`;
       } else {
         dlList.innerHTML = downloaded.map(d => `
           <div class="draft-card downloaded-card" onclick="App.openDraft('${d.id}')">
@@ -1883,14 +1883,28 @@ const App = {
   /* ══════════════════════════════════════════════════════
      DWR UPLOAD + PARSING
   ══════════════════════════════════════════════════════ */
+  onDWRFilesSelected(input) {
+    const files = Array.from(input.files);
+    const btn = document.getElementById("load-dwr-btn");
+    const namesEl = document.getElementById("dwr-file-names");
+    if (files.length === 0) {
+      btn.disabled = true; btn.style.opacity = "0.4"; btn.style.cursor = "not-allowed";
+      if (namesEl) namesEl.textContent = "";
+      return;
+    }
+    btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
+    btn.title = "";
+    if (namesEl) namesEl.textContent = `${files.length} file(s) selected: ${files.map(f=>f.name).join(', ')}`;
+  },
+
   async loadDWRData() {
     const input = document.getElementById("dwr-file-input");
     const files = Array.from(input.files);
-    if (files.length === 0) { Toast.show("Please select at least one DWR PDF.", "error"); return; }
+    if (files.length === 0) { Toast.show("Please select PDF files first.", "error"); return; }
 
     const btn = document.getElementById("load-dwr-btn");
     const statusEl = document.getElementById("dwr-status");
-    btn.disabled = true;
+    btn.disabled = true; btn.style.opacity = "0.6";
 
     try {
       // Step 1: Read files with progress
@@ -1922,17 +1936,18 @@ const App = {
       const mPts = parsed.maintPoints?.length || 0;
       const recs = parsed.recommendations?.length || 0;
       const photos = parsed.photoDescriptions?.length || 0;
-      statusEl.innerHTML = `<strong>✓ ${files.length} DWR file(s) parsed successfully</strong><br/>
-        ${mPts} maintenance activities &nbsp;·&nbsp; ${recs} recommendations &nbsp;·&nbsp; ${photos} photo references<br/>
-        <span style="font-size:10px;color:var(--amber-dim)">Use the 💡 DWR Insights button in the Maintenance Summary section to view extracted activities.</span>`;
+      statusEl.innerHTML = `<strong>✓ Necessary insights from ${files.length} DWR file(s) have been captured.</strong><br/>
+        <span style="font-size:10px;color:var(--amber-dim)">Click 💡 DWR Insights in the Maintenance Summary section to view while filling in the WCR.</span>`;
       statusEl.className = "dwr-status success";
-      Toast.show(`✓ ${files.length} DWR(s) parsed — ${mPts} maintenance points found.`, "success");
+      Toast.show(`✓ DWR data loaded. Click 💡 DWR Insights in Maintenance Summary.`, "success");
     } catch (err) {
       statusEl.textContent = "Failed to parse DWRs. Check your connection and try again.";
       statusEl.className = "dwr-status error";
     } finally {
-      btn.textContent = "Load Data from DWRs →";
-      btn.disabled = false;
+      btn.textContent = "✓ DWRs Parsed";
+      btn.disabled = true;
+      btn.style.opacity = "1";
+      btn.style.background = "var(--green)";
     }
   },
 
@@ -2889,18 +2904,50 @@ const App = {
 
   renderPartsPaste() {
     const p = State.currentDraft.wcr.partsColumns;
+    const fc = p._finalisedCols || {};
     const container = document.getElementById("parts-container");
+
+    // Build partial preview if any columns are finalised
+    const finalisedCount = Object.keys(fc).length;
+    let partialPreview = '';
+    if (finalisedCount > 0) {
+      const maxRows = Math.max(0, ...Object.values(fc).map(c => c.length));
+      partialPreview = `<div class="parts-partial-preview">
+        <div style="font-size:10px;color:var(--amber-dim);margin-bottom:6px">📋 Preview (${finalisedCount} of ${p.headers.length} columns finalised)</div>
+        <div style="overflow-x:auto">
+          <table class="parts-table" style="min-width:auto">
+            <thead><tr>${p.headers.map((h,hi) => fc[hi]
+              ? `<th style="color:#7ef59a">✓ ${h}</th>`
+              : `<th style="opacity:0.4">${h}</th>`
+            ).join('')}</tr></thead>
+            <tbody>${Array.from({length:Math.min(maxRows,5)},(_,r)=>`<tr>${p.headers.map((_,ci)=>`<td>${(fc[ci]||[])[r]||''}</td>`).join('')}</tr>`).join('')}
+            ${maxRows > 5 ? `<tr><td colspan="${p.headers.length}" style="text-align:center;font-size:10px;color:var(--white-dim)">… ${maxRows-5} more rows</td></tr>` : ''}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }
+
     container.innerHTML = `
-      <p class="wcr-section-hint">Paste each column from your spreadsheet into the boxes below, then click "Finalise Column". Once all columns are done, click "Preview Parts Table".</p>
+      <p class="wcr-section-hint">Paste data for each column separately, then click "Finalise" for that column. Finalised columns show a ✓ and appear in the preview below.</p>
       <div class="parts-paste-grid">
-        ${p.headers.map((h, i) => `
-          <div class="parts-paste-col">
-            <div class="parts-paste-header">${h}</div>
-            <textarea class="form-input parts-paste-area" placeholder="Paste ${h} data here..." oninput="App.updatePartsPaste(${i},this.value)">${p.rawPaste[i]||""}</textarea>
-            <button class="finalise-col-btn ${p.rawPaste[i]?.trim() ? 'done' : ''}" onclick="App.finalisePartsCol(${i})">Finalise Column ✓</button>
-          </div>`).join("")}
+        ${p.headers.map((h, i) => {
+          const isFinalised = !!fc[i];
+          const rowCount = fc[i]?.length || 0;
+          return `<div class="parts-paste-col ${isFinalised ? 'col-finalised' : ''}">
+            <div class="parts-paste-header">${isFinalised ? `✓ ${h} <span style="font-size:9px;color:#7ef59a">(${rowCount} rows)</span>` : h}</div>
+            <textarea class="form-input parts-paste-area" placeholder="Paste ${h} data here (one item per line)..." oninput="App.updatePartsPaste(${i},this.value)">${p.rawPaste[i]||""}</textarea>
+            <button class="finalise-col-btn ${isFinalised ? 'done' : ''}" onclick="App.finalisePartsCol(${i})">
+              ${isFinalised ? '✓ Re-finalise' : 'Finalise this column →'}
+            </button>
+          </div>`;
+        }).join("")}
       </div>
-      <button class="btn-full mt" onclick="App.previewPartsTable()">Preview Parts Table →</button>
+      ${partialPreview}
+      ${finalisedCount === p.headers.length
+        ? `<button class="btn-full mt" onclick="App.previewPartsTable()">✓ All Columns Done — Build Full Table →</button>`
+        : `<button class="btn-full mt" style="opacity:0.6" onclick="App.previewPartsTable()">Build Table with ${finalisedCount} Column(s) →</button>`
+      }
     `;
   },
 
@@ -2909,11 +2956,11 @@ const App = {
   finalisePartsCol(i) {
     const p = State.currentDraft.wcr.partsColumns;
     const raw = p.rawPaste[i] || "";
-    // Split by newlines, preserve gaps
-    const lines = raw.split("\n").map(l => l.trim());
+    if (!raw.trim()) { Toast.show(`Paste data into the "${p.headers[i]}" column first.`, "error"); return; }
+    const lines = raw.split("\n").map(l => l.trim()).filter(l => l);
     p._finalisedCols = p._finalisedCols || {};
     p._finalisedCols[i] = lines;
-    Toast.show(`Column "${p.headers[i]}" finalised.`, "success");
+    Toast.show(`✓ "${p.headers[i]}" finalised — ${lines.length} rows.`, "success");
     App.renderPartsPaste();
   },
 
@@ -3006,6 +3053,21 @@ const App = {
     const draft = State.approved.find(d => d.id === draftId);
     if (!draft) { Toast.show("Draft not found.", "error"); return; }
     App._generateAndPrintPDF(draft);
+  },
+
+  // Download PDF from inside the WCR builder (current open draft)
+  downloadCurrentDraftPDF() {
+    App.saveWCRSection(); // save first
+    const draft = State.currentDraft;
+    if (!draft) { Toast.show("No draft open.", "error"); return; }
+    if (!draft.downloadedAt) {
+      draft.downloadedAt = new Date().toISOString();
+    }
+    draft.updatedAt = new Date().toISOString();
+    App.saveDrafts();
+    App.renderDrafts();
+    App._generateAndPrintPDF(draft);
+    Toast.show("PDF opened — use Print → Save as PDF. Draft saved to PDF Downloads.", "success");
   },
 
   // Download PDF directly from any draft (no HOD approval needed for now)
