@@ -3086,31 +3086,50 @@ const App = {
 
   // Download PDF from inside the WCR builder (current open draft)
   downloadCurrentDraftPDF() {
-    App.saveWCRSection(); // save first
     const draft = State.currentDraft;
     if (!draft) { Toast.show("No draft open.", "error"); return; }
-    if (!draft.downloadedAt) {
-      draft.downloadedAt = new Date().toISOString();
+    // Save silently (no toast) so "Draft saved" doesn't confuse user
+    const d = draft;
+    const w = d.wcr;
+    if (w.deviationsActive) {
+      w.deviations = {
+        nextMaintType: document.getElementById("dev-nextType")?.value||"",
+        nextMaintDate: document.getElementById("dev-nextDate")?.value||"",
+        partsRenewal:  document.getElementById("dev-parts")?.value||""
+      };
     }
+    w.signoff = {
+      makerName:    document.getElementById("so-maker")?.value||"",
+      checkerName:  document.getElementById("so-checker")?.value||"",
+      approverName: document.getElementById("so-approver")?.value||"",
+      makerDate:    document.getElementById("so-makerdate")?.value||"",
+      customerName: document.getElementById("so-custname")?.value||"",
+      customerDate: document.getElementById("so-custdate")?.value||""
+    };
+    draft.downloadedAt = new Date().toISOString();
     draft.updatedAt = new Date().toISOString();
-    App.saveDrafts();
-    App.renderDrafts();
-    App._generateAndPrintPDF(draft);
-    Toast.show("PDF opened — use Print → Save as PDF. Draft saved to PDF Downloads.", "success");
+    App.saveDrafts().then(() => App.renderDrafts());
+    try {
+      App._generateAndPrintPDF(draft);
+    } catch(err) {
+      console.error("PDF generation error:", err);
+      Toast.show("PDF error: " + (err.message||"unknown error") + " — check console.", "error");
+    }
   },
 
-  // Download PDF directly from any draft (no HOD approval needed for now)
+  // Download PDF directly from any draft (from dashboard)
   downloadDraftPDF(draftId) {
     const draft = State.drafts.find(d => d.id === draftId);
     if (!draft) { Toast.show("Draft not found.", "error"); return; }
-    // Mark as downloaded
-    if (!draft.downloadedAt) {
-      draft.downloadedAt = new Date().toISOString();
-      App.saveDrafts();
-      App.renderDrafts();
+    draft.downloadedAt = new Date().toISOString();
+    draft.updatedAt = new Date().toISOString();
+    App.saveDrafts().then(() => App.renderDrafts());
+    try {
+      App._generateAndPrintPDF(draft);
+    } catch(err) {
+      console.error("PDF generation error:", err);
+      Toast.show("PDF error: " + (err.message||"unknown error") + " — check console.", "error");
     }
-    App._generateAndPrintPDF(draft);
-    Toast.show("PDF opened — use Print → Save as PDF.", "success");
   },
 
   _generateAndPrintPDF(draft) {
@@ -3220,8 +3239,9 @@ const App = {
     const isCatEmdPdf = (p.EngineType === 'cat' || p.EngineType === 'emd');
     if (isCatEmdPdf && w.mandaysActive && w.mandaysRows?.length) {
       body += `<h2>Mandays</h2><table><tr><th colspan="2" style="text-align:center">Mandays</th></tr>`;
-      w.mandaysRows.forEach(r => {
-        body += `<tr><td class="lc">${r.label}</td><td>${r.value && r.value.trim() ? r.value : 'NA'}</td></tr>`;
+      (w.mandaysRows||[]).forEach(r => {
+        if (!r) return;
+        body += `<tr><td class="lc">${r.label||''}</td><td>${r.value && r.value.trim() ? r.value : 'NA'}</td></tr>`;
       });
       body += `<tr><td colspan="2" style="font-size:7.5pt;font-style:italic">Note: All days to be on calendar day basis</td></tr></table>`;
     }
@@ -3231,12 +3251,12 @@ const App = {
       const isCE = (et === 'cat' || et === 'emd');
       if (isCE && w.catEmdScope?.length) {
         body += `<h2>Scope of Work</h2><table><thead><tr><th style="width:6%">Sr.</th><th>Contents</th><th style="width:15%">Included (Yes/No)</th></tr></thead><tbody>`;
-        w.catEmdScope.forEach(r => {
+        (w.catEmdScope||[]).forEach(r => {
           if (r.type === 'heading') {
-            body += `<tr><td colspan="3" style="background:#dde4ef;font-weight:bold;text-align:center">${r.text}</td></tr>`;
+            body += `<tr><td colspan="3" style="background:#dde4ef;font-weight:bold;text-align:center">${r.text||''}</td></tr>`;
           } else {
             const inc = r.included && r.included.trim() ? r.included : 'NA';
-            body += `<tr><td style="text-align:center">${r.sr}</td><td>${r.contents||'—'}</td><td style="text-align:center">${inc}</td></tr>`;
+            body += `<tr><td style="text-align:center">${r.sr||''}</td><td>${r.contents||'—'}</td><td style="text-align:center">${inc}</td></tr>`;
           }
         });
         body += `</tbody></table>`;
@@ -3259,16 +3279,18 @@ const App = {
     body += `<h2>Maintenance Summary</h2>`;
     if (isCatEmdPdf && w.catEmdMaintSummary && w.catEmdMaintSummary.length > 0) {
       body += `<table><thead><tr><th style="width:22%">Parts Description</th><th>Brief Description</th><th style="width:8%;text-align:center">Replaced</th><th style="width:8%;text-align:center">Reused</th></tr></thead><tbody>`;
-      w.catEmdMaintSummary.forEach(row => {
-        const verbs = row.verbs || [];
+      (w.catEmdMaintSummary||[]).forEach(row => {
+        if (!row) return;
+        const verbs = Array.isArray(row.verbs) ? row.verbs : [];
+        const part = row.part || '—';
         const sentence = verbs.length > 0
-          ? `${row.part} was ${verbs.slice(0,-1).join(', ')}${verbs.length > 1 ? ' and ' : ''}${verbs[verbs.length-1]}.`
+          ? `${part} was ${verbs.slice(0,-1).join(', ')}${verbs.length > 1 ? ' and ' : ''}${verbs[verbs.length-1]}.`
           : 'NA';
-        body += `<tr><td>${row.part}</td><td>${sentence}</td><td style="text-align:center">${row.replaced ? '✓' : ''}</td><td style="text-align:center">${row.reused ? '✓' : ''}</td></tr>`;
+        body += `<tr><td>${part}</td><td>${sentence}</td><td style="text-align:center">${row.replaced ? '✓' : ''}</td><td style="text-align:center">${row.reused ? '✓' : ''}</td></tr>`;
       });
       body += `</tbody></table>`;
-      const pdfBullets = (w.catEmdRemarksBullets||[]).filter(b=>b&&b.trim()) || [];
-      const pdfLegacy = w.catEmdRemarks ? w.catEmdRemarks.trim() : '';
+      const pdfBullets = Array.isArray(w.catEmdRemarksBullets) ? w.catEmdRemarksBullets.filter(b=>b&&b.trim()) : [];
+      const pdfLegacy = (w.catEmdRemarks||'').trim();
       if (pdfBullets.length || pdfLegacy) {
         body += `<h3 style="margin-top:10px">Additional Remarks / Non-Conformities</h3>`;
         if (pdfBullets.length) {
@@ -3353,29 +3375,35 @@ const App = {
       </table>
     ${ftr()}</div>`;
 
-    // ── Direct download via Blob — no popup, no print dialog ──
+    // ── Open print window ──
     const today = new Date();
     const dd = String(today.getDate()).padStart(2,'0');
     const mm = String(today.getMonth()+1).padStart(2,'0');
     const yy = String(today.getFullYear()).slice(-2);
     const authorName = (draft.authorName || State.currentUser?.name || 'User').replace(/\s+/g,'_');
     const pdfFileName = `${draft.projectCode}_${authorName}_${dd}-${mm}-${yy}`;
-    const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${pdfFileName}</title>
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+      <title>${pdfFileName}</title>
       <style>${CSS}
         @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-      </style></head><body>${pages}${body}
-      <script>window.onload=function(){window.document.title="${pdfFileName}";window.print();window.onafterprint=function(){window.close();};};<\/script>
-      </body></html>`;
-    const blob = new Blob([fullHtml], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = pdfFileName + '.html';
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 2000);
-    Toast.show(`✓ "${pdfFileName}" downloading — open the file to print/save as PDF.`, "success");
+      </style></head><body>${pages}${body}</body></html>`;
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) {
+      // Popup blocked — fallback to blob download
+      const blob = new Blob([fullHtml], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = pdfFileName + '.html';
+      a.style.display = 'none'; document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 2000);
+      Toast.show("Popup blocked — file downloaded. Open it and print to PDF.", "success");
+      return;
+    }
+    win.document.write(fullHtml);
+    win.document.close();
+    win.document.title = pdfFileName;
+    win.onload = () => { win.focus(); win.print(); };
+    Toast.show(`Printing "${pdfFileName}" — choose Save as PDF in the print dialog.`, "success");
   },
 
   /* ══════════════════════════════════════════════════════
