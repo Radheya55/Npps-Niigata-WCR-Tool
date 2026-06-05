@@ -834,10 +834,8 @@ const App = {
   },
 
   async proceedAfterAuth() {
-    // HOD doesn't need base sheet — skip it and go straight to queue
-    if (State.pendingFlow !== "hod") {
-      await App.ensureBaseSheet();
-    }
+    // All flows need the base sheet for project lookup — load it for everyone
+    await App.ensureBaseSheet();
     if (State.pendingFlow === "hod") {
       await App.loadHODQueue();
       App.renderHODDashboard();
