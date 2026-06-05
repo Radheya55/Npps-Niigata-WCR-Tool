@@ -1679,3 +1679,19 @@ html, body {
   color: var(--fg); line-height: 1.5;
 }
 .dwr-insight-dot { color: var(--amber); font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── DWR Modal footer ────────────────────────────────────── */
+.dwr-modal-footer {
+  padding: 14px 20px 16px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: center;
+}
+
+/* ── Parts partial preview ──────────────────────────────── */
+.parts-partial-preview {
+  margin: 12px 0; padding: 10px 12px;
+  background: var(--navy-light); border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.col-finalised { border: 1px solid rgba(127,229,154,0.3) !important; background: rgba(127,229,154,0.05); }
+.col-finalised .parts-paste-header { color: #7ef59a; }
