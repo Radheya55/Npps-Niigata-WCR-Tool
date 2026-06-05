@@ -950,44 +950,61 @@ const App = {
 
     document.getElementById("draft-count").textContent = `${wip.length} / ${CONFIG.MAX_DRAFTS}`;
 
+    // Helper: group cards by date
+    const groupByDate = (items, dateFn) => {
+      const groups = {};
+      items.forEach(d => {
+        const key = formatDate(dateFn(d));
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(d);
+      });
+      return groups;
+    };
+
+    // WIP Drafts — grouped by last saved date, shown in red tint
     if (wip.length === 0) {
       list.innerHTML = `<div class="empty-state">No WIP drafts. Start a new report above.</div>`;
     } else {
-      list.innerHTML = wip.map(d => {
-        const lastSaved = formatDate(d.updatedAt || d.createdAt);
-        const createdOn = formatDate(d.createdAt);
-        return `
-        <div class="draft-card" onclick="App.openDraft('${d.id}')">
-          <div class="draft-card-left">
-            <div class="draft-card-code">${d.projectCode}</div>
-            <div class="draft-card-name">${d.projectData?.CustomerName||"—"} · ${d.projectData?.Vessel||"—"}</div>
-            <div class="draft-card-meta">Started ${createdOn} &nbsp;·&nbsp; Last saved ${lastSaved}</div>
-          </div>
-          <div class="draft-card-right">
-            <span class="status-pill draft">WIP Draft</span>
-            <button class="btn-download-pdf" onclick="event.stopPropagation(); App.downloadDraftPDF('${d.id}')" title="Download PDF">⬇ PDF</button>
-            <button class="delete-draft" onclick="event.stopPropagation(); App.deleteDraft('${d.id}')" title="Delete">✕</button>
-          </div>
-        </div>`;
-      }).join("");
-    }
-
-    if (dlList) {
-      if (downloaded.length === 0) {
-        dlList.innerHTML = `<div class="empty-state">No PDF downloads yet. Use the ⬇ Download PDF button inside any WCR.</div>`;
-      } else {
-        dlList.innerHTML = downloaded.map(d => `
-          <div class="draft-card downloaded-card" onclick="App.openDraft('${d.id}')">
+      const groups = groupByDate(wip, d => d.updatedAt || d.createdAt);
+      list.innerHTML = Object.entries(groups).map(([dateLabel, drafts]) => `
+        <div class="draft-date-group">
+          <div class="draft-date-label">Last saved: ${dateLabel}</div>
+          ${drafts.map(d => `
+          <div class="draft-card draft-card-wip" onclick="App.openDraft('${d.id}')">
             <div class="draft-card-left">
               <div class="draft-card-code">${d.projectCode}</div>
               <div class="draft-card-name">${d.projectData?.CustomerName||"—"} · ${d.projectData?.Vessel||"—"}</div>
-              <div class="draft-card-meta">PDF Downloaded ${formatDate(d.downloadedAt)} &nbsp;·&nbsp; Click to edit &amp; re-download</div>
+              <div class="draft-card-meta">Started ${formatDate(d.createdAt)}</div>
             </div>
             <div class="draft-card-right">
-              <span class="status-pill" style="background:rgba(100,180,255,0.15);color:#7ab3ff;border:1px solid #7ab3ff">⬇ PDF Download</span>
-              <button class="btn-download-pdf" onclick="event.stopPropagation(); App.downloadDraftPDF('${d.id}')" title="Re-download PDF">⬇ PDF</button>
+              <span class="status-pill status-wip">WIP Draft</span>
               <button class="delete-draft" onclick="event.stopPropagation(); App.deleteDraft('${d.id}')" title="Delete">✕</button>
             </div>
+          </div>`).join("")}
+        </div>`).join("");
+    }
+
+    // PDF Downloads — grouped by download date, clean look
+    if (dlList) {
+      if (downloaded.length === 0) {
+        dlList.innerHTML = `<div class="empty-state">No PDF downloads yet. Open any draft and click ⬇ Download PDF.</div>`;
+      } else {
+        const dlGroups = groupByDate(downloaded, d => d.downloadedAt);
+        dlList.innerHTML = Object.entries(dlGroups).map(([dateLabel, drafts]) => `
+          <div class="draft-date-group">
+            <div class="draft-date-label">Downloaded: ${dateLabel}</div>
+            ${drafts.map(d => `
+            <div class="draft-card draft-card-dl" onclick="App.openDraft('${d.id}')">
+              <div class="draft-card-left">
+                <div class="draft-card-code">${d.projectCode}</div>
+                <div class="draft-card-name">${d.projectData?.CustomerName||"—"} · ${d.projectData?.Vessel||"—"}</div>
+                <div class="draft-card-meta">Last downloaded ${formatDate(d.downloadedAt, true)}</div>
+              </div>
+              <div class="draft-card-right">
+                <span class="status-pill status-dl">PDF Downloaded</span>
+                <button class="delete-draft" onclick="event.stopPropagation(); App.deleteDraft('${d.id}')" title="Delete">✕</button>
+              </div>
+            </div>`).join("")}
           </div>`).join("");
       }
     }
@@ -2242,6 +2259,7 @@ const App = {
   },
   saveHistorySection() {
     State.currentDraft.updatedAt = new Date().toISOString();
+    App.saveDrafts();
     Toast.show("History section saved.", "success");
   },
 
@@ -2315,6 +2333,7 @@ const App = {
   },
   saveMandaysSection() {
     State.currentDraft.updatedAt = new Date().toISOString();
+    App.saveDrafts();
     Toast.show("Mandays saved.", "success");
   },
 
@@ -2516,6 +2535,7 @@ const App = {
 
   saveCatMaint() {
     State.currentDraft.updatedAt = new Date().toISOString();
+    App.saveDrafts();
     Toast.show("Maintenance Summary saved.", "success");
   },
 
@@ -2664,6 +2684,7 @@ const App = {
   },
   saveScopeSection() {
     State.currentDraft.updatedAt = new Date().toISOString();
+    App.saveDrafts();
     Toast.show("Scope of Work saved.", "success");
   },
 
@@ -3236,16 +3257,17 @@ const App = {
 
     // Maintenance Summary
     body += `<h2>Maintenance Summary</h2>`;
-    if (isCatEmdPdf && w.catEmdMaintSummary?.length) {
+    if (isCatEmdPdf && w.catEmdMaintSummary && w.catEmdMaintSummary.length > 0) {
       body += `<table><thead><tr><th style="width:22%">Parts Description</th><th>Brief Description</th><th style="width:8%;text-align:center">Replaced</th><th style="width:8%;text-align:center">Reused</th></tr></thead><tbody>`;
       w.catEmdMaintSummary.forEach(row => {
-        const sentence = row.verbs?.length > 0
-          ? `${row.part} was ${row.verbs.slice(0,-1).join(', ')}${row.verbs.length > 1 ? ' and ' : ''}${row.verbs[row.verbs.length-1]}.`
+        const verbs = row.verbs || [];
+        const sentence = verbs.length > 0
+          ? `${row.part} was ${verbs.slice(0,-1).join(', ')}${verbs.length > 1 ? ' and ' : ''}${verbs[verbs.length-1]}.`
           : 'NA';
         body += `<tr><td>${row.part}</td><td>${sentence}</td><td style="text-align:center">${row.replaced ? '✓' : ''}</td><td style="text-align:center">${row.reused ? '✓' : ''}</td></tr>`;
       });
       body += `</tbody></table>`;
-      const pdfBullets = w.catEmdRemarksBullets?.filter(b=>b.trim()) || [];
+      const pdfBullets = (w.catEmdRemarksBullets||[]).filter(b=>b&&b.trim()) || [];
       const pdfLegacy = w.catEmdRemarks ? w.catEmdRemarks.trim() : '';
       if (pdfBullets.length || pdfLegacy) {
         body += `<h3 style="margin-top:10px">Additional Remarks / Non-Conformities</h3>`;
@@ -3331,17 +3353,29 @@ const App = {
       </table>
     ${ftr()}</div>`;
 
-    // ── Open print window ──
+    // ── Direct download via Blob — no popup, no print dialog ──
     const today = new Date();
     const dd = String(today.getDate()).padStart(2,'0');
     const mm = String(today.getMonth()+1).padStart(2,'0');
-    const yyyy = today.getFullYear();
-    const pdfFileName = `${draft.projectCode}_WCR_${dd}-${mm}-${yyyy}`;
-    const win = window.open("", "_blank");
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${pdfFileName}</title><style>${CSS}</style></head><body>${pages}${body}</body></html>`);
-    win.document.close();
-    win.onload = () => { win.focus(); win.document.title = pdfFileName; win.print(); };
-    Toast.show(`PDF ready — save as "${pdfFileName}.pdf"`, "success");
+    const yy = String(today.getFullYear()).slice(-2);
+    const authorName = (draft.authorName || State.currentUser?.name || 'User').replace(/\s+/g,'_');
+    const pdfFileName = `${draft.projectCode}_${authorName}_${dd}-${mm}-${yy}`;
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${pdfFileName}</title>
+      <style>${CSS}
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+      </style></head><body>${pages}${body}
+      <script>window.onload=function(){window.document.title="${pdfFileName}";window.print();window.onafterprint=function(){window.close();};};<\/script>
+      </body></html>`;
+    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = pdfFileName + '.html';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 2000);
+    Toast.show(`✓ "${pdfFileName}" downloading — open the file to print/save as PDF.`, "success");
   },
 
   /* ══════════════════════════════════════════════════════
@@ -3550,9 +3584,13 @@ async function gapi_fetch(url, options = {}) {
   });
 }
 
-function formatDate(iso) {
+function formatDate(iso, withTime) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
+  if (!withTime) return date;
+  const time = d.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", hour12:true });
+  return `${date} at ${time}`;
 }
 function expiryDate(iso, days) {
   if (!iso) return "—";
