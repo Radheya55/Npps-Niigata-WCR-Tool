@@ -941,44 +941,50 @@ const App = {
   renderDrafts() {
     const list = document.getElementById("drafts-list");
     const dlList = document.getElementById("downloaded-list");
-    const myDrafts = State.drafts.filter(d => d.empNo === State.currentUser.empNo);
+    const myDrafts = State.drafts
+      .filter(d => d.empNo === State.currentUser.empNo)
+      .sort((a,b) => new Date(b.updatedAt||b.createdAt) - new Date(a.updatedAt||a.createdAt));
     const wip = myDrafts.filter(d => !d.downloadedAt);
-    const downloaded = myDrafts.filter(d => d.downloadedAt);
+    const downloaded = myDrafts.filter(d => d.downloadedAt)
+      .sort((a,b) => new Date(b.downloadedAt) - new Date(a.downloadedAt));
 
     document.getElementById("draft-count").textContent = `${wip.length} / ${CONFIG.MAX_DRAFTS}`;
 
     if (wip.length === 0) {
-      list.innerHTML = `<div class="empty-state">No drafts yet. Start a new report above.</div>`;
+      list.innerHTML = `<div class="empty-state">No WIP drafts. Start a new report above.</div>`;
     } else {
-      list.innerHTML = wip.map(d => `
+      list.innerHTML = wip.map(d => {
+        const lastSaved = formatDate(d.updatedAt || d.createdAt);
+        const createdOn = formatDate(d.createdAt);
+        return `
         <div class="draft-card" onclick="App.openDraft('${d.id}')">
           <div class="draft-card-left">
             <div class="draft-card-code">${d.projectCode}</div>
             <div class="draft-card-name">${d.projectData?.CustomerName||"—"} · ${d.projectData?.Vessel||"—"}</div>
-            <div class="draft-card-meta">Updated ${formatDate(d.updatedAt)}</div>
+            <div class="draft-card-meta">Started ${createdOn} &nbsp;·&nbsp; Last saved ${lastSaved}</div>
           </div>
           <div class="draft-card-right">
-            <span class="status-pill draft">Draft</span>
+            <span class="status-pill draft">WIP Draft</span>
             <button class="btn-download-pdf" onclick="event.stopPropagation(); App.downloadDraftPDF('${d.id}')" title="Download PDF">⬇ PDF</button>
             <button class="delete-draft" onclick="event.stopPropagation(); App.deleteDraft('${d.id}')" title="Delete">✕</button>
           </div>
-        </div>`).join("");
+        </div>`;
+      }).join("");
     }
 
-    // Downloaded section
     if (dlList) {
       if (downloaded.length === 0) {
-        dlList.innerHTML = `<div class="empty-state">No PDF downloads yet. Use the ⬇ Download PDF button inside any WCR to save it here.</div>`;
+        dlList.innerHTML = `<div class="empty-state">No PDF downloads yet. Use the ⬇ Download PDF button inside any WCR.</div>`;
       } else {
         dlList.innerHTML = downloaded.map(d => `
           <div class="draft-card downloaded-card" onclick="App.openDraft('${d.id}')">
             <div class="draft-card-left">
               <div class="draft-card-code">${d.projectCode}</div>
               <div class="draft-card-name">${d.projectData?.CustomerName||"—"} · ${d.projectData?.Vessel||"—"}</div>
-              <div class="draft-card-meta">Downloaded ${formatDate(d.downloadedAt)} · Click to edit and re-download</div>
+              <div class="draft-card-meta">PDF Downloaded ${formatDate(d.downloadedAt)} &nbsp;·&nbsp; Click to edit &amp; re-download</div>
             </div>
             <div class="draft-card-right">
-              <span class="status-pill" style="background:rgba(100,180,255,0.15);color:#7ab3ff;border:1px solid #7ab3ff">⬇ Downloaded</span>
+              <span class="status-pill" style="background:rgba(100,180,255,0.15);color:#7ab3ff;border:1px solid #7ab3ff">⬇ PDF Download</span>
               <button class="btn-download-pdf" onclick="event.stopPropagation(); App.downloadDraftPDF('${d.id}')" title="Re-download PDF">⬇ PDF</button>
               <button class="delete-draft" onclick="event.stopPropagation(); App.deleteDraft('${d.id}')" title="Delete">✕</button>
             </div>
@@ -2957,10 +2963,12 @@ const App = {
     const p = State.currentDraft.wcr.partsColumns;
     const raw = p.rawPaste[i] || "";
     if (!raw.trim()) { Toast.show(`Paste data into the "${p.headers[i]}" column first.`, "error"); return; }
-    const lines = raw.split("\n").map(l => l.trim()).filter(l => l);
+    // Preserve blank lines as empty cells — do NOT filter them out
+    const lines = raw.split("\n").map(l => l.trim());
     p._finalisedCols = p._finalisedCols || {};
     p._finalisedCols[i] = lines;
-    Toast.show(`✓ "${p.headers[i]}" finalised — ${lines.length} rows.`, "success");
+    const nonEmpty = lines.filter(l => l).length;
+    Toast.show(`✓ "${p.headers[i]}" finalised — ${nonEmpty} rows.`, "success");
     App.renderPartsPaste();
   },
 
@@ -3120,10 +3128,13 @@ const App = {
       .cal-row img { width: 120px; flex-shrink: 0; }
       .cal-note { font-size: 8pt; line-height: 1.6; flex: 1; }
       .photo-grid { width: 100%; border-collapse: collapse; }
-      .photo-grid td { border: 1px solid #aaa; padding: 6px; text-align: center; width: 50%; vertical-align: top; }
-      .photo-grid img { width: 100%; max-height: 190px; object-fit: cover; display: block; }
+      .photo-grid td { border: 1px solid #aaa; padding: 8px; text-align: center; width: 50%; vertical-align: top; }
+      .photo-grid img { width: 100%; height: auto; max-width: 100%; object-fit: contain; display: block; }
       .pcap { font-size: 8.5pt; font-weight: bold; text-transform: uppercase; margin-top: 4px; }
       .pdesc { font-size: 7.5pt; color: #444; margin-top: 2px; }
+      .cal-img-auto { max-width: 180px; height: auto; object-fit: contain; }
+      .cal-row { display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start; flex-wrap: wrap; }
+      .cover-img { max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; margin: 0 auto 10px; }
     `;
 
     const hdr = () => `
@@ -3137,7 +3148,7 @@ const App = {
     let pages = `<div class="page">${hdr()}`;
     pages += `<h1>Work Completion Report</h1>`;
     if (p.CustomerName) pages += `<p style="text-align:center;font-size:12pt;font-weight:bold;color:#003366;margin:4px 0 10px">${p.CustomerName}</p>`;
-    if (p.VesselImageBase64) pages += `<div style="text-align:center;margin:10px 0"><img src="${p.VesselImageBase64}" style="max-width:90%;max-height:200px;object-fit:contain"/></div>`;
+    if (p.VesselImageBase64) pages += `<div style="text-align:center;margin:10px 0"><img src="${p.VesselImageBase64}" class="cover-img"/></div>`;
     pages += `<table>
       ${(()=>{ const L=App.ENGINE_TYPE_LABELS[p.EngineType||'niigata']||App.ENGINE_TYPE_LABELS.niigata; return `
       <tr><td class="lc">Customer Name</td><td><strong>${p.CustomerName||"—"}</strong></td><td class="lc">${L.contractNo}</td><td>${p.ContractNo||"—"}</td></tr>
@@ -3265,22 +3276,23 @@ const App = {
 
     body += ftr() + `</div>`;
 
-    // ── Calibration Tables page ──
+    // ── Calibration Tables — one per page ──────────────────
     if (w.calibrationTables?.length) {
-      body += `<div class="page">${hdr()}<h2>Annexure 1 &mdash; Calibration Sheet</h2>`;
-      w.calibrationTables.forEach(t => {
+      w.calibrationTables.forEach((t, ti) => {
         const imgSrc = t.imageBase64 || DGRAMS[t.templateKey] || null;
-        body += `<h3>${t.name}</h3>`;
+        body += `<div class="page">${hdr()}`;
+        body += `<h2>Annexure ${ti+1} &mdash; ${t.name}</h2>`;
         if (t.hasImage && imgSrc) {
-          body += `<div class="cal-row"><img src="${imgSrc}" /><div class="cal-note">${(t.note||"").replace(/\n/g,"<br/>")}</div></div>`;
+          // Detect image orientation before rendering
+          body += `<div class="cal-row"><img src="${imgSrc}" class="cal-img-auto" /><div class="cal-note">${(t.note||"").replace(/\n/g,"<br/>")}</div></div>`;
         } else if (t.note) {
-          body += `<p style="font-size:8pt;margin-bottom:6px">${(t.note||"").replace(/\n/g,"<br/>")}</p>`;
+          body += `<p style="font-size:8pt;margin-bottom:8px">${(t.note||"").replace(/\n/g,"<br/>")}</p>`;
         }
         body += `<table><thead><tr>${t.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`;
-        (t.rows||[]).forEach(row => { body += `<tr>${row.map(c => `<td>${c}</td>`).join("")}</tr>`; });
+        (t.rows||[]).forEach(row => { body += `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`; });
         body += `</tbody></table>`;
+        body += ftr() + `</div>`;
       });
-      body += ftr() + `</div>`;
     }
 
     // ── Parts Consumed page ──
@@ -3299,8 +3311,8 @@ const App = {
       for (let i = 0; i < realPhotos.length; i += 2) {
         const ph1 = realPhotos[i], ph2 = realPhotos[i+1]||null;
         body += `<tr>
-          <td><img src="${ph1.src}"/><div class="pcap">${(ph1.title||"").toUpperCase()}</div>${ph1.description?`<div class="pdesc">${ph1.description}</div>`:""}</td>
-          <td>${ph2?`<img src="${ph2.src}"/><div class="pcap">${(ph2.title||"").toUpperCase()}</div>${ph2.description?`<div class="pdesc">${ph2.description}</div>`:""}`:""}</td>
+          <td><img src="${ph1.src}" style="width:100%;height:auto;object-fit:contain;max-height:260px;display:block"/><div class="pcap">${(ph1.title||"").toUpperCase()}</div>${ph1.description?`<div class="pdesc">${ph1.description}</div>`:""}</td>
+          <td>${ph2?`<img src="${ph2.src}" style="width:100%;height:auto;object-fit:contain;max-height:260px;display:block"/><div class="pcap">${(ph2.title||"").toUpperCase()}</div>${ph2.description?`<div class="pdesc">${ph2.description}</div>`:""}`:""}</td>
         </tr>`;
       }
       body += `</tbody></table>`;
@@ -3320,11 +3332,16 @@ const App = {
     ${ftr()}</div>`;
 
     // ── Open print window ──
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2,'0');
+    const mm = String(today.getMonth()+1).padStart(2,'0');
+    const yyyy = today.getFullYear();
+    const pdfFileName = `${draft.projectCode}_WCR_${dd}-${mm}-${yyyy}`;
     const win = window.open("", "_blank");
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>WCR — ${draft.projectCode}</title><style>${CSS}</style></head><body>${pages}${body}</body></html>`);
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${pdfFileName}</title><style>${CSS}</style></head><body>${pages}${body}</body></html>`);
     win.document.close();
-    win.onload = () => { win.focus(); win.print(); };
-    Toast.show("PDF opened — use Print → Save as PDF.", "success");
+    win.onload = () => { win.focus(); win.document.title = pdfFileName; win.print(); };
+    Toast.show(`PDF ready — save as "${pdfFileName}.pdf"`, "success");
   },
 
   /* ══════════════════════════════════════════════════════
