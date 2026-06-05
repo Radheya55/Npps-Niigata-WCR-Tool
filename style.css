@@ -1695,3 +1695,31 @@ html, body {
 }
 .col-finalised { border: 1px solid rgba(127,229,154,0.3) !important; background: rgba(127,229,154,0.05); }
 .col-finalised .parts-paste-header { color: #7ef59a; }
+
+/* ── Draft date grouping ────────────────────────────────── */
+.draft-date-group { margin-bottom: 6px; }
+.draft-date-label {
+  font-size: 10px; font-weight: 700; color: var(--white-dim);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  padding: 6px 2px 4px; border-bottom: 1px solid var(--border);
+  margin-bottom: 5px;
+}
+
+/* WIP Draft — red tint */
+.draft-card-wip {
+  border-color: rgba(220, 80, 60, 0.35) !important;
+  background: rgba(220, 60, 40, 0.04) !important;
+}
+.draft-card-wip:hover { border-color: rgba(220,80,60,0.6) !important; }
+.status-wip {
+  background: rgba(220,60,40,0.15); color: #f08070;
+  border: 1px solid rgba(220,60,40,0.4);
+}
+
+/* PDF Download card — clean neutral */
+.draft-card-dl { border-color: rgba(100,180,255,0.2) !important; }
+.draft-card-dl:hover { border-color: rgba(100,180,255,0.5) !important; }
+.status-dl {
+  background: rgba(100,180,255,0.1); color: #7ab3ff;
+  border: 1px solid rgba(100,180,255,0.35);
+}
