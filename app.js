@@ -3365,35 +3365,47 @@ const App = {
       </table>
     ${ftr()}</div>`;
 
-    // ── Open print window ──
+    // ── Generate filename ──
     const today = new Date();
     const dd = String(today.getDate()).padStart(2,'0');
     const mm = String(today.getMonth()+1).padStart(2,'0');
     const yy = String(today.getFullYear()).slice(-2);
     const authorName = (draft.authorName || State.currentUser?.name || 'User').replace(/\s+/g,'_');
     const pdfFileName = `${draft.projectCode}_${authorName}_${dd}-${mm}-${yy}`;
+
+    // ── Build full HTML with auto-print script ──
     const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
       <title>${pdfFileName}</title>
       <style>${CSS}
-        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-      </style></head><body>${pages}${body}</body></html>`;
-    const win = window.open("", "_blank", "width=900,height=700");
+        @media print {
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+      </style></head><body>${pages}${body}
+      <script>
+        // Auto-trigger print dialog as soon as page loads
+        window.addEventListener('load', function() {
+          document.title = '${pdfFileName}';
+          setTimeout(function() { window.print(); }, 500);
+        });
+      <\/script>
+      </body></html>`;
+
+    // ── Open in new tab — auto-prints on load ──
+    // User sees print dialog immediately, selects "Save as PDF", done.
+    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
     if (!win) {
-      // Popup blocked — fallback to blob download
-      const blob = new Blob([fullHtml], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
+      // Popup blocked — download the HTML as fallback
       const a = document.createElement('a');
       a.href = url; a.download = pdfFileName + '.html';
       a.style.display = 'none'; document.body.appendChild(a); a.click();
-      setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 2000);
-      Toast.show("Popup blocked — file downloaded. Open it and print to PDF.", "success");
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 3000);
+      Toast.show("Allow popups for this site for best experience. File downloaded instead.", "error");
       return;
     }
-    win.document.write(fullHtml);
-    win.document.close();
-    win.document.title = pdfFileName;
-    win.onload = () => { win.focus(); win.print(); };
-    Toast.show(`Printing "${pdfFileName}" — choose Save as PDF in the print dialog.`, "success");
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    Toast.show(`Print dialog will open — select "Save as PDF" to download as "${pdfFileName}.pdf"`, "success");
   },
 
   /* ══════════════════════════════════════════════════════
