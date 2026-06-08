@@ -216,6 +216,7 @@
     <div class="app-header-right">
       <span class="wcr-customer-pill" id="wcr-customer"></span>
       <button class="btn-undo-wcr" onclick="Undo.last()" title="Undo last action">↩ Undo</button>
+      <span id="autosave-indicator" style="font-size:11px;color:#7ef59a;margin-right:4px"></span>
       <button class="btn-save-wcr" onclick="App.saveWCRSection()">💾 Save Draft</button>
       <button class="btn-save-wcr" style="background:#1a5c8a;color:#fff;font-weight:700" onclick="App.downloadCurrentDraftPDF()" title="Download this WCR as PDF">⬇ Download PDF</button>
       <button class="logout-btn" onclick="App.backToDashboard()">← Dashboard</button>
@@ -232,6 +233,7 @@
           <label for="cover-image-input" class="cover-img-upload-btn">📷 Upload Vessel / Customer Image</label>
           <input type="file" id="cover-image-input" accept="image/*" style="display:none" onchange="App.onCoverImageSelect(event)" />
           <button class="cover-img-clear hidden" id="cover-image-clear" onclick="App.clearCoverImage()">✕ Remove</button>
+              <button class="btn-save-history" style="margin-top:6px;font-size:11px" onclick="App.saveCoverSection()">💾 Save Cover Photo</button>
         </div>
         <div class="wcr-cover-grid">
           <div class="cover-item"><label>Customer Name</label><span id="wcr-cover-customer"></span></div>
@@ -275,10 +277,11 @@
           </div>
         </div>
 
-        <div class="wcr-section-label">History</div>
-        <button class="toggle-section-btn" id="history-toggle-btn" onclick="App.toggleHistory()">+ Add History Section</button>
-      </div>
-      <div id="history-body" class="hidden">
+        <div class="wcr-section">
+          <div class="wcr-section-label">History</div>
+          <button class="toggle-section-btn" id="history-toggle-btn" onclick="App.toggleHistory()">+ Add History Section</button>
+        </div>
+        <div id="history-body" class="hidden">
         <div class="wcr-field-grid">
           <div class="wcr-field"><label>Last Overhauling Type</label><input id="h-lastType" class="form-input" placeholder="e.g. TOH / Not done" /></div>
           <div class="wcr-field"><label>Last Overhaul Carried By</label><input id="h-lastBy" class="form-input" placeholder="e.g. Neptunus / Not done" /></div>
