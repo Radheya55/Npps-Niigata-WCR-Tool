@@ -95,21 +95,6 @@
         <div id="project-details" class="project-details hidden">
           <div class="project-info-grid" id="project-info-grid"></div>
           <!-- DWR Upload (optional) -->
-          <div id="dwr-upload-section" class="dwr-section hidden">
-            <div class="dwr-header">
-              <span class="dwr-label">📄 Upload DWRs (Optional)</span>
-              <small>Upload Daily Work Report PDFs to auto-populate Maintenance Summary, Recommendations and Photos</small>
-            </div>
-            <div class="dwr-controls">
-              <input type="file" id="dwr-file-input" accept="application/pdf" multiple style="display:none"
-                onchange="App.onDWRFilesSelected(this)" />
-              <button class="btn-dwr-pick" onclick="document.getElementById('dwr-file-input').click()">📂 Choose DWR PDFs</button>
-              <button class="btn-dwr-load" id="load-dwr-btn" onclick="App.loadDWRData()" disabled
-                style="opacity:0.4;cursor:not-allowed" title="Select PDF files first">Parse DWRs →</button>
-            </div>
-            <div id="dwr-file-names" style="font-size:10px;color:var(--white-dim);margin-top:4px"></div>
-            <div id="dwr-status" class="dwr-status"></div>
-          </div>
           <button class="btn-full mt" onclick="App.startWCR()">Create WCR for This Project →</button>
         </div>
         <div id="project-not-found" class="project-not-found hidden">
@@ -270,6 +255,26 @@
     <!-- History (collapsible) -->
     <div class="wcr-section">
       <div class="wcr-section-toggle-row">
+
+        <!-- DWR Upload Section -->
+        <div class="wcr-section">
+          <div id="dwr-upload-section" class="dwr-section">
+            <div class="dwr-header">
+              <span class="dwr-label">📄 Upload DWRs (Optional)</span>
+              <small>Upload Daily Work Report PDFs to auto-populate Maintenance Summary, Recommendations and Photos</small>
+            </div>
+            <div class="dwr-controls">
+              <input type="file" id="dwr-file-input" accept="application/pdf" multiple style="display:none"
+                onchange="App.onDWRFilesSelected(this)" />
+              <button class="btn-dwr-pick" onclick="document.getElementById('dwr-file-input').click()">📂 Choose DWR PDFs</button>
+              <button class="btn-dwr-load" id="load-dwr-btn" onclick="App.loadDWRData()" disabled
+                style="opacity:0.4;cursor:not-allowed" title="Select PDF files first">Parse DWRs →</button>
+            </div>
+            <div id="dwr-file-names" style="font-size:10px;color:var(--white-dim);margin-top:4px"></div>
+            <div id="dwr-status" class="dwr-status"></div>
+          </div>
+        </div>
+
         <div class="wcr-section-label">History</div>
         <button class="toggle-section-btn" id="history-toggle-btn" onclick="App.toggleHistory()">+ Add History Section</button>
       </div>
