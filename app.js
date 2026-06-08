@@ -2071,9 +2071,20 @@ const App = {
       img.classList.remove("hidden");
       document.getElementById("cover-image-clear").classList.remove("hidden");
       State.currentDraft.updatedAt = new Date().toISOString();
+      AutoSave.trigger(); // auto-save when photo uploaded
     };
     reader.readAsDataURL(file);
     event.target.value = "";
+  },
+
+  saveCoverSection() {
+    if (State.currentDraft.projectData.VesselImageBase64) {
+      State.currentDraft.updatedAt = new Date().toISOString();
+      App.saveDrafts();
+      Toast.show("Cover photo saved.", "success");
+    } else {
+      Toast.show("No cover photo to save yet.", "error");
+    }
   },
 
   clearCoverImage() {
@@ -2235,9 +2246,9 @@ const App = {
     body.innerHTML = html;
   },
 
-  updateHistoryRowValue(i, val) { State.currentDraft.wcr.historyRows[i].value = val; },
-  updateHistoryRowLabel(i, val) { State.currentDraft.wcr.historyRows[i].label = val; },
-  updateHistorySubCell(i, ri, ci, val) { State.currentDraft.wcr.historyRows[i].rows[ri][ci] = val; },
+  updateHistoryRowValue(i, val) { State.currentDraft.wcr.historyRows[i].value = val; AutoSave.trigger(); },
+  updateHistoryRowLabel(i, val) { State.currentDraft.wcr.historyRows[i].label = val; AutoSave.trigger(); },
+  updateHistorySubCell(i, ri, ci, val) { State.currentDraft.wcr.historyRows[i].rows[ri][ci] = val; AutoSave.trigger(); },
   addHistorySubRow(i) {
     const r = State.currentDraft.wcr.historyRows[i];
     const cols = (r.headers || r.subheaders || []).length;
@@ -2319,7 +2330,7 @@ const App = {
       </div>`;
   },
 
-  updateMandaysRow(i, val) { State.currentDraft.wcr.mandaysRows[i].value = val; },
+  updateMandaysRow(i, val) { State.currentDraft.wcr.mandaysRows[i].value = val; AutoSave.trigger(); },
   deleteMandaysRow(i) {
     const prev = State.currentDraft.wcr.mandaysRows.map(r=>({...r}));
     const label = State.currentDraft.wcr.mandaysRows[i]?.label || 'mandays row';
@@ -2438,7 +2449,7 @@ const App = {
   },
 
   updateCatMaintPart(i, val) {
-    State.currentDraft.wcr.catEmdMaintSummary[i].part = val;
+    State.currentDraft.wcr.catEmdMaintSummary[i].part = val; AutoSave.trigger();
   },
 
   toggleVerb(i, verb) {
@@ -2450,7 +2461,7 @@ const App = {
   },
 
   updateCustomVerb(i, val) {
-    State.currentDraft.wcr.catEmdMaintSummary[i].customVerb = val;
+    State.currentDraft.wcr.catEmdMaintSummary[i].customVerb = val; AutoSave.trigger();
   },
 
   addCustomVerb(i) {
@@ -2520,7 +2531,7 @@ const App = {
 
   updateRemarkBullet(i, val) {
     if (!State.currentDraft.wcr.catEmdRemarksBullets) State.currentDraft.wcr.catEmdRemarksBullets = [];
-    State.currentDraft.wcr.catEmdRemarksBullets[i] = val;
+    State.currentDraft.wcr.catEmdRemarksBullets[i] = val; AutoSave.trigger();
   },
 
   deleteRemarkBullet(i) {
@@ -2648,8 +2659,8 @@ const App = {
     App.renderCatEmdScope();
   },
 
-  updateCatScopeHeading(i, v) { State.currentDraft.wcr.catEmdScope[i].text = v; },
-  updateCatScopeField(i, f, v) { State.currentDraft.wcr.catEmdScope[i][f] = v; },
+  updateCatScopeHeading(i, v) { State.currentDraft.wcr.catEmdScope[i].text = v; AutoSave.trigger(); },
+  updateCatScopeField(i, f, v) { State.currentDraft.wcr.catEmdScope[i][f] = v; AutoSave.trigger(); },
   addCatScopeHeading() {
     const prev = State.currentDraft.wcr.catEmdScope.map(r=>({...r}));
     Undo.push(() => { State.currentDraft.wcr.catEmdScope = prev; App.renderCatEmdScope(); }, "Add scope section");
@@ -2690,7 +2701,7 @@ const App = {
     Toast.show("Scope of Work saved.", "success");
   },
 
-  updateScopeRow(i, f, v) { State.currentDraft.wcr.scopeOfWork[i][f] = v; },
+  updateScopeRow(i, f, v) { State.currentDraft.wcr.scopeOfWork[i][f] = v; AutoSave.trigger(); },
   addScopeRow() { const prev = [...State.currentDraft.wcr.scopeOfWork]; Undo.push(() => { State.currentDraft.wcr.scopeOfWork = prev; App.renderScopeOfWork(); }, "Add scope row"); State.currentDraft.wcr.scopeOfWork.push({original:"",done:""}); App.renderScopeOfWork(); },
   deleteScopeRow(i) { const prev = [...State.currentDraft.wcr.scopeOfWork]; Undo.push(() => { State.currentDraft.wcr.scopeOfWork = prev; App.renderScopeOfWork(); }, "Delete scope row"); State.currentDraft.wcr.scopeOfWork.splice(i,1); App.renderScopeOfWork(); },
 
@@ -2746,7 +2757,7 @@ const App = {
     const addBar = document.querySelector('.maint-add-bar');
     if (addBar) addBar.style.display = '';
   },
-  updateMaintItem(id, field, val) { const item = State.currentDraft.wcr.maintItems.find(m => m.id === id); if (item) item[field] = val; },
+  updateMaintItem(id, field, val) { const item = State.currentDraft.wcr.maintItems.find(m => m.id === id); if (item) { item[field] = val; AutoSave.trigger(); } },
 
   renderDWRUploadSection() {
     // Show DWR upload controls inside builder only if not yet parsed
@@ -2801,7 +2812,7 @@ const App = {
       </div>`).join("") + `<div style="margin-top:10px;text-align:right"><button class="btn-save-history" onclick="App.saveScopeForImprovement()">💾 Save Scope for Improvement</button></div>`;
   },
 
-  updateSFI(i, f, v) { State.currentDraft.wcr.scopeForImprovement[i][f] = v; },
+  updateSFI(i, f, v) { State.currentDraft.wcr.scopeForImprovement[i][f] = v; AutoSave.trigger(); },
   addSFI() { const prev = State.currentDraft.wcr.scopeForImprovement.map(r => ({...r})); Undo.push(() => { State.currentDraft.wcr.scopeForImprovement = prev; App.renderScopeForImprovement(); }, "Add Scope for Improvement row"); State.currentDraft.wcr.scopeForImprovement.push({area:"",observations:"",recommendations:""}); App.renderScopeForImprovement(); },
   deleteSFI(i) { const prev = State.currentDraft.wcr.scopeForImprovement.map(r => ({...r})); Undo.push(() => { State.currentDraft.wcr.scopeForImprovement = prev; App.renderScopeForImprovement(); }, "Delete Scope for Improvement row"); State.currentDraft.wcr.scopeForImprovement.splice(i,1); App.renderScopeForImprovement(); },
 
@@ -2816,7 +2827,7 @@ const App = {
       </div>`).join("") + `<div style="margin-top:10px;text-align:right"><button class="btn-save-history" onclick="App.saveRecommendations()">💾 Save Recommendations</button></div>`;
   },
 
-  updateRec(i, v) { State.currentDraft.wcr.recommendations[i] = v; },
+  updateRec(i, v) { State.currentDraft.wcr.recommendations[i] = v; AutoSave.trigger(); },
   addRec() { const prev = [...State.currentDraft.wcr.recommendations]; Undo.push(() => { State.currentDraft.wcr.recommendations = prev; App.renderRecommendations(); }, "Add Recommendation"); State.currentDraft.wcr.recommendations.push(""); App.renderRecommendations(); },
   deleteRec(i) { const prev = [...State.currentDraft.wcr.recommendations]; Undo.push(() => { State.currentDraft.wcr.recommendations = prev; App.renderRecommendations(); }, "Delete Recommendation"); State.currentDraft.wcr.recommendations.splice(i,1); App.renderRecommendations(); },
 
@@ -2873,14 +2884,14 @@ const App = {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = e => { State.currentDraft.wcr.calibrationTables[ti].imageBase64 = e.target.result; App.renderCalibrationTables(); };
+    reader.onload = e => { State.currentDraft.wcr.calibrationTables[ti].imageBase64 = e.target.result; App.renderCalibrationTables(); AutoSave.trigger(); };
     reader.readAsDataURL(file);
   },
 
-  updateTableName(ti, v) { State.currentDraft.wcr.calibrationTables[ti].name = v; },
-  updateTableNote(ti, v) { State.currentDraft.wcr.calibrationTables[ti].note = v; },
-  updateHeader(ti, hi, v) { State.currentDraft.wcr.calibrationTables[ti].headers[hi] = v; },
-  updateCell(ti, ri, ci, v) { State.currentDraft.wcr.calibrationTables[ti].rows[ri][ci] = v; },
+  updateTableName(ti, v) { State.currentDraft.wcr.calibrationTables[ti].name = v; AutoSave.trigger(); },
+  updateTableNote(ti, v) { State.currentDraft.wcr.calibrationTables[ti].note = v; AutoSave.trigger(); },
+  updateHeader(ti, hi, v) { State.currentDraft.wcr.calibrationTables[ti].headers[hi] = v; AutoSave.trigger(); },
+  updateCell(ti, ri, ci, v) { State.currentDraft.wcr.calibrationTables[ti].rows[ri][ci] = v; AutoSave.trigger(); },
 
   deleteTable(ti) {
     if (!confirm("Delete this table?")) return;
@@ -2990,7 +3001,7 @@ const App = {
     `;
   },
 
-  updatePartsPaste(i, val) { State.currentDraft.wcr.partsColumns.rawPaste[i] = val; },
+  updatePartsPaste(i, val) { State.currentDraft.wcr.partsColumns.rawPaste[i] = val; AutoSave.trigger(); },
 
   finalisePartsCol(i) {
     const p = State.currentDraft.wcr.partsColumns;
@@ -3036,7 +3047,7 @@ const App = {
 
   resetPartsPaste() { State.currentDraft.wcr.partsColumns.rows = null; App.renderPartsPaste(); },
   updatePartsHeader(hi, v) { State.currentDraft.wcr.partsColumns.headers[hi] = v; App.renderPartsTable(); },
-  updatePartsCell(ri, ci, v) { State.currentDraft.wcr.partsColumns.rows[ri][ci] = v; },
+  updatePartsCell(ri, ci, v) { State.currentDraft.wcr.partsColumns.rows[ri][ci] = v; AutoSave.trigger(); },
   addPartsRow() { State.currentDraft.wcr.partsColumns.rows.push(new Array(State.currentDraft.wcr.partsColumns.headers.length).fill("")); App.renderPartsTable(); },
   deletePartsRow(ri) { State.currentDraft.wcr.partsColumns.rows.splice(ri,1); App.renderPartsTable(); },
   addPartsCol() { const p = State.currentDraft.wcr.partsColumns; p.headers.push("New Column"); p.rows.forEach(r => r.push("")); App.renderPartsTable(); },
@@ -3050,7 +3061,7 @@ const App = {
       reader.onload = e => {
         State.currentDraft.wcr.photos.push({ src:e.target.result, title:"", description:"", fromDWR:false });
         App.renderPhotos();
-        App.saveDrafts(); // auto-save when photos added
+        AutoSave.trigger(); // auto-save when photos added
       };
       reader.readAsDataURL(file);
     });
@@ -3080,7 +3091,7 @@ const App = {
     reader.readAsDataURL(file);
   },
 
-  updatePhoto(i, f, v) { State.currentDraft.wcr.photos[i][f] = v; },
+  updatePhoto(i, f, v) { State.currentDraft.wcr.photos[i][f] = v; AutoSave.trigger(); },
   deletePhoto(i) { State.currentDraft.wcr.photos.splice(i,1); App.renderPhotos(); },
 
   /* ══════════════════════════════════════════════════════
@@ -3673,6 +3684,56 @@ const App = {
   },
 
 };  // end App
+
+// ── AUTO-SAVE: debounced Drive write after any field change ──
+const AutoSave = {
+  _timer: null,
+  _saveIndicator: null,
+
+  // Call this whenever any WCR field changes
+  trigger() {
+    if (!State.currentDraft) return;
+    // Show "Saving..." indicator
+    AutoSave._showStatus("saving");
+    // Debounce — wait 2s after last change before writing to Drive
+    clearTimeout(AutoSave._timer);
+    AutoSave._timer = setTimeout(() => {
+      AutoSave._flush();
+    }, 2000);
+  },
+
+  async _flush() {
+    if (!State.currentDraft) return;
+    // Capture any open form fields before saving
+    const w = State.currentDraft.wcr;
+    if (w.deviationsActive) {
+      const nt = document.getElementById("dev-nextType");
+      const nd = document.getElementById("dev-nextDate");
+      const dp = document.getElementById("dev-parts");
+      if (nt) w.deviations.nextMaintType = nt.value;
+      if (nd) w.deviations.nextMaintDate = nd.value;
+      if (dp) w.deviations.partsRenewal = dp.value;
+    }
+    const soFields = {makerName:"so-maker",checkerName:"so-checker",approverName:"so-approver",makerDate:"so-makerdate",customerName:"so-custname",customerDate:"so-custdate"};
+    Object.entries(soFields).forEach(([k,id]) => { const el = document.getElementById(id); if (el) w.signoff[k] = el.value; });
+    State.currentDraft.updatedAt = new Date().toISOString();
+    await App.saveDrafts();
+    AutoSave._showStatus("saved");
+  },
+
+  _showStatus(state) {
+    const el = document.getElementById("autosave-indicator");
+    if (!el) return;
+    if (state === "saving") {
+      el.textContent = "⏳ Saving...";
+      el.style.color = "var(--amber-dim)";
+    } else {
+      el.textContent = "✓ Saved";
+      el.style.color = "#7ef59a";
+      setTimeout(() => { if (el.textContent === "✓ Saved") el.textContent = ""; }, 3000);
+    }
+  }
+};
 
 // ── HELPERS ──────────────────────────────────────────────
 async function gapi_fetch(url, options = {}) {
