@@ -952,10 +952,13 @@ const App = {
     const groupByDate = (items, dateFn) => {
       const groups = {};
       items.forEach(d => {
-        const key = formatDate(dateFn(d));
+        const dt = dateFn(d);
+        const key = formatDate(dt); // date only as group key
         if (!groups[key]) groups[key] = [];
         groups[key].push(d);
       });
+      // Sort each group newest-first
+      Object.values(groups).forEach(arr => arr.sort((a, b) => new Date(dateFn(b)) - new Date(dateFn(a))));
       return groups;
     };
 
@@ -972,7 +975,7 @@ const App = {
             <div class="draft-card-left">
               <div class="draft-card-code">${d.projectCode}</div>
               <div class="draft-card-name">${d.projectData?.CustomerName||"—"} · ${d.projectData?.Vessel||"—"}</div>
-              <div class="draft-card-meta">Started ${formatDate(d.createdAt)}</div>
+              <div class="draft-card-meta">Started ${formatDate(d.createdAt)} &nbsp;·&nbsp; Last saved ${formatDate(d.updatedAt||d.createdAt, true)}</div>
             </div>
             <div class="draft-card-right">
               <span class="status-pill status-wip">WIP Draft</span>
@@ -996,7 +999,7 @@ const App = {
               <div class="draft-card-left">
                 <div class="draft-card-code">${d.projectCode}</div>
                 <div class="draft-card-name">${d.projectData?.CustomerName||"—"} · ${d.projectData?.Vessel||"—"}</div>
-                <div class="draft-card-meta">Last downloaded ${formatDate(d.downloadedAt, true)}</div>
+                <div class="draft-card-meta">Downloaded ${formatDate(d.downloadedAt, true)}</div>
               </div>
               <div class="draft-card-right">
                 <span class="status-pill status-dl">PDF Downloaded</span>
@@ -1860,7 +1863,6 @@ const App = {
     if (!code) { Toast.show("Enter a project code.", "error"); return; }
     document.getElementById("project-details").classList.add("hidden");
     document.getElementById("project-not-found").classList.add("hidden");
-    document.getElementById("dwr-upload-section").classList.add("hidden");
     try {
       const resp = await gapi_fetch(`https://sheets.googleapis.com/v4/spreadsheets/${State.baseSheetId}/values/Sheet1`);
       const data = await resp.json();
@@ -1897,7 +1899,6 @@ const App = {
       const labels = { CustomerName:"Customer Name", ContractNo:L.contractNo, StartDate:"Start Date of Job", EndDate:L.endDate, OverhaulType:L.overhaulType, EngineModel:"Engine Make and Model", EngineSerial:"Engine Serial Number", Vessel:"Vessel / Rig", Location:"Location", TeamLeader:"Neptunus Team Leader" };
       document.getElementById("project-info-grid").innerHTML = Object.entries(labels).map(([key,label]) => `<div class="project-info-item"><label>${label}</label><span>${project[key] || '<em class="not-updated">Not Updated in Base Data Yet</em>'}</span></div>`).join("");
       document.getElementById("project-details").classList.remove("hidden");
-      document.getElementById("dwr-upload-section").classList.remove("hidden");
     } catch (err) { Toast.show("Could not read project data.", "error"); }
   },
 
@@ -2132,11 +2133,14 @@ const App = {
     App.renderPartsSection();
     // Photos
     App.renderPhotos();
-    // DWR Points (shown for all engine types)
+    // DWR Upload + Points (shown inside WCR builder)
+    App.renderDWRUploadSection();
     App.renderDWRPoints();
     // Signoff
     const so = w.signoff;
     ["maker","checker","approver","makerdate","custname","custdate"].forEach(k => { const el = document.getElementById(`so-${k}`); if (el) el.value = so[k === "maker" ? "makerName" : k === "checker" ? "checkerName" : k === "approver" ? "approverName" : k === "makerdate" ? "makerDate" : k === "custname" ? "customerName" : "customerDate"] || ""; });
+    const soFooter = document.getElementById("signoff-save-footer");
+    if (soFooter) soFooter.innerHTML = `<button class="btn-save-history" onclick="App.saveSignoffSection()" style="margin-top:10px">💾 Save Sign-off</button>`;
   },
 
   saveWCRSection() {
@@ -2702,6 +2706,9 @@ const App = {
       document.getElementById("dev-nextType").value = dv.nextMaintType || "";
       document.getElementById("dev-nextDate").value = dv.nextMaintDate || "";
       document.getElementById("dev-parts").value = dv.partsRenewal || "";
+      // Ensure save button exists
+      const devFooter = document.getElementById("dev-save-footer");
+      if (devFooter) devFooter.innerHTML = `<button class="btn-save-history" onclick="App.saveDeviationsSection()">💾 Save Deviations</button>`;
     }
   },
 
@@ -2740,6 +2747,13 @@ const App = {
     if (addBar) addBar.style.display = '';
   },
   updateMaintItem(id, field, val) { const item = State.currentDraft.wcr.maintItems.find(m => m.id === id); if (item) item[field] = val; },
+
+  renderDWRUploadSection() {
+    // Show DWR upload controls inside builder only if not yet parsed
+    const container = document.getElementById("dwr-upload-section");
+    if (!container) return;
+    container.classList.remove("hidden");
+  },
 
   renderDWRPoints() {
     const container = document.getElementById("dwr-points-container");
@@ -2784,7 +2798,7 @@ const App = {
         <input class="form-input" value="${r.observations}" placeholder="Observations" oninput="App.updateSFI(${i},'observations',this.value)" />
         <input class="form-input" value="${r.recommendations}" placeholder="Recommendations" oninput="App.updateSFI(${i},'recommendations',this.value)" />
         <button class="row-del-btn" onclick="App.deleteSFI(${i})">✕</button>
-      </div>`).join("");
+      </div>`).join("") + `<div style="margin-top:10px;text-align:right"><button class="btn-save-history" onclick="App.saveScopeForImprovement()">💾 Save Scope for Improvement</button></div>`;
   },
 
   updateSFI(i, f, v) { State.currentDraft.wcr.scopeForImprovement[i][f] = v; },
@@ -2799,7 +2813,7 @@ const App = {
         <span class="rec-num">${i+1}.</span>
         <textarea class="form-input rec-cell" oninput="App.updateRec(${i},this.value)">${r}</textarea>
         <button class="row-del-btn" onclick="App.deleteRec(${i})">✕</button>
-      </div>`).join("");
+      </div>`).join("") + `<div style="margin-top:10px;text-align:right"><button class="btn-save-history" onclick="App.saveRecommendations()">💾 Save Recommendations</button></div>`;
   },
 
   updateRec(i, v) { State.currentDraft.wcr.recommendations[i] = v; },
@@ -2852,7 +2866,7 @@ const App = {
           </table>
         </div>
         <button class="add-row-btn" onclick="App.addTableRow(${ti})">+ Add Row</button>
-      </div>`).join("");
+      </div>`).join("") + `<div style="margin-top:14px;text-align:right"><button class="btn-save-history" onclick="App.saveCalibrationTables()">💾 Save Calibration Tables</button></div>`;
   },
 
   onCalImageSelect(ti, event) {
@@ -3016,6 +3030,7 @@ const App = {
         </table>
       </div>
       <button class="add-row-btn" onclick="App.addPartsRow()">+ Add Row</button>
+      <div style="margin-top:10px;text-align:right"><button class="btn-save-history" onclick="App.savePartsSection()">💾 Save Parts List</button></div>
     `;
   },
 
@@ -3054,7 +3069,7 @@ const App = {
           <input class="form-input photo-desc" value="${p.description||''}" placeholder="Description (optional)" oninput="App.updatePhoto(${i},'description',this.value)" />
         </div>
         <button class="photo-del" onclick="App.deletePhoto(${i})">✕ Remove</button>
-      </div>`).join("");
+      </div>`).join("") + `<div style="margin-top:10px;text-align:right"><button class="btn-save-history" onclick="App.savePhotosSection()">💾 Save Photos</button></div>`;
   },
 
   replacePhoto(i, event) {
@@ -3596,6 +3611,66 @@ const App = {
 
   closeGrammarSidebar() { document.getElementById("grammar-sidebar").classList.add("hidden"); },
 
+  // ── Section save functions (Drive-persisted) ─────────────
+  saveDeviationsSection() {
+    const w = State.currentDraft.wcr;
+    if (w.deviationsActive) {
+      w.deviations = {
+        nextMaintType: document.getElementById("dev-nextType")?.value||"",
+        nextMaintDate: document.getElementById("dev-nextDate")?.value||"",
+        partsRenewal:  document.getElementById("dev-parts")?.value||""
+      };
+    }
+    State.currentDraft.updatedAt = new Date().toISOString();
+    App.saveDrafts();
+    Toast.show("Deviations saved.", "success");
+  },
+
+  saveScopeForImprovement() {
+    State.currentDraft.updatedAt = new Date().toISOString();
+    App.saveDrafts();
+    Toast.show("Scope for Improvement saved.", "success");
+  },
+
+  saveRecommendations() {
+    State.currentDraft.updatedAt = new Date().toISOString();
+    App.saveDrafts();
+    Toast.show("Recommendations saved.", "success");
+  },
+
+  saveCalibrationTables() {
+    State.currentDraft.updatedAt = new Date().toISOString();
+    App.saveDrafts();
+    Toast.show("Calibration Tables saved.", "success");
+  },
+
+  savePartsSection() {
+    State.currentDraft.updatedAt = new Date().toISOString();
+    App.saveDrafts();
+    Toast.show("Parts list saved.", "success");
+  },
+
+  savePhotosSection() {
+    // Collect any pending photo title/desc updates
+    State.currentDraft.updatedAt = new Date().toISOString();
+    App.saveDrafts();
+    Toast.show("Photos saved.", "success");
+  },
+
+  saveSignoffSection() {
+    const w = State.currentDraft.wcr;
+    w.signoff = {
+      makerName:    document.getElementById("so-maker")?.value||"",
+      checkerName:  document.getElementById("so-checker")?.value||"",
+      approverName: document.getElementById("so-approver")?.value||"",
+      makerDate:    document.getElementById("so-makerdate")?.value||"",
+      customerName: document.getElementById("so-custname")?.value||"",
+      customerDate: document.getElementById("so-custdate")?.value||""
+    };
+    State.currentDraft.updatedAt = new Date().toISOString();
+    App.saveDrafts();
+    Toast.show("Sign-off saved.", "success");
+  },
 
 };  // end App
 
