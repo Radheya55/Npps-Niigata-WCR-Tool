@@ -24,7 +24,7 @@
     </div>
     <div class="home-hero">
       <h1 class="hero-title">Work Completion<br /><em>Report Builder</em></h1>
-      <p class="hero-sub">Making "Work Completion Reports" just got easier...Try Making one !!!</p>
+      <p class="hero-sub">Making WCRs just got easier</p>
     </div>
     <div class="home-actions">
       <button class="btn-primary" onclick="App.goToLogin('wcr')">
@@ -339,6 +339,7 @@
           <div class="wcr-field"><label>Tentative Due Date</label><input id="dev-nextDate" class="form-input" placeholder="e.g. Oct 2026" /></div>
           <div class="wcr-field wcr-field-full"><label>Notes on Parts Renewal for Next Maintenance</label><textarea id="dev-parts" class="form-input" rows="2"></textarea></div>
         </div>
+        <div id="dev-save-footer" style="margin-top:10px;text-align:right"></div>
       </div>
     </div>
 
@@ -420,6 +421,7 @@
         </div>
       </div>
     </div>
+    <div id="signoff-save-footer" style="padding:0 20px 16px;text-align:right"></div>
 
     <div class="wcr-bottom-actions">
       <button class="btn-undo-wcr" onclick="Undo.last()" title="Undo">↩ Undo</button>
