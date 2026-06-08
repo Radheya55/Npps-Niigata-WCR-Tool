@@ -254,13 +254,9 @@
       </div>
     </div>
 
-    <!-- History (collapsible) -->
-    <div class="wcr-section">
-      <div class="wcr-section-toggle-row">
-
-        <!-- DWR Upload Section -->
-        <div class="wcr-section">
-          <div id="dwr-upload-section" class="dwr-section">
+    <!-- DWR Upload Section -->
+    <div class="wcr-section" style="padding:0">
+      <div id="dwr-upload-section" class="dwr-section">
             <div class="dwr-header">
               <span class="dwr-label">📄 Upload DWRs (Optional)</span>
               <small>Upload Daily Work Report PDFs to auto-populate Maintenance Summary, Recommendations and Photos</small>
@@ -275,13 +271,15 @@
             <div id="dwr-file-names" style="font-size:10px;color:var(--white-dim);margin-top:4px"></div>
             <div id="dwr-status" class="dwr-status"></div>
           </div>
-        </div>
+    </div>
 
-        <div class="wcr-section">
-          <div class="wcr-section-label">History</div>
-          <button class="toggle-section-btn" id="history-toggle-btn" onclick="App.toggleHistory()">+ Add History Section</button>
-        </div>
-        <div id="history-body" class="hidden">
+    <!-- History (collapsible) -->
+    <div class="wcr-section">
+      <div class="wcr-section-toggle-row">
+        <div class="wcr-section-label">History</div>
+        <button class="toggle-section-btn" id="history-toggle-btn" onclick="App.toggleHistory()">+ Add History Section</button>
+      </div>
+      <div id="history-body" class="hidden">
         <div class="wcr-field-grid">
           <div class="wcr-field"><label>Last Overhauling Type</label><input id="h-lastType" class="form-input" placeholder="e.g. TOH / Not done" /></div>
           <div class="wcr-field"><label>Last Overhaul Carried By</label><input id="h-lastBy" class="form-input" placeholder="e.g. Neptunus / Not done" /></div>
