@@ -3182,55 +3182,71 @@ const App = {
     const CSS = `
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: Arial, sans-serif; font-size: 10pt; color: #000; }
-      @page { size: A4; margin: 0; }
-      .page { width: 210mm; min-height: 297mm; padding: 18mm 14mm 24mm 14mm; position: relative; page-break-after: always; }
-      .page-header { display: flex; align-items: center; justify-content: space-between;
-        border-bottom: 2px solid #003366; padding-bottom: 5px; margin-bottom: 14px; }
-      .page-header-title { font-size: 11pt; font-weight: bold; color: #003366; }
-      .page-header img { height: 36px; width: auto; }
-      .page-footer { position: absolute; bottom: 8mm; left: 14mm; right: 14mm;
-        border-top: 1px solid #003366; padding-top: 4px; font-size: 7pt;
-        color: #555; text-align: center; }
+
+      /* Fixed header and footer repeat on EVERY printed page */
+      @page { size: A4; margin: 28mm 14mm 22mm 14mm; }
+
+      /* Running header — fixed at top, appears on every page */
+      #pdf-header {
+        position: fixed; top: -20mm; left: 0; right: 0;
+        display: flex; align-items: center; justify-content: space-between;
+        border-bottom: 2px solid #003366; padding-bottom: 5px;
+        background: #fff;
+      }
+      #pdf-header-title { font-size: 11pt; font-weight: bold; color: #003366; }
+      #pdf-header img { height: 36px; width: auto; }
+
+      /* Running footer — fixed at bottom, appears on every page */
+      #pdf-footer {
+        position: fixed; bottom: -14mm; left: 0; right: 0;
+        border-top: 1px solid #003366; padding-top: 4px;
+        font-size: 7pt; color: #555; text-align: center;
+        background: #fff;
+      }
+
+      /* Content — flows naturally across pages, browser handles breaks */
+      .section { margin-bottom: 16px; }
+      .page-break { page-break-before: always; }
       h1 { text-align: center; font-size: 16pt; color: #003366; margin: 10px 0 6px; }
       h2 { font-size: 11pt; color: #003366; border-bottom: 2px solid #003366;
-           padding-bottom: 3px; margin: 16px 0 6px; }
-      h3 { font-size: 10pt; font-weight: bold; margin: 10px 0 3px; }
+           padding-bottom: 3px; margin: 16px 0 6px; page-break-after: avoid; }
+      h3 { font-size: 10pt; font-weight: bold; margin: 10px 0 3px; page-break-after: avoid; }
       table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 9pt; }
       td, th { border: 1px solid #aaa; padding: 4px 7px; vertical-align: top; }
       th { background: #dde4ef; font-weight: bold; color: #003366; text-align: left; }
       .lc { background: #f5f5f5; font-weight: bold; width: 35%; }
       ul { margin: 3px 0 8px 16px; }
-      li { margin-bottom: 2px; line-height: 1.5; }
+      li { margin-bottom: 2px; line-height: 1.5; page-break-inside: avoid; }
       ol { margin: 4px 0 10px 18px; }
-      ol li { margin-bottom: 4px; line-height: 1.5; }
-      .cal-row { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
+      ol li { margin-bottom: 4px; line-height: 1.5; page-break-inside: avoid; }
+      .maint-group { page-break-inside: avoid; margin-bottom: 6px; }
+      tr { page-break-inside: avoid; }
+      .cal-row { display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start; flex-wrap: wrap; }
       .cal-row img { width: 120px; flex-shrink: 0; }
       .cal-note { font-size: 8pt; line-height: 1.6; flex: 1; }
+      .cal-img-auto { max-width: 180px; height: auto; object-fit: contain; }
       .photo-grid { width: 100%; border-collapse: collapse; }
       .photo-grid td { border: 1px solid #aaa; padding: 8px; text-align: center; width: 50%; vertical-align: top; }
       .photo-grid img { width: 100%; height: auto; max-width: 100%; object-fit: contain; display: block; }
       .pcap { font-size: 8.5pt; font-weight: bold; text-transform: uppercase; margin-top: 4px; }
       .pdesc { font-size: 7.5pt; color: #444; margin-top: 2px; }
-      .cal-img-auto { max-width: 180px; height: auto; object-fit: contain; }
-      .cal-row { display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start; flex-wrap: wrap; }
       .cover-img { max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; margin: 0 auto 10px; }
-      h3 { page-break-after: avoid; page-break-before: auto; }
-      .maint-group { page-break-inside: avoid; margin-bottom: 4px; }
-      ul { page-break-inside: auto; margin: 2px 0 6px 16px; }
-      li { page-break-inside: avoid; margin-bottom: 2px; line-height: 1.5; }
-      tr { page-break-inside: avoid; }
-      .page { page-break-after: always; }
+      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
     `;
 
-    const hdr = () => `
-      <div class="page-header">
-        <span class="page-header-title">Work Completion Report &mdash; ${p.CustomerName||draft.projectCode}</span>
+    // Fixed header/footer — declared once, appear on every printed page
+    const FIXED_HEADER = `
+      <div id="pdf-header">
+        <span id="pdf-header-title">Work Completion Report &mdash; ${p.CustomerName||draft.projectCode}</span>
         ${LOGO ? `<img src="${LOGO}" alt="NPPS" />` : `<span style="font-weight:bold;color:#003366">NEPTUNUS</span>`}
-      </div>`;
-    const ftr = () => `<div class="page-footer">${FOOTER_TEXT}</div>`;
+      </div>
+      <div id="pdf-footer">${FOOTER_TEXT}</div>`;
+    const hdr = () => '';   // no-op — header is fixed
+    const ftr = () => '';   // no-op — footer is fixed
+    const newPage = () => `<div class="page-break"></div>`;
 
-    // ── Page 1: Cover ──
-    let pages = `<div class="page">${hdr()}`;
+    // ── Cover ──
+    let pages = FIXED_HEADER;
     pages += `<h1>Work Completion Report</h1>`;
     if (p.CustomerName) pages += `<p style="text-align:center;font-size:12pt;font-weight:bold;color:#003366;margin:4px 0 10px">${p.CustomerName}</p>`;
     if (p.VesselImageBase64) pages += `<div style="text-align:center;margin:10px 0"><img src="${p.VesselImageBase64}" class="cover-img"/></div>`;
@@ -3245,10 +3261,10 @@ const App = {
       <tr><td class="lc">Neptunus Members</td><td colspan="3">${p.Members||"—"}</td></tr>
       `; })()}
     </table>`;
-    pages += ftr() + `</div>`;
+    pages += newPage();
 
-    // ── Page 2+: Content sections ──
-    let body = `<div class="page">${hdr()}`;
+    // ── Content sections ──
+    let body = ``;
 
     // History
     if (w.historyActive && w.historyRows?.length) {
@@ -3311,11 +3327,11 @@ const App = {
     }
 
     // Maintenance Summary — paginated with header/footer on each page
-    body += ftr() + `</div>`;  // close previous content page
+    body += newPage();  // close previous content page
     // Build maint groups first, then paginate (~18 groups per page)
     const MAINT_PER_PAGE = 18;
     if (isCatEmdPdf && w.catEmdMaintSummary && w.catEmdMaintSummary.length > 0) {
-      body += `<div class="page">${hdr()}<h2>Maintenance Summary</h2>`;
+      body += `<h2>Maintenance Summary</h2>`;
       body += `<table><thead><tr><th style="width:22%">Parts Description</th><th>Brief Description</th><th style="width:8%;text-align:center">Replaced</th><th style="width:8%;text-align:center">Reused</th></tr></thead><tbody>`;
       (w.catEmdMaintSummary||[]).forEach(row => {
         if (!row) return;
@@ -3337,7 +3353,7 @@ const App = {
           body += `<p style="white-space:pre-line;font-size:9pt">${pdfLegacy}</p>`;
         }
       }
-      body += ftr() + `</div>`;
+      body += newPage();
     } else {
       // Group each heading with its bullets, paginate every 18 groups
       let currentGroup = null;
@@ -3353,14 +3369,9 @@ const App = {
         }
       });
       if (currentGroup) maintGroups.push(currentGroup);
-      // Render in paginated chunks
-      body += `<div class="page">${hdr()}<h2>Maintenance Summary</h2>`;
-      let groupsOnPage = 0;
-      maintGroups.forEach((g, gi) => {
-        if (groupsOnPage > 0 && groupsOnPage % 18 === 0) {
-          body += ftr() + `</div><div class="page">${hdr()}<h2>Maintenance Summary <span style="font-size:9pt;font-weight:normal">(continued)</span></h2>`;
-          groupsOnPage = 0;
-        }
+      // Browser handles page breaks via fixed header/footer
+      body += `<h2>Maintenance Summary</h2>`;
+      maintGroups.forEach(g => {
         body += `<div class="maint-group">`;
         if (g.heading) body += `<h3>${g.heading}</h3>`;
         if (g.bullets.length) {
@@ -3369,13 +3380,12 @@ const App = {
           body += `</ul>`;
         }
         body += `</div>`;
-        groupsOnPage++;
       });
-      body += ftr() + `</div>`;
+      body += newPage();
     }
 
     // Scope for Improvement — new page
-    body += `<div class="page">${hdr()}<h2>Scope for Improvement</h2><table><tr><th>No.</th><th>Area</th><th>Observations</th><th>Recommendations</th></tr>`;
+    body += `<h2>Scope for Improvement</h2><table><tr><th>No.</th><th>Area</th><th>Observations</th><th>Recommendations</th></tr>`;
     (w.scopeForImprovement||[]).forEach((r,i) => { body += `<tr><td style="text-align:center">${i+1}</td><td>${r.area||"—"}</td><td>${r.observations||"—"}</td><td>${r.recommendations||"—"}</td></tr>`; });
     body += `</table>`;
 
@@ -3384,13 +3394,13 @@ const App = {
     (w.recommendations||[]).forEach(r => { body += `<li>${r}</li>`; });
     body += `</ol>`;
 
-    body += ftr() + `</div>`;
+    body += newPage();
 
     // ── Calibration Tables — one per page ──────────────────
     if (w.calibrationTables?.length) {
       w.calibrationTables.forEach((t, ti) => {
         const imgSrc = t.imageBase64 || DGRAMS[t.templateKey] || null;
-        body += `<div class="page">${hdr()}`;
+        body += ``;
         body += `<h2>Annexure ${ti+1} &mdash; ${t.name}</h2>`;
         if (t.hasImage && imgSrc) {
           // Detect image orientation before rendering
@@ -3401,23 +3411,23 @@ const App = {
         body += `<table><thead><tr>${t.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`;
         (t.rows||[]).forEach(row => { body += `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`; });
         body += `</tbody></table>`;
-        body += ftr() + `</div>`;
+        body += newPage();
       });
     }
 
     // ── Parts Consumed page ──
     if (w.partsColumns?.rows?.length) {
-      body += `<div class="page">${hdr()}<h2>Parts Consumed List</h2>`;
+      body += `<h2>Parts Consumed List</h2>`;
       body += `<table><thead><tr>${w.partsColumns.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`;
       w.partsColumns.rows.forEach(row => { body += `<tr>${row.map(c => `<td>${c}</td>`).join("")}</tr>`; });
       body += `</tbody></table>`;
-      body += ftr() + `</div>`;
+      body += newPage();
     }
 
     // ── Photo Gallery page ──
     const realPhotos = (w.photos||[]).filter(ph => ph.src);
     if (realPhotos.length) {
-      body += `<div class="page">${hdr()}<h2>Photo Gallery</h2><table class="photo-grid"><tbody>`;
+      body += `<h2>Photo Gallery</h2><table class="photo-grid"><tbody>`;
       for (let i = 0; i < realPhotos.length; i += 2) {
         const ph1 = realPhotos[i], ph2 = realPhotos[i+1]||null;
         body += `<tr>
@@ -3426,12 +3436,12 @@ const App = {
         </tr>`;
       }
       body += `</tbody></table>`;
-      body += ftr() + `</div>`;
+      body += newPage();
     }
 
     // ── Sign-off page ──
     const so = w.signoff||{};
-    body += `<div class="page">${hdr()}<h2>Sign-off</h2>
+    body += `<h2>Sign-off</h2>
       <table>
         <tr><th colspan="2" style="text-align:center">On behalf of Neptunus</th><th colspan="2" style="text-align:center">On behalf of Customer</th></tr>
         <tr><td class="lc">Maker Name</td><td>${so.makerName||"—"}</td><td class="lc">Name</td><td>${so.customerName||"—"}</td></tr>
@@ -3439,7 +3449,7 @@ const App = {
         <tr><td class="lc">Approver Name</td><td>${so.approverName||"—"}</td><td></td><td></td></tr>
         <tr><td class="lc">Date</td><td>${so.makerDate||"—"}</td><td></td><td></td></tr>
       </table>
-    ${ftr()}</div>`;
+    `;
 
     // ── Generate filename ──
     const today = new Date();
