@@ -107,30 +107,30 @@ const TABLE_TEMPLATES = {
   // ── PORT Crankshaft Deflection ──────────────────────────
   portCrankshaft: {
     name: "PORT M/E — Crankshaft Deflection Measurement",
-    note: "The deflection measurements should be made when the engine is cold (Refer to Section 4.7)\nIndication Reading: (+ve) / (-ve)\nPermissible Limit: 0.07 mm",
+    note: "The deflection measurements should be made when the engine is cold.\nIndicate whether positive (+ve) or negative (-ve). All readings in 1/100 mm. Webs opening gives a +ve reading.\nMaximum permissible deflection readings as per engine manufacturer's instruction.\nDial Gauge Orientation: See diagram. Last check of holding down bolt tension.\nNote: Main bearing assembly, hot/cold condition, shaft line/gear case alignment may influence readings.",
     hasImage: true, builtinImage: true, imageKey: "crankshaft",
-    headers: ["Crankpin Position","1","2","3","4","5","6","7","8","Remarks"],
+    headers: ["Crankpin Position","1","2","3","4","5","6","7","8","9","Remarks"],
     rows: [
-      ["1","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
-      ["2","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
-      ["3","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
-      ["4","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
-      ["5","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
+      ["B1","","","","","","","","","",""],
+      ["P","","","","","","","","","",""],
+      ["T","","","","","","","","","",""],
+      ["S","","","","","","","","","",""],
+      ["B2","","","","","","","","","",""],
     ]
   },
 
   // ── STBD Crankshaft Deflection ──────────────────────────
   stbdCrankshaft: {
     name: "STBD M/E — Crankshaft Deflection Measurement",
-    note: "The deflection measurements should be made when the engine is cold (Refer to Section 4.7)\nIndication Reading: (+ve) / (-ve)\nPermissible Limit: 0.07 mm",
+    note: "The deflection measurements should be made when the engine is cold.\nIndicate whether positive (+ve) or negative (-ve). All readings in 1/100 mm. Webs opening gives a +ve reading.\nMaximum permissible deflection readings as per engine manufacturer's instruction.\nDial Gauge Orientation: See diagram. Last check of holding down bolt tension.\nNote: Main bearing assembly, hot/cold condition, shaft line/gear case alignment may influence readings.",
     hasImage: true, builtinImage: true, imageKey: "crankshaft",
-    headers: ["Crankpin Position","1","2","3","4","5","6","7","8","Remarks"],
+    headers: ["Crankpin Position","1","2","3","4","5","6","7","8","9","Remarks"],
     rows: [
-      ["1","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
-      ["2","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
-      ["3","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
-      ["4","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
-      ["5","0.00","0.00","0.00","0.00","0.00","0.00","0.00","0.00","OK"],
+      ["B1","","","","","","","","","",""],
+      ["P","","","","","","","","","",""],
+      ["T","","","","","","","","","",""],
+      ["S","","","","","","","","","",""],
+      ["B2","","","","","","","","","",""],
     ]
   },
 
@@ -345,6 +345,133 @@ const TABLE_TEMPLATES = {
       ["","No. 6 Cylinder","Mm","","","",""],
       ["","No. 7 Cylinder","Mm","","","",""],
       ["","No. 8 Cylinder","Mm","","","",""],
+    ]
+  },
+
+
+  // ── Main Journal Pin Diameter ───────────────────────────
+  mainJournalDia: {
+    name: "Main Journal Pin Diameter",
+    note: "Makers nominal dia: ___  |  Max dia allowed: ___  |  Max ovality allowed: ___\nPS: Port Side to Starboard  |  TB: Top to Bottom\nNote pitting, scoring or other abnormalities. Record results of Crack test (MPI/DP).",
+    hasImage: false,
+    headers: ["","MJ 1","","MJ 2","","MJ 3","","MJ 4","","MJ 5","","MJ 6","","MJ 7","","MJ 8","","MJ 9","","MJ 10","","MJ 11",""],
+    rows: [
+      ["Bmax","","","","","","","","","","","","","","","","","","","","","",""],
+      ["Bmin","","","","","","","","","","","","","","","","","","","","","",""],
+    ]
+  },
+
+  // ── Crankpin Diameter ───────────────────────────────────
+  crankpinDia: {
+    name: "Crankpin Diameter",
+    note: "Makers nominal dia: ___  |  Max dia allowed: ___  |  Max ovality allowed: ___\nF: Flywheel  |  A: Alternator  |  PS: Port Side to Starboard  |  TB: Top to Bottom\nOvality Permissible Limit: 0.1mm",
+    hasImage: false,
+    headers: ["","CR 1","","CR 2","","CR 3","","CR 4","","CR 5","","CR 6","","CR 7","","CR 8","","CR 9",""],
+    rows: [
+      ["","F","A","F","A","F","A","F","A","F","A","F","A","F","A","F","A","F","A"],
+      ["Amax","","","","","","","","","","","","","","","","","",""],
+      ["Amin","","","","","","","","","","","","","","","","","",""],
+    ]
+  },
+
+  // ── PORT Connecting Rod Small End Bore ──────────────────
+  portConRodSmallEnd: {
+    name: "PORT — Connecting Rod Small End Bore Calibration",
+    note: "Piston pin bushing inner dia: 110.0 +0.13/+0.17mm  |  Piston pin to bushing clearance: 0.3mm\nPS: Port Side to Starboard  |  TB: Top to Bottom",
+    hasImage: false,
+    headers: ["Cylinder No","T-B","P-S","","T-B","P-S","Remarks"],
+    rows: [
+      ["1","","","","","",""],["2","","","","","",""],["3","","","","","",""],
+      ["4","","","","","",""],["5","","","","","",""],["6","","","","","",""],
+      ["7","","","","","",""],["8","","","","","",""],["9","","","","","",""],
+    ]
+  },
+
+  // ── STBD Connecting Rod Small End Bore ──────────────────
+  stbdConRodSmallEnd: {
+    name: "STBD — Connecting Rod Small End Bore Calibration",
+    note: "Piston pin bushing inner dia: 110.0 +0.13/+0.17mm  |  Piston pin to bushing clearance: 0.3mm\nPS: Port Side to Starboard  |  TB: Top to Bottom",
+    hasImage: false,
+    headers: ["Cylinder No","T-B","P-S","","T-B","P-S","Remarks"],
+    rows: [
+      ["1","","","","","",""],["2","","","","","",""],["3","","","","","",""],
+      ["4","","","","","",""],["5","","","","","",""],["6","","","","","",""],
+      ["7","","","","","",""],["8","","","","","",""],["9","","","","","",""],
+    ]
+  },
+
+  // ── Gudgeon Pin Diameter ────────────────────────────────
+  gudgeonPin: {
+    name: "Gudgeon Pin Diameter",
+    note: "Nominal diameter of the Piston Pin: ___  |  All dimensions in mm",
+    hasImage: false,
+    headers: ["Cylinder No","D1x","D1y","D2x","D2y","Remarks"],
+    rows: [
+      ["1","","","","",""],["2","","","","",""],["3","","","","",""],
+      ["4","","","","",""],["5","","","","",""],["6","","","","",""],
+      ["7","","","","",""],["8","","","","",""],["9","","","","",""],
+    ]
+  },
+
+  // ── Connecting Rod Big End Bore ─────────────────────────
+  conRodBigEnd: {
+    name: "Connecting Rod Big End Bore (With/Without Bearing Shells)",
+    note: "No shrinkage allowed!  |  Ovality Permissible Limit: 0.1mm\nF: Flywheel  |  A: Alternator",
+    hasImage: false,
+    headers: ["","Unit 1","","Unit 2","","Unit 3","","Unit 4","","Unit 5","","Unit 6","","Unit 7","","Unit 8","","Unit 9",""],
+    rows: [
+      ["","F","A","F","A","F","A","F","A","F","A","F","A","F","A","F","A","F","A"],
+      ["A","","","","","","","","","","","","","","","","","",""],
+      ["B","","","","","","","","","","","","","","","","","",""],
+      ["(B+C)/2","","","","","","","","","","","","","","","","","",""],
+      ["C","","","","","","","","","","","","","","","","","",""],
+      ["Ovality","","","","","","","","","","","","","","","","","",""],
+    ]
+  },
+
+  // ── Valve Stem & Valve Guide Diameter ───────────────────
+  valveStemGuide: {
+    name: "Valve Stem & Valve Guide Diameter",
+    note: "All dimensions in mm. Refer manual for tightening torques and all wear limit values.",
+    hasImage: false,
+    headers: ["Cyl No","Guide Bore D1mm","Guide Bore D2mm","Stem Dia d1mm","Stem Dia d2mm","Seat-In mm","Seat-Ex mm","Guide-In mm","Guide-Ex mm","Lip T1mm","Lip T2mm"],
+    rows: [
+      ["1","","","","","","","","","",""],["2","","","","","","","","","",""],
+      ["3","","","","","","","","","",""],["4","","","","","","","","","",""],
+      ["5","","","","","","","","","",""],["6","","","","","","","","","",""],
+      ["7","","","","","","","","","",""],["8","","","","","","","","","",""],
+      ["9","","","","","","","","","",""],
+    ]
+  },
+
+  // ── Piston Groove Clearances ────────────────────────────
+  pistonGroove: {
+    name: "Piston Groove Clearances",
+    note: "Standard: 1st Compression 6mm +0.22/+0.20mm | 2nd Compression 6mm +0.12/+0.10mm | 3rd Compression 6mm +0.05/+0.03mm | Oil ring 8mm +0.05/+0.03mm\nMakers nominal height: ___  |  Max height allowed: ___",
+    hasImage: false,
+    headers: ["Piston No","Ring","Position 1","Position 2","Position 3","Position 4","Position 5"],
+    rows: [
+      ["1","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
+      ["2","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
+      ["3","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
+      ["4","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
+      ["5","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
+      ["6","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
+      ["7","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
+      ["8","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
+      ["9","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
+    ]
+  },
+
+  // ── Camshaft Bush Clearance ─────────────────────────────
+  camshaftBush: {
+    name: "Camshaft Bush Clearance — PORT",
+    note: "Standard: Bearing clearance: ___",
+    hasImage: false,
+    headers: ["Bushing No","Position","Remarks"],
+    rows: [
+      ["1","",""],["2","",""],["3","",""],["4","",""],
+      ["5","",""],["6","",""],["7","",""],
     ]
   },
 
