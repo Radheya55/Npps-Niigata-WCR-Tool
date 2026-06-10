@@ -3183,7 +3183,7 @@ const App = {
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: Arial, sans-serif; font-size: 10pt; color: #000; }
       @page { size: A4; margin: 0; }
-      .page { width: 210mm; min-height: 297mm; padding: 18mm 14mm 24mm 14mm; position: relative; page-break-after: always; }
+      .page { width: 210mm; min-height: 297mm; padding: 18mm 14mm 20mm 14mm; position: relative; page-break-after: always; overflow: hidden; }
       .page-header { display: flex; align-items: center; justify-content: space-between;
         border-bottom: 2px solid #003366; padding-bottom: 5px; margin-bottom: 14px; }
       .page-header-title { font-size: 11pt; font-weight: bold; color: #003366; }
@@ -3352,7 +3352,7 @@ const App = {
       body += `<div class="page">${hdr()}<h2>Maintenance Summary</h2>`;
       let pgCount = 0;
       maintGroups.forEach(g => {
-        if (pgCount > 0 && pgCount % 12 === 0) {
+        if (pgCount > 0 && pgCount % 8 === 0) {
           body += ftr() + `</div><div class="page">${hdr()}<h2>Maintenance Summary <span style="font-size:9pt;font-weight:normal;color:#555">(continued)</span></h2>`;
         }
         body += `<div class="maint-group">`;
