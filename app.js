@@ -1633,8 +1633,6 @@ const App = {
     // Check for empty fields and warn
     const optionalFields = { "bd-customer":"Customer Name","bd-contract-no":"Contract / Project Number","bd-start-date":"Start Date of Job","bd-end-date":"Handover Date","bd-overhaul-type":"Type of Overhaul / Job","bd-engine-model":"Engine Make and Model","bd-engine-serial":"Engine Serial Number","bd-engine-arrangement":"Engine Arrangement","bd-rpm":"RPM and Capacity","bd-running-hours":"Current Running Hours","bd-customer-incharge":"Customer In-Charge","bd-team-leader":"Neptunus Team Leader","bd-vessel":"Vessel / Rig","bd-location":"Location" };
     const emptyFields = Object.entries(optionalFields).filter(([id]) => !getValue(id)).map(([,label]) => label);
-    const hasImage = !!State.vesselImageBase64;
-    if (!hasImage) emptyFields.push("Vessel / Customer Image");
     const members = (State._tempMembers || []).filter(m => m.trim());
 
     if (emptyFields.length > 0) {
@@ -1788,6 +1786,12 @@ const App = {
       }
       if (validRows.length === 0) { wrap.innerHTML = `<div class="empty-state">No projects in database yet.</div>`; document.getElementById("project-count").textContent = "0"; return; }
       document.getElementById("project-count").textContent = validRows.length;
+      // Sort newest first by CreatedDate
+      validRows.sort((a, b) => {
+        const da = createdIdx >= 0 ? new Date(a.r[createdIdx]||0) : 0;
+        const db = createdIdx >= 0 ? new Date(b.r[createdIdx]||0) : 0;
+        return db - da;
+      });
       wrap.innerHTML = `<table class="data-table"><thead><tr><th>Code</th><th>Customer</th><th>Engine</th><th>Type</th><th>Leader</th><th>Location</th><th>Start</th><th>Added</th><th></th></tr></thead><tbody>${validRows.map(({r, originalIndex}) => {
         const createdAt = createdIdx >= 0 ? r[createdIdx] : "";
         const addedDate = createdAt ? new Date(createdAt).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}) : "—";
@@ -3306,10 +3310,12 @@ const App = {
       body += `</table>`;
     }
 
-    // Maintenance Summary — starts on its own page
+    // Maintenance Summary — paginated with header/footer on each page
     body += ftr() + `</div>`;  // close previous content page
-    body += `<div class="page">${hdr()}<h2>Maintenance Summary</h2>`;
+    // Build maint groups first, then paginate (~18 groups per page)
+    const MAINT_PER_PAGE = 18;
     if (isCatEmdPdf && w.catEmdMaintSummary && w.catEmdMaintSummary.length > 0) {
+      body += `<div class="page">${hdr()}<h2>Maintenance Summary</h2>`;
       body += `<table><thead><tr><th style="width:22%">Parts Description</th><th>Brief Description</th><th style="width:8%;text-align:center">Replaced</th><th style="width:8%;text-align:center">Reused</th></tr></thead><tbody>`;
       (w.catEmdMaintSummary||[]).forEach(row => {
         if (!row) return;
@@ -3331,23 +3337,30 @@ const App = {
           body += `<p style="white-space:pre-line;font-size:9pt">${pdfLegacy}</p>`;
         }
       }
+      body += ftr() + `</div>`;
     } else {
-      // Group each heading with its bullets to prevent orphaned page breaks
+      // Group each heading with its bullets, paginate every 18 groups
       let currentGroup = null;
-      let groups = [];
+      let maintGroups = [];
       (w.maintItems||[]).forEach(item => {
         if (item.type === "heading") {
-          if (currentGroup) groups.push(currentGroup);
+          if (currentGroup) maintGroups.push(currentGroup);
           currentGroup = { heading: item.text, bullets: [] };
         } else if (currentGroup) {
           currentGroup.bullets.push(item.text);
         } else {
-          // bullet before any heading
-          groups.push({ heading: null, bullets: [item.text] });
+          maintGroups.push({ heading: null, bullets: [item.text] });
         }
       });
-      if (currentGroup) groups.push(currentGroup);
-      groups.forEach(g => {
+      if (currentGroup) maintGroups.push(currentGroup);
+      // Render in paginated chunks
+      body += `<div class="page">${hdr()}<h2>Maintenance Summary</h2>`;
+      let groupsOnPage = 0;
+      maintGroups.forEach((g, gi) => {
+        if (groupsOnPage > 0 && groupsOnPage % 18 === 0) {
+          body += ftr() + `</div><div class="page">${hdr()}<h2>Maintenance Summary <span style="font-size:9pt;font-weight:normal">(continued)</span></h2>`;
+          groupsOnPage = 0;
+        }
         body += `<div class="maint-group">`;
         if (g.heading) body += `<h3>${g.heading}</h3>`;
         if (g.bullets.length) {
@@ -3356,11 +3369,13 @@ const App = {
           body += `</ul>`;
         }
         body += `</div>`;
+        groupsOnPage++;
       });
+      body += ftr() + `</div>`;
     }
 
-    // Scope for Improvement
-    body += `<h2>Scope for Improvement</h2><table><tr><th>No.</th><th>Area</th><th>Observations</th><th>Recommendations</th></tr>`;
+    // Scope for Improvement — new page
+    body += `<div class="page">${hdr()}<h2>Scope for Improvement</h2><table><tr><th>No.</th><th>Area</th><th>Observations</th><th>Recommendations</th></tr>`;
     (w.scopeForImprovement||[]).forEach((r,i) => { body += `<tr><td style="text-align:center">${i+1}</td><td>${r.area||"—"}</td><td>${r.observations||"—"}</td><td>${r.recommendations||"—"}</td></tr>`; });
     body += `</table>`;
 
