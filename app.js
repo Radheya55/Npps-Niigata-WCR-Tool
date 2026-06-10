@@ -2750,7 +2750,13 @@ const App = {
           </div>
         </div>`;
       }
-    }).join("");
+    }).join("") + `<div style="margin-top:12px;text-align:right"><button class="btn-save-history" onclick="App.saveNiigataMaint()">💾 Save Maintenance Summary</button></div>`;
+  },
+
+  saveNiigataMaint() {
+    State.currentDraft.updatedAt = new Date().toISOString();
+    App.saveDrafts();
+    Toast.show("Maintenance Summary saved.", "success");
   },
 
   _restoreMaintAddBar() {
@@ -2998,7 +3004,6 @@ const App = {
         ? `<button class="btn-full mt" onclick="App.previewPartsTable()">✓ All Columns Done — Build Full Table →</button>`
         : `<button class="btn-full mt" style="opacity:0.6" onclick="App.previewPartsTable()">Build Table with ${finalisedCount} Column(s) →</button>`
       }
-      <div style="margin-top:10px;text-align:right"><button class="btn-save-history" onclick="App.savePartsSection()">💾 Save Parts</button></div>
     `;
   },
 
@@ -3205,10 +3210,12 @@ const App = {
       .cal-img-auto { max-width: 180px; height: auto; object-fit: contain; }
       .cal-row { display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start; flex-wrap: wrap; }
       .cover-img { max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; margin: 0 auto 10px; }
-      h3 { page-break-after: avoid; }
-      ul { page-break-inside: auto; }
-      li { page-break-inside: avoid; }
+      h3 { page-break-after: avoid; page-break-before: auto; }
+      .maint-group { page-break-inside: avoid; margin-bottom: 4px; }
+      ul { page-break-inside: auto; margin: 2px 0 6px 16px; }
+      li { page-break-inside: avoid; margin-bottom: 2px; line-height: 1.5; }
       tr { page-break-inside: avoid; }
+      .page { page-break-after: always; }
     `;
 
     const hdr = () => `
@@ -3325,12 +3332,31 @@ const App = {
         }
       }
     } else {
-      let inUL = false;
+      // Group each heading with its bullets to prevent orphaned page breaks
+      let currentGroup = null;
+      let groups = [];
       (w.maintItems||[]).forEach(item => {
-        if (item.type === "heading") { if (inUL) { body += `</ul>`; inUL = false; } body += `<h3>${item.text}</h3>`; }
-        else { if (!inUL) { body += `<ul>`; inUL = true; } body += `<li>${item.text}</li>`; }
+        if (item.type === "heading") {
+          if (currentGroup) groups.push(currentGroup);
+          currentGroup = { heading: item.text, bullets: [] };
+        } else if (currentGroup) {
+          currentGroup.bullets.push(item.text);
+        } else {
+          // bullet before any heading
+          groups.push({ heading: null, bullets: [item.text] });
+        }
       });
-      if (inUL) body += `</ul>`;
+      if (currentGroup) groups.push(currentGroup);
+      groups.forEach(g => {
+        body += `<div class="maint-group">`;
+        if (g.heading) body += `<h3>${g.heading}</h3>`;
+        if (g.bullets.length) {
+          body += `<ul>`;
+          g.bullets.forEach(b => { body += `<li>${b}</li>`; });
+          body += `</ul>`;
+        }
+        body += `</div>`;
+      });
     }
 
     // Scope for Improvement
