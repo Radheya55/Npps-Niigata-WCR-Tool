@@ -3183,14 +3183,14 @@ const App = {
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: Arial, sans-serif; font-size: 10pt; color: #000; }
       @page { size: A4; margin: 0; }
-      .page { width: 210mm; min-height: 297mm; padding: 18mm 14mm 20mm 14mm; position: relative; page-break-after: always; overflow: hidden; }
+      .page { width: 210mm; height: 297mm; padding: 14mm 14mm 0 14mm; page-break-after: always; box-sizing: border-box; display: flex; flex-direction: column; }
       .page-header { display: flex; align-items: center; justify-content: space-between;
-        border-bottom: 2px solid #003366; padding-bottom: 5px; margin-bottom: 14px; }
+        border-bottom: 2px solid #003366; padding-bottom: 5px; margin-bottom: 14px; flex-shrink: 0; }
       .page-header-title { font-size: 11pt; font-weight: bold; color: #003366; }
       .page-header img { height: 36px; width: auto; }
-      .page-footer { position: absolute; bottom: 8mm; left: 14mm; right: 14mm;
-        border-top: 1px solid #003366; padding-top: 4px; font-size: 7pt;
-        color: #555; text-align: center; }
+      .page-body { flex: 1; overflow: hidden; }
+      .page-footer { flex-shrink: 0; border-top: 1px solid #003366; padding: 4px 0 6mm 0;
+        font-size: 7pt; color: #555; text-align: center; margin-top: auto; }
       h1 { text-align: center; font-size: 16pt; color: #003366; margin: 10px 0 6px; }
       h2 { font-size: 11pt; color: #003366; border-bottom: 2px solid #003366;
            padding-bottom: 3px; margin: 16px 0 6px; }
@@ -3221,8 +3221,8 @@ const App = {
       <div class="page-header">
         <span class="page-header-title">Work Completion Report &mdash; ${p.CustomerName||draft.projectCode}</span>
         ${LOGO ? `<img src="${LOGO}" alt="NPPS" />` : `<span style="font-weight:bold;color:#003366">NEPTUNUS</span>`}
-      </div>`;
-    const ftr = () => `<div class="page-footer">${FOOTER_TEXT}</div>`;
+      </div><div class="page-body">`;
+    const ftr = () => `</div><div class="page-footer">${FOOTER_TEXT}</div>`;
 
     // ── Page 1: Cover ──
     let pages = `<div class="page">${hdr()}`;
@@ -3352,7 +3352,7 @@ const App = {
       body += `<div class="page">${hdr()}<h2>Maintenance Summary</h2>`;
       let pgCount = 0;
       maintGroups.forEach(g => {
-        if (pgCount > 0 && pgCount % 8 === 0) {
+        if (pgCount > 0 && pgCount % 6 === 0) {
           body += ftr() + `</div><div class="page">${hdr()}<h2>Maintenance Summary <span style="font-size:9pt;font-weight:normal;color:#555">(continued)</span></h2>`;
         }
         body += `<div class="maint-group">`;
