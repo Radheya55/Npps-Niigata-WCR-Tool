@@ -2998,6 +2998,7 @@ const App = {
         ? `<button class="btn-full mt" onclick="App.previewPartsTable()">✓ All Columns Done — Build Full Table →</button>`
         : `<button class="btn-full mt" style="opacity:0.6" onclick="App.previewPartsTable()">Build Table with ${finalisedCount} Column(s) →</button>`
       }
+      <div style="margin-top:10px;text-align:right"><button class="btn-save-history" onclick="App.savePartsSection()">💾 Save Parts</button></div>
     `;
   },
 
@@ -3060,8 +3061,9 @@ const App = {
       const reader = new FileReader();
       reader.onload = e => {
         State.currentDraft.wcr.photos.push({ src:e.target.result, title:"", description:"", fromDWR:false });
+        State.currentDraft.updatedAt = new Date().toISOString();
         App.renderPhotos();
-        AutoSave.trigger(); // auto-save when photos added
+        App.saveDrafts(); // immediate Drive save for photos (large base64)
       };
       reader.readAsDataURL(file);
     });
@@ -3132,6 +3134,10 @@ const App = {
     };
     draft.downloadedAt = new Date().toISOString();
     draft.updatedAt = new Date().toISOString();
+    // Ensure the draft is in State.drafts array (in case reference drifted)
+    const existingIdx = State.drafts.findIndex(d => d.id === draft.id);
+    if (existingIdx >= 0) State.drafts[existingIdx] = draft;
+    else State.drafts.unshift(draft);
     App.saveDrafts().then(() => App.renderDrafts());
     try {
       App._generateAndPrintPDF(draft);
@@ -3199,6 +3205,10 @@ const App = {
       .cal-img-auto { max-width: 180px; height: auto; object-fit: contain; }
       .cal-row { display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start; flex-wrap: wrap; }
       .cover-img { max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; margin: 0 auto 10px; }
+      h3 { page-break-after: avoid; }
+      ul { page-break-inside: auto; }
+      li { page-break-inside: avoid; }
+      tr { page-break-inside: avoid; }
     `;
 
     const hdr = () => `
@@ -3289,8 +3299,9 @@ const App = {
       body += `</table>`;
     }
 
-    // Maintenance Summary
-    body += `<h2>Maintenance Summary</h2>`;
+    // Maintenance Summary — starts on its own page
+    body += ftr() + `</div>`;  // close previous content page
+    body += `<div class="page">${hdr()}<h2>Maintenance Summary</h2>`;
     if (isCatEmdPdf && w.catEmdMaintSummary && w.catEmdMaintSummary.length > 0) {
       body += `<table><thead><tr><th style="width:22%">Parts Description</th><th>Brief Description</th><th style="width:8%;text-align:center">Replaced</th><th style="width:8%;text-align:center">Reused</th></tr></thead><tbody>`;
       (w.catEmdMaintSummary||[]).forEach(row => {
