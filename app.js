@@ -108,7 +108,7 @@ const TABLE_TEMPLATES = {
   portCrankshaft: {
     name: "PORT M/E — Crankshaft Deflection Measurement",
     note: "The deflection measurements should be made when the engine is cold.\nIndicate whether positive (+ve) or negative (-ve). All readings in 1/100 mm. Webs opening gives a +ve reading.\nMaximum permissible deflection readings as per engine manufacturer's instruction.\nDial Gauge Orientation: See diagram. Last check of holding down bolt tension.\nNote: Main bearing assembly, hot/cold condition, shaft line/gear case alignment may influence readings.",
-    hasImage: true, builtinImage: true, imageKey: "crankshaft",
+    hasImage: true, builtinImage: true, imageKey: "crankshaft", hasImage2: true, image2Base64: null, image2Key: "crankshaftDial",
     headers: ["Crankpin Position","1","2","3","4","5","6","7","8","9","Remarks"],
     rows: [
       ["B1","","","","","","","","","",""],
@@ -123,7 +123,7 @@ const TABLE_TEMPLATES = {
   stbdCrankshaft: {
     name: "STBD M/E — Crankshaft Deflection Measurement",
     note: "The deflection measurements should be made when the engine is cold.\nIndicate whether positive (+ve) or negative (-ve). All readings in 1/100 mm. Webs opening gives a +ve reading.\nMaximum permissible deflection readings as per engine manufacturer's instruction.\nDial Gauge Orientation: See diagram. Last check of holding down bolt tension.\nNote: Main bearing assembly, hot/cold condition, shaft line/gear case alignment may influence readings.",
-    hasImage: true, builtinImage: true, imageKey: "crankshaft",
+    hasImage: true, builtinImage: true, imageKey: "crankshaft", hasImage2: true, image2Base64: null, image2Key: "crankshaftDial",
     headers: ["Crankpin Position","1","2","3","4","5","6","7","8","9","Remarks"],
     rows: [
       ["B1","","","","","","","","","",""],
@@ -353,7 +353,7 @@ const TABLE_TEMPLATES = {
   mainJournalDia: {
     name: "Main Journal Pin Diameter",
     note: "Makers nominal dia: ___  |  Max dia allowed: ___  |  Max ovality allowed: ___\nPS: Port Side to Starboard  |  TB: Top to Bottom\nNote pitting, scoring or other abnormalities. Record results of Crack test (MPI/DP).",
-    hasImage: false,
+    hasImage: true, imageKey: "journalMeasure",
     headers: ["","MJ 1","","MJ 2","","MJ 3","","MJ 4","","MJ 5","","MJ 6","","MJ 7","","MJ 8","","MJ 9","","MJ 10","","MJ 11",""],
     rows: [
       ["Bmax","","","","","","","","","","","","","","","","","","","","","",""],
@@ -365,7 +365,7 @@ const TABLE_TEMPLATES = {
   crankpinDia: {
     name: "Crankpin Diameter",
     note: "Makers nominal dia: ___  |  Max dia allowed: ___  |  Max ovality allowed: ___\nF: Flywheel  |  A: Alternator  |  PS: Port Side to Starboard  |  TB: Top to Bottom\nOvality Permissible Limit: 0.1mm",
-    hasImage: false,
+    hasImage: true, imageKey: "journalMeasure",
     headers: ["","CR 1","","CR 2","","CR 3","","CR 4","","CR 5","","CR 6","","CR 7","","CR 8","","CR 9",""],
     rows: [
       ["","F","A","F","A","F","A","F","A","F","A","F","A","F","A","F","A","F","A"],
@@ -404,7 +404,7 @@ const TABLE_TEMPLATES = {
   gudgeonPin: {
     name: "Gudgeon Pin Diameter",
     note: "Nominal diameter of the Piston Pin: ___  |  All dimensions in mm",
-    hasImage: false,
+    hasImage: true, imageKey: "gudgeonPin",
     headers: ["Cylinder No","D1x","D1y","D2x","D2y","Remarks"],
     rows: [
       ["1","","","","",""],["2","","","","",""],["3","","","","",""],
@@ -417,7 +417,7 @@ const TABLE_TEMPLATES = {
   conRodBigEnd: {
     name: "Connecting Rod Big End Bore (With/Without Bearing Shells)",
     note: "No shrinkage allowed!  |  Ovality Permissible Limit: 0.1mm\nF: Flywheel  |  A: Alternator",
-    hasImage: false,
+    hasImage: true, imageKey: "conRodBigEnd",
     headers: ["","Unit 1","","Unit 2","","Unit 3","","Unit 4","","Unit 5","","Unit 6","","Unit 7","","Unit 8","","Unit 9",""],
     rows: [
       ["","F","A","F","A","F","A","F","A","F","A","F","A","F","A","F","A","F","A"],
@@ -467,7 +467,7 @@ const TABLE_TEMPLATES = {
   camshaftBush: {
     name: "Camshaft Bush Clearance — PORT",
     note: "Standard: Bearing clearance: ___",
-    hasImage: false,
+    hasImage: true, imageKey: "camshaftBush",
     headers: ["Bushing No","Position","Remarks"],
     rows: [
       ["1","",""],["2","",""],["3","",""],["4","",""],
@@ -485,6 +485,16 @@ const TABLE_TEMPLATES = {
   },
 
 };
+
+// ── Additional built-in diagrams ─────────────────────────
+const EXTRA_DIAGRAMS = {
+  gudgeonPin: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMDAgMTcwIiB3aWR0aD0iMzAwIiBoZWlnaHQ9IjE3MCI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMTcwIiBmaWxsPSJ3aGl0ZSIvPgo8cmVjdCB4PSIzMCIgeT0iNjUiIHdpZHRoPSIyNDAiIGhlaWdodD0iNDAiIHJ4PSIzIiBmaWxsPSIjZWVmMmY4IiBzdHJva2U9IiMwMDMzNjYiIHN0cm9rZS13aWR0aD0iMiIvPgo8Y2lyY2xlIGN4PSIzMCIgY3k9Ijg1IiByPSIxOCIgZmlsbD0iI2VlZjJmOCIgc3Ryb2tlPSIjMDAzMzY2IiBzdHJva2Utd2lkdGg9IjIiLz4KPGNpcmNsZSBjeD0iMjcwIiBjeT0iODUiIHI9IjE4IiBmaWxsPSIjZWVmMmY4IiBzdHJva2U9IiMwMDMzNjYiIHN0cm9rZS13aWR0aD0iMiIvPgo8dGV4dCB4PSIxNTAiIHk9Ijg5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjExIiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtd2VpZ2h0PSJib2xkIj5QSVNUT04gUElOPC90ZXh0Pgo8bGluZSB4MT0iNjAiIHkxPSI1NSIgeDI9IjYwIiB5Mj0iMTIwIiBzdHJva2U9IiM4ODgiIHN0cm9rZS13aWR0aD0iMC44IiBzdHJva2UtZGFzaGFycmF5PSIzLDIiLz4KPGxpbmUgeDE9IjExMCIgeTE9IjU1IiB4Mj0iMTEwIiB5Mj0iMTIwIiBzdHJva2U9IiM4ODgiIHN0cm9rZS13aWR0aD0iMC44IiBzdHJva2UtZGFzaGFycmF5PSIzLDIiLz4KPGxpbmUgeDE9IjE5MCIgeTE9IjU1IiB4Mj0iMTkwIiB5Mj0iMTIwIiBzdHJva2U9IiM4ODgiIHN0cm9rZS13aWR0aD0iMC44IiBzdHJva2UtZGFzaGFycmF5PSIzLDIiLz4KPGxpbmUgeDE9IjI0MCIgeTE9IjU1IiB4Mj0iMjQwIiB5Mj0iMTIwIiBzdHJva2U9IiM4ODgiIHN0cm9rZS13aWR0aD0iMC44IiBzdHJva2UtZGFzaGFycmF5PSIzLDIiLz4KPGxpbmUgeDE9IjYyIiB5MT0iNDYiIHgyPSIxMDgiIHkyPSI0NiIgc3Ryb2tlPSIjY2MwMDAwIiBzdHJva2Utd2lkdGg9IjEuNSIgbWFya2VyLXN0YXJ0PSJ1cmwoI2EpIiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+Cjx0ZXh0IHg9Ijg1IiB5PSI0MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI5IiBmaWxsPSIjY2MwMDAwIiBmb250LWZhbWlseT0iQXJpYWwiPkQxeDwvdGV4dD4KPGxpbmUgeDE9IjE5MiIgeTE9IjQ2IiB4Mj0iMjM4IiB5Mj0iNDYiIHN0cm9rZT0iI2NjMDAwMCIgc3Ryb2tlLXdpZHRoPSIxLjUiLz4KPHRleHQgeD0iMjE1IiB5PSI0MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI5IiBmaWxsPSIjY2MwMDAwIiBmb250LWZhbWlseT0iQXJpYWwiPkQyeDwvdGV4dD4KPGxpbmUgeDE9IjE4IiB5MT0iNjciIHgyPSIxOCIgeTI9IjEwMyIgc3Ryb2tlPSIjMDA1NWFhIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8dGV4dCB4PSIxMCIgeT0iODgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iOSIgZmlsbD0iIzAwNTVhYSIgZm9udC1mYW1pbHk9IkFyaWFsIiB0cmFuc2Zvcm09InJvdGF0ZSgtOTAsMTAsODgpIj5EMXk8L3RleHQ+CjxsaW5lIHgxPSIyODIiIHkxPSI2NyIgeDI9IjI4MiIgeTI9IjEwMyIgc3Ryb2tlPSIjMDA1NWFhIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8dGV4dCB4PSIyOTIiIHk9Ijg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjkiIGZpbGw9IiMwMDU1YWEiIGZvbnQtZmFtaWx5PSJBcmlhbCIgdHJhbnNmb3JtPSJyb3RhdGUoOTAsMjkyLDg4KSI+RDJ5PC90ZXh0Pgo8dGV4dCB4PSI4NSIgeT0iMTQwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjgiIGZpbGw9IiM1NTUiIGZvbnQtZmFtaWx5PSJBcmlhbCI+UG9zLjEgKG5lYXIgZmx5d2hlZWwpPC90ZXh0Pgo8dGV4dCB4PSIyMTUiIHk9IjE0MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI4IiBmaWxsPSIjNTU1IiBmb250LWZhbWlseT0iQXJpYWwiPlBvcy4yIChuZWFyIGFsdGVybmF0b3IpPC90ZXh0Pgo8dGV4dCB4PSIxNTAiIHk9IjE1OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI3LjUiIGZpbGw9IiM4ODgiIGZvbnQtZmFtaWx5PSJBcmlhbCI+eCA9IGhvcml6b250YWwsIHkgPSB2ZXJ0aWNhbCAgfCAgQWxsIGRpbWVuc2lvbnMgaW4gbW08L3RleHQ+CjxkZWZzPjxtYXJrZXIgaWQ9ImEiIG1hcmtlcldpZHRoPSI2IiBtYXJrZXJIZWlnaHQ9IjYiIHJlZlg9IjMiIHJlZlk9IjMiIG9yaWVudD0iYXV0byI+PHBhdGggZD0iTTAsMCBMNiwzIEwwLDYgWiIgZmlsbD0iI2NjMDAwMCIvPjwvbWFya2VyPjwvZGVmcz4KPC9zdmc+",
+  conRodBigEnd: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMDAgMjAwIiB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ3aGl0ZSIvPgo8ZWxsaXBzZSBjeD0iMTUwIiBjeT0iMTA1IiByeD0iNzAiIHJ5PSI1NSIgZmlsbD0iI2VlZjJmOCIgc3Ryb2tlPSIjMDAzMzY2IiBzdHJva2Utd2lkdGg9IjIiLz4KPGVsbGlwc2UgY3g9IjE1MCIgY3k9IjEwNSIgcng9IjUwIiByeT0iMzgiIGZpbGw9IndoaXRlIiBzdHJva2U9IiMwMDMzNjYiIHN0cm9rZS13aWR0aD0iMS41Ii8+CjxsaW5lIHgxPSI4MCIgeTE9IjEwNSIgeDI9IjIyMCIgeTI9IjEwNSIgc3Ryb2tlPSIjY2MwMDAwIiBzdHJva2Utd2lkdGg9IjEuMiIgc3Ryb2tlLWRhc2hhcnJheT0iNCwyIi8+CjxsaW5lIHgxPSIxNTAiIHkxPSI1MCIgeDI9IjE1MCIgeTI9IjE2MCIgc3Ryb2tlPSIjMDA1NWFhIiBzdHJva2Utd2lkdGg9IjEuMiIgc3Ryb2tlLWRhc2hhcnJheT0iNCwyIi8+CjxsaW5lIHgxPSI4MiIgeTE9IjgzIiB4Mj0iMTAwIiB5Mj0iODMiIHN0cm9rZT0iI2NjMDAwMCIgc3Ryb2tlLXdpZHRoPSIxLjUiLz4KPHRleHQgeD0iODgiIHk9Ijc5IiBmb250LXNpemU9IjkiIGZpbGw9IiNjYzAwMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCI+QTwvdGV4dD4KPGxpbmUgeDE9IjEwMCIgeTE9IjEwNSIgeDI9IjEwMCIgeTI9IjEyOCIgc3Ryb2tlPSIjMDA1NWFhIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8dGV4dCB4PSI4NiIgeT0iMTIwIiBmb250LXNpemU9IjkiIGZpbGw9IiMwMDU1YWEiIGZvbnQtZmFtaWx5PSJBcmlhbCI+QjwvdGV4dD4KPGxpbmUgeDE9IjE1MCIgeTE9IjEzMCIgeDI9IjIwMCIgeTI9IjEzMCIgc3Ryb2tlPSIjMDA5OTAwIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8dGV4dCB4PSIxODIiIHk9IjEyNiIgZm9udC1zaXplPSI5IiBmaWxsPSIjMDA5OTAwIiBmb250LWZhbWlseT0iQXJpYWwiPkM8L3RleHQ+Cjx0ZXh0IHg9IjE1MCIgeT0iMTA1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LXNpemU9IjkiIGZpbGw9IiMwMDMzNjYiIGZvbnQtZmFtaWx5PSJBcmlhbCI+QklHIEVORDwvdGV4dD4KPHRleHQgeD0iMTUwIiB5PSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzAwMzM2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXdlaWdodD0iYm9sZCI+Q29uIFJvZCBCaWcgRW5kIEJvcmU8L3RleHQ+Cjx0ZXh0IHg9IjMwIiB5PSIxNzAiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzU1NSIgZm9udC1mYW1pbHk9IkFyaWFsIj5GID0gRmx5d2hlZWwgc2lkZTwvdGV4dD4KPHRleHQgeD0iMzAiIHk9IjE4MiIgZm9udC1zaXplPSI4IiBmaWxsPSIjNTU1IiBmb250LWZhbWlseT0iQXJpYWwiPkEgPSBBbHRlcm5hdG9yIHNpZGU8L3RleHQ+Cjx0ZXh0IHg9IjE1MCIgeT0iMTcwIiBmb250LXNpemU9IjgiIGZpbGw9IiNjYzAwMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCI+QSA9IGhvcml6b250YWwgZGlhPC90ZXh0Pgo8dGV4dCB4PSIxNTAiIHk9IjE4MiIgZm9udC1zaXplPSI4IiBmaWxsPSIjMDA1NWFhIiBmb250LWZhbWlseT0iQXJpYWwiPkIsQyA9IHZlcnRpY2FsIGRpYTwvdGV4dD4KPHRleHQgeD0iMTUwIiB5PSIxOTQiIGZvbnQtc2l6ZT0iNy41IiBmaWxsPSIjODg4IiBmb250LWZhbWlseT0iQXJpYWwiPk92YWxpdHkgPSBBIC0gKEIrQykvMiAgfCAgTGltaXQ6IDAuMW1tPC90ZXh0Pgo8L3N2Zz4=",
+  camshaftBush: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMDAgMTYwIiB3aWR0aD0iMzAwIiBoZWlnaHQ9IjE2MCI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMTYwIiBmaWxsPSJ3aGl0ZSIvPgo8dGV4dCB4PSIxNTAiIHk9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjEwIiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtd2VpZ2h0PSJib2xkIj5DYW1zaGFmdCBCdXNoIENsZWFyYW5jZTwvdGV4dD4KPHJlY3QgeD0iMjAiIHk9IjcwIiB3aWR0aD0iMjYwIiBoZWlnaHQ9IjMwIiByeD0iMiIgZmlsbD0iI2VlZjJmOCIgc3Ryb2tlPSIjMDAzMzY2IiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8cmVjdCB4PSIyMCIgeT0iNzAiIHdpZHRoPSIyNjAiIGhlaWdodD0iMzAiIHJ4PSIyIiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDMzNjYiIHN0cm9rZS13aWR0aD0iMS41Ii8+CjxyZWN0IHg9IjM1IiB5PSI2MiIgd2lkdGg9IjIwIiBoZWlnaHQ9IjQ2IiByeD0iMTAiIGZpbGw9IiNjY2Q4ZWUiIHN0cm9rZT0iIzAwMzM2NiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48dGV4dCB4PSI0NSIgeT0iMTQ4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjgiIGZpbGw9IiMwMDMzNjYiIGZvbnQtZmFtaWx5PSJBcmlhbCI+MTwvdGV4dD48cmVjdCB4PSI2OSIgeT0iNjIiIHdpZHRoPSIyMCIgaGVpZ2h0PSI0NiIgcng9IjEwIiBmaWxsPSIjY2NkOGVlIiBzdHJva2U9IiMwMDMzNjYiIHN0cm9rZS13aWR0aD0iMS41Ii8+PHRleHQgeD0iNzkiIHk9IjE0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI4IiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiPjI8L3RleHQ+PHJlY3QgeD0iMTAzIiB5PSI2MiIgd2lkdGg9IjIwIiBoZWlnaHQ9IjQ2IiByeD0iMTAiIGZpbGw9IiNjY2Q4ZWUiIHN0cm9rZT0iIzAwMzM2NiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48dGV4dCB4PSIxMTMiIHk9IjE0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI4IiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiPjM8L3RleHQ+PHJlY3QgeD0iMTM3IiB5PSI2MiIgd2lkdGg9IjIwIiBoZWlnaHQ9IjQ2IiByeD0iMTAiIGZpbGw9IiNjY2Q4ZWUiIHN0cm9rZT0iIzAwMzM2NiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48dGV4dCB4PSIxNDciIHk9IjE0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI4IiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiPjQ8L3RleHQ+PHJlY3QgeD0iMTcxIiB5PSI2MiIgd2lkdGg9IjIwIiBoZWlnaHQ9IjQ2IiByeD0iMTAiIGZpbGw9IiNjY2Q4ZWUiIHN0cm9rZT0iIzAwMzM2NiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48dGV4dCB4PSIxODEiIHk9IjE0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI4IiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiPjU8L3RleHQ+PHJlY3QgeD0iMjA1IiB5PSI2MiIgd2lkdGg9IjIwIiBoZWlnaHQ9IjQ2IiByeD0iMTAiIGZpbGw9IiNjY2Q4ZWUiIHN0cm9rZT0iIzAwMzM2NiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48dGV4dCB4PSIyMTUiIHk9IjE0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI4IiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiPjY8L3RleHQ+PHJlY3QgeD0iMjM5IiB5PSI2MiIgd2lkdGg9IjIwIiBoZWlnaHQ9IjQ2IiByeD0iMTAiIGZpbGw9IiNjY2Q4ZWUiIHN0cm9rZT0iIzAwMzM2NiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48dGV4dCB4PSIyNDkiIHk9IjE0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI4IiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiPjc8L3RleHQ+Cjx0ZXh0IHg9IjE1MCIgeT0iMjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iOSIgZmlsbD0iIzU1NSIgZm9udC1mYW1pbHk9IkFyaWFsIj5DQU1TSEFGVCAobG9va2luZyBmcm9tIGFmdCk8L3RleHQ+CjxsaW5lIHgxPSI0NSIgeTE9IjYyIiB4Mj0iNDUiIHkyPSI1NSIgc3Ryb2tlPSIjY2MwMDAwIiBzdHJva2Utd2lkdGg9IjEiLz4KPGxpbmUgeDE9IjY1IiB5MT0iNjIiIHgyPSI2NSIgeTI9IjU1IiBzdHJva2U9IiNjYzAwMDAiIHN0cm9rZS13aWR0aD0iMSIvPgo8bGluZSB4MT0iNDUiIHkxPSI1NSIgeDI9IjY1IiB5Mj0iNTUiIHN0cm9rZT0iI2NjMDAwMCIgc3Ryb2tlLXdpZHRoPSIxLjUiLz4KPHRleHQgeD0iNTUiIHk9IjUwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjgiIGZpbGw9IiNjYzAwMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCI+QnVzaDwvdGV4dD4KPHRleHQgeD0iMTUwIiB5PSIxMzgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzg4OCIgZm9udC1mYW1pbHk9IkFyaWFsIj5CZWFyaW5nIE5vcy4gMSDigJMgNyAgfCAgTWVhc3VyZSBjbGVhcmFuY2UgYXQgZWFjaCBwb3NpdGlvbjwvdGV4dD4KPC9zdmc+",
+  crankshaftDial: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyODAgMjAwIiB3aWR0aD0iMjgwIiBoZWlnaHQ9IjIwMCI+CjxyZWN0IHdpZHRoPSIyODAiIGhlaWdodD0iMjAwIiBmaWxsPSJ3aGl0ZSIvPgo8dGV4dCB4PSIxNDAiIHk9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjEwIiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtd2VpZ2h0PSJib2xkIj5EaWFsIEdhdWdlIE9yaWVudGF0aW9uPC90ZXh0Pgo8Y2lyY2xlIGN4PSIxNDAiIGN5PSIxMDUiIHI9IjU1IiBmaWxsPSIjZWVmMmY4IiBzdHJva2U9IiMwMDMzNjYiIHN0cm9rZS13aWR0aD0iMiIvPgo8Y2lyY2xlIGN4PSIxNDAiIGN5PSIxMDUiIHI9IjgiIGZpbGw9IiMwMDMzNjYiLz4KPGxpbmUgeDE9IjE0MCIgeTE9IjUwIiB4Mj0iMTQwIiB5Mj0iMjUiIHN0cm9rZT0iIzAwMzM2NiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz4KPHRleHQgeD0iMTQwIiB5PSIyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI5IiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiPlREQzwvdGV4dD4KPGxpbmUgeDE9IjE5NSIgeTE9IjEwNSIgeDI9IjIxOCIgeTI9IjEwNSIgc3Ryb2tlPSIjMDAzMzY2IiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8dGV4dCB4PSIyMjgiIHk9IjEwOCIgZm9udC1zaXplPSI5IiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiPlM8L3RleHQ+CjxsaW5lIHgxPSIxNDAiIHkxPSIxNjAiIHgyPSIxNDAiIHkyPSIxODUiIHN0cm9rZT0iIzAwMzM2NiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz4KPHRleHQgeD0iMTQwIiB5PSIxOTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iOSIgZmlsbD0iIzAwMzM2NiIgZm9udC1mYW1pbHk9IkFyaWFsIj5CREM8L3RleHQ+CjxsaW5lIHgxPSI4NSIgeTE9IjEwNSIgeDI9IjYyIiB5Mj0iMTA1IiBzdHJva2U9IiMwMDMzNjYiIHN0cm9rZS13aWR0aD0iMS41Ii8+Cjx0ZXh0IHg9IjUwIiB5PSIxMDgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iOSIgZmlsbD0iIzAwMzM2NiIgZm9udC1mYW1pbHk9IkFyaWFsIj5QPC90ZXh0Pgo8Y2lyY2xlIGN4PSIxNDAiIGN5PSI1MCIgcj0iNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2MwMDAwIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8dGV4dCB4PSIxNDAiIHk9IjUzIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjciIGZpbGw9IiNjYzAwMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCI+QjE8L3RleHQ+CjxjaXJjbGUgY3g9IjE5NSIgY3k9IjEwNSIgcj0iNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2MwMDAwIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8dGV4dCB4PSIxOTUiIHk9IjEwOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI3IiBmaWxsPSIjY2MwMDAwIiBmb250LWZhbWlseT0iQXJpYWwiPlQ8L3RleHQ+CjxjaXJjbGUgY3g9IjE0MCIgY3k9IjE2MCIgcj0iNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2MwMDAwIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8dGV4dCB4PSIxNDAiIHk9IjE2MyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI3IiBmaWxsPSIjY2MwMDAwIiBmb250LWZhbWlseT0iQXJpYWwiPkIyPC90ZXh0Pgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjEwNSIgcj0iNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2MwMDAwIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8dGV4dCB4PSI4NSIgeT0iMTA4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjciIGZpbGw9IiNjYzAwMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCI+UDwvdGV4dD4KPHRleHQgeD0iMTQwIiB5PSIxMDUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzAwMzM2NiIgZm9udC1mYW1pbHk9IkFyaWFsIj5Mb29raW5nPC90ZXh0Pgo8dGV4dCB4PSIxNDAiIHk9IjExNiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI4IiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiPkFmdOKGkkZ3ZDwvdGV4dD4KPC9zdmc+",
+  journalMeasure: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyODAgMTcwIiB3aWR0aD0iMjgwIiBoZWlnaHQ9IjE3MCI+CjxyZWN0IHdpZHRoPSIyODAiIGhlaWdodD0iMTcwIiBmaWxsPSJ3aGl0ZSIvPgo8dGV4dCB4PSIxNDAiIHk9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjEwIiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtd2VpZ2h0PSJib2xkIj5Kb3VybmFsIE1lYXN1cmVtZW50IFBvc2l0aW9uczwvdGV4dD4KPGNpcmNsZSBjeD0iMTQwIiBjeT0iOTAiIHI9IjYwIiBmaWxsPSIjZWVmMmY4IiBzdHJva2U9IiMwMDMzNjYiIHN0cm9rZS13aWR0aD0iMiIvPgo8Y2lyY2xlIGN4PSIxNDAiIGN5PSI5MCIgcj0iNSIgZmlsbD0iIzAwMzM2NiIvPgo8bGluZSB4MT0iODAiIHkxPSI5MCIgeDI9IjIwMCIgeTI9IjkwIiBzdHJva2U9IiNjYzAwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtZGFzaGFycmF5PSI1LDIiLz4KPHRleHQgeD0iNjgiIHk9IjkzIiB0ZXh0LWFuY2hvcj0iZW5kIiBmb250LXNpemU9IjkiIGZpbGw9IiNjYzAwMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCI+UFM8L3RleHQ+Cjx0ZXh0IHg9IjIxMCIgeT0iOTMiIGZvbnQtc2l6ZT0iOSIgZmlsbD0iI2NjMDAwMCIgZm9udC1mYW1pbHk9IkFyaWFsIj5TQjwvdGV4dD4KPGxpbmUgeDE9IjE0MCIgeTE9IjMwIiB4Mj0iMTQwIiB5Mj0iMTUwIiBzdHJva2U9IiMwMDU1YWEiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtZGFzaGFycmF5PSI1LDIiLz4KPHRleHQgeD0iMTQwIiB5PSIyMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI5IiBmaWxsPSIjMDA1NWFhIiBmb250LWZhbWlseT0iQXJpYWwiPlQ8L3RleHQ+Cjx0ZXh0IHg9IjE0MCIgeT0iMTYyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjkiIGZpbGw9IiMwMDU1YWEiIGZvbnQtZmFtaWx5PSJBcmlhbCI+QjwvdGV4dD4KPGxpbmUgeDE9IjgwIiB5MT0iOTAiIHgyPSIyMDAiIHkyPSI5MCIgc3Ryb2tlPSJub25lIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iNzUiIGZvbnQtc2l6ZT0iOC41IiBmaWxsPSIjMDAzMzY2IiBmb250LWZhbWlseT0iQXJpYWwiPkJtYXg8L3RleHQ+Cjx0ZXh0IHg9IjE1MCIgeT0iMTE1IiBmb250LXNpemU9IjguNSIgZmlsbD0iIzAwMzM2NiIgZm9udC1mYW1pbHk9IkFyaWFsIj5CbWluPC90ZXh0Pgo8dGV4dCB4PSIxNDAiIHk9IjE1MyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI4IiBmaWxsPSIjODg4IiBmb250LWZhbWlseT0iQXJpYWwiPlBTPVBvcnTihpJTdGJkICBUQj1Ub3DihpJCb3R0b208L3RleHQ+Cjwvc3ZnPg==",
+};
+
 // ── STATE ────────────────────────────────────────────────
 const State = {
   currentUser: null,       // { empNo, name, isHOD }
@@ -1313,7 +1323,7 @@ const App = {
   renderReviewContent(draft, mode) {
     const w = draft.wcr;
     const p = draft.projectData;
-    const DGRAMS = (typeof DIAGRAMS !== "undefined") ? DIAGRAMS : {};
+    const DGRAMS = Object.assign({}, (typeof DIAGRAMS !== "undefined") ? DIAGRAMS : {}, (typeof EXTRA_DIAGRAMS !== "undefined") ? EXTRA_DIAGRAMS : {});
     let html = "";
 
     const section = (id, label, content) => {
@@ -2974,8 +2984,11 @@ const App = {
   insertTable(templateKey) {
     const tmpl = TABLE_TEMPLATES[templateKey];
     const imgKey = tmpl.imageKey || templateKey;
-    const builtinImg = (typeof DIAGRAMS !== 'undefined') && DIAGRAMS[imgKey] ? DIAGRAMS[imgKey] : null;
-    const table = { id:"tbl_"+Date.now(), templateKey, name:tmpl.name, note:tmpl.note, hasImage:tmpl.hasImage||false, imageBase64:builtinImg, imageSrc:null, headers:[...tmpl.headers], rows:tmpl.rows.map(r=>[...r]) };
+    const allDiagrams = Object.assign({}, (typeof DIAGRAMS !== 'undefined') ? DIAGRAMS : {}, (typeof EXTRA_DIAGRAMS !== 'undefined') ? EXTRA_DIAGRAMS : {});
+    const builtinImg = allDiagrams[imgKey] || null;
+    const img2Key = tmpl.image2Key || null;
+    const builtinImg2 = img2Key ? (allDiagrams[img2Key] || null) : null;
+    const table = { id:"tbl_"+Date.now(), templateKey, name:tmpl.name, note:tmpl.note, hasImage:tmpl.hasImage||false, imageBase64:builtinImg, hasImage2:tmpl.hasImage2||false, image2Base64:builtinImg2, imageSrc:null, headers:[...tmpl.headers], rows:tmpl.rows.map(r=>[...r]) };
     const prev = State.currentDraft.wcr.calibrationTables.map(t => ({...t, rows:t.rows.map(r=>[...r]), headers:[...t.headers]}));
     Undo.push(() => { State.currentDraft.wcr.calibrationTables = prev; App.renderCalibrationTables(); }, `Add ${tmpl.name}`);
     State.currentDraft.wcr.calibrationTables.push(table);
@@ -3001,10 +3014,18 @@ const App = {
         </div>
         ${t.hasImage ? `
           <div class="cal-image-row">
-            <div class="cal-image-box" onclick="document.getElementById('cal-img-${ti}').click()">
-              ${t.imageBase64 ? `<img src="${t.imageBase64}" class="cal-img-preview" />` : `<span class="cal-img-placeholder">📷 Click to add diagram image</span>`}
+            <div style="display:flex;gap:8px;flex-direction:column">
+              <div class="cal-image-box" onclick="document.getElementById('cal-img-${ti}').click()">
+                ${t.imageBase64 ? `<img src="${t.imageBase64}" class="cal-img-preview" />` : `<span class="cal-img-placeholder">📷 Diagram Image 1</span>`}
+              </div>
+              <input type="file" id="cal-img-${ti}" accept="image/*" style="display:none" onchange="App.onCalImageSelect(${ti},event)" />
+              ${t.hasImage2 ? `
+              <div class="cal-image-box" onclick="document.getElementById('cal-img2-${ti}').click()">
+                ${t.image2Base64 ? `<img src="${t.image2Base64}" class="cal-img-preview" />` : `<span class="cal-img-placeholder">📷 Diagram Image 2</span>`}
+              </div>
+              <input type="file" id="cal-img2-${ti}" accept="image/*" style="display:none" onchange="App.onCalImage2Select(${ti},event)" />
+              ` : ''}
             </div>
-            <input type="file" id="cal-img-${ti}" accept="image/*" style="display:none" onchange="App.onCalImageSelect(${ti},event)" />
             <textarea class="form-input cal-note-edit" rows="4" oninput="App.updateTableNote(${ti},this.value)">${t.note||""}</textarea>
           </div>` : t.note ? `<div class="cal-table-note"><textarea class="form-input cal-note-edit" rows="2" oninput="App.updateTableNote(${ti},this.value)">${t.note}</textarea></div>` : ""}
         <div class="cal-table-scroll">
@@ -3022,6 +3043,14 @@ const App = {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = e => { State.currentDraft.wcr.calibrationTables[ti].imageBase64 = e.target.result; App.renderCalibrationTables(); AutoSave.trigger(); };
+    reader.readAsDataURL(file);
+  },
+
+  onCalImage2Select(ti, event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => { State.currentDraft.wcr.calibrationTables[ti].image2Base64 = e.target.result; App.renderCalibrationTables(); AutoSave.trigger(); };
     reader.readAsDataURL(file);
   },
 
@@ -3302,7 +3331,7 @@ const App = {
     const w = draft.wcr;
     const p = draft.projectData;
     const LOGO  = (typeof LOGO_B64  !== "undefined") ? LOGO_B64  : "";
-    const DGRAMS = (typeof DIAGRAMS !== "undefined") ? DIAGRAMS  : {};
+    const DGRAMS = Object.assign({}, (typeof DIAGRAMS !== "undefined") ? DIAGRAMS : {}, (typeof EXTRA_DIAGRAMS !== "undefined") ? EXTRA_DIAGRAMS : {});
 
     const FOOTER_TEXT = "Neptunus Power Plant Services Pvt. Ltd. &nbsp;|&nbsp; A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai – 400 710, India &nbsp;|&nbsp; Tel: +91 22 41410707 &nbsp;|&nbsp; www.neptunus-power.com &nbsp;|&nbsp; info@neptunus-power.com";
 
@@ -3514,8 +3543,11 @@ const App = {
         body += ``;
         body += `<h2>Annexure ${ti+1} &mdash; ${t.name}</h2>`;
         if (t.hasImage && imgSrc) {
-          // Detect image orientation before rendering
-          body += `<div class="cal-row"><img src="${imgSrc}" class="cal-img-auto" /><div class="cal-note">${(t.note||"").replace(/\n/g,"<br/>")}</div></div>`;
+          const img2Src = t.image2Base64 || null;
+          body += `<div class="cal-row">`;
+          body += `<img src="${imgSrc}" class="cal-img-auto" />`;
+          if (img2Src) body += `<img src="${img2Src}" class="cal-img-auto" style="margin-left:8px" />`;
+          body += `<div class="cal-note">${(t.note||"").replace(/\n/g,"<br/>")}</div></div>`;
         } else if (t.note) {
           body += `<p style="font-size:8pt;margin-bottom:8px">${(t.note||"").replace(/\n/g,"<br/>")}</p>`;
         }
