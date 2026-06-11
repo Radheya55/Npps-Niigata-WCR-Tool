@@ -102,389 +102,823 @@ const DEFAULT_RECOMMENDATIONS = [
 ];
 
 
-const TABLE_TEMPLATES = {
+/* ══════════════════════════════════════════════════════════════
+   NPPS WCR — Calibration Engine (Niigata)
+   Schema-driven. One engine renders the builder, read-only review,
+   semi-final preview, and PDF. All 14 tables are DATA, not code.
 
-  // ── PORT Crankshaft Deflection ──────────────────────────
-  portCrankshaft: {
-    name: "PORT M/E — Crankshaft Deflection Measurement",
-    note: "The deflection measurements should be made when the engine is cold.\nIndicate whether positive (+ve) or negative (-ve). All readings in 1/100 mm. Webs opening gives a +ve reading.\nMaximum permissible deflection readings as per engine manufacturer's instruction.\nDial Gauge Orientation: See diagram. Last check of holding down bolt tension.\nNote: Main bearing assembly, hot/cold condition, shaft line/gear case alignment may influence readings.",
-    hasImage: true, builtinImage: true, imageKey: "crankshaft",
-    headers: ["Crankpin Position","1","2","3","4","5","6","7","8","9","Remarks"],
-    rows: [
-      ["B1","","","","","","","","","",""],
-      ["P","","","","","","","","","",""],
-      ["T","","","","","","","","","",""],
-      ["S","","","","","","","","","",""],
-      ["B2","","","","","","","","","",""],
-    ]
+   Instance shape (stored in wcr.calibrationTables):
+     { id, key, title, blocks:[ block ] }
+   Block kinds:
+     band   { k:'band', cells:[ { parts:[ {p:'img',src,cap} | {p:'txt',v} ] } ] }
+     text   { k:'text', v }
+     limits { k:'limits', per, canAdd, rows:[ [ {l,v} x per ] ] }
+     grid   { k:'grid', levels, left:[{label,kind}], cap, leaf, leafLabel,
+              groups:[ {label,fixed,sub:[{label}]} ], rowMode, rows,
+              addCol, tail, subTpl, rowSub, rowSubLabels, linkLetters }
+     letters{ k:'letters', items:[{letter,value}] }   // drives the linked grid
+   Grid cells are nested per row: c[groupIndex][subIndex][leafIndex] = "value"
+   ══════════════════════════════════════════════════════════════ */
+const CAL = {
+
+  // ── helpers ────────────────────────────────────────────────
+  _uid() { return 'tbl_' + Date.now() + '_' + Math.floor(Math.random()*1e4); },
+  _clone(o) { return JSON.parse(JSON.stringify(o)); },
+  _esc(s) { return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); },
+
+  // blank nested cell block for a single group (sub × leaf)
+  _blankGroup(group, leaf) {
+    return group.sub.map(() => Array.from({length: leaf}, () => ''));
+  },
+  // blank nested cells for all groups, one row
+  _blankRowCells(grid) {
+    return grid.groups.map(g => CAL._blankGroup(g, grid.leaf || 1));
+  },
+  _leafCount(grid) {
+    const leaf = grid.leaf || 1;
+    return grid.groups.reduce((n,g) => n + g.sub.length * leaf, 0);
   },
 
-  // ── STBD Crankshaft Deflection ──────────────────────────
-  stbdCrankshaft: {
-    name: "STBD M/E — Crankshaft Deflection Measurement",
-    note: "The deflection measurements should be made when the engine is cold.\nIndicate whether positive (+ve) or negative (-ve). All readings in 1/100 mm. Webs opening gives a +ve reading.\nMaximum permissible deflection readings as per engine manufacturer's instruction.\nDial Gauge Orientation: See diagram. Last check of holding down bolt tension.\nNote: Main bearing assembly, hot/cold condition, shaft line/gear case alignment may influence readings.",
-    hasImage: true, builtinImage: true, imageKey: "crankshaft",
-    headers: ["Crankpin Position","1","2","3","4","5","6","7","8","9","Remarks"],
-    rows: [
-      ["B1","","","","","","","","","",""],
-      ["P","","","","","","","","","",""],
-      ["T","","","","","","","","","",""],
-      ["S","","","","","","","","","",""],
-      ["B2","","","","","","","","","",""],
-    ]
+  // ── create an instance from a template key ─────────────────
+  create(key) {
+    const t = CAL.TEMPLATES[key];
+    if (!t) return null;
+    const inst = CAL._clone(t.build());
+    inst.id = CAL._uid();
+    inst.key = key;
+    return inst;
   },
 
-  // ── PORT Rocker Arm Bushing ─────────────────────────────
-  portRockerArm: {
-    name: "PORT — Rocker Arm Bushing / Rocker Arm Shaft Diameter",
-    note: "1. Rocker Arm Bushing Inner Diameter = 55 +0.05/+0.12mm\n2. Rocker Arm Shaft Diameter = 55 -0.03/-0.05mm\n3. Clearance (Shaft – Bush) = 0.2mm",
-    hasImage: true, builtinImage: true, imageKey: "rockerArm",
-    headers: ["Cylinder No.","Valve Type","SHAFT - D1mm","SHAFT - D2mm","Remarks"],
-    rows: [
-      ["1","IV","54.99","54.99","Ok"],["","EV","54.99","54.98","Ok"],
-      ["2","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
-      ["3","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
-      ["4","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
-      ["5","IV","54.98","54.99","Ok"],["","EV","54.99","54.99","Ok"],
-      ["6","IV","54.99","54.98","Ok"],["","EV","54.99","54.99","Ok"],
-      ["7","IV","54.99","54.99","Ok"],["","EV","54.98","54.99","Ok"],
-      ["8","IV","54.99","54.99","Ok"],["","EV","54.98","54.99","Ok"],
-    ]
+  // ════════════════════════════════════════════════════════════
+  //  MUTATIONS  (ti = index in wcr.calibrationTables, bi = block index)
+  // ════════════════════════════════════════════════════════════
+  _tables() { return State.currentDraft.wcr.calibrationTables; },
+  _snap(label) {
+    const prev = CAL._clone(CAL._tables());
+    Undo.push(() => { State.currentDraft.wcr.calibrationTables = prev; CAL.refresh(); }, label || 'Calibration edit');
+  },
+  refresh() { App.renderCalibrationTables(); },
+  _save() { AutoSave.trigger(); },
+
+  // -- text / value setters --
+  setTitle(ti, v){ CAL._tables()[ti].title = v; CAL._save(); },
+  setText(ti, bi, v){ CAL._tables()[ti].blocks[bi].v = v; CAL._save(); },
+  setBandText(ti, bi, ci, pi, v){ CAL._tables()[ti].blocks[bi].cells[ci].parts[pi].v = v; CAL._save(); },
+  setBandCap(ti, bi, ci, pi, v){ CAL._tables()[ti].blocks[bi].cells[ci].parts[pi].cap = v; CAL._save(); },
+  setLimit(ti, bi, ri, ci, field, v){ CAL._tables()[ti].blocks[bi].rows[ri][ci][field] = v; CAL._save(); },
+  setCaption(ti, bi, v){ CAL._tables()[ti].blocks[bi].cap.v = v; CAL._save(); },
+
+  // -- grid header label setters --
+  setLeft(ti, bi, li, v){ CAL._tables()[ti].blocks[bi].left[li].label = v; CAL._save(); },
+  setGroupLabel(ti, bi, gi, v){ CAL._tables()[ti].blocks[bi].groups[gi].label = v; CAL._save(); },
+  setSubLabel(ti, bi, gi, si, v){ CAL._tables()[ti].blocks[bi].groups[gi].sub[si].label = v; CAL._save(); },
+
+  // -- grid cell setters --
+  setCell(ti, bi, ri, gi, si, li, v){ CAL._tables()[ti].blocks[bi].rows[ri].c[gi][si][li] = v; CAL._save(); },
+  setGCell(ti, bi, ri, si2, gi, si, li, v){ CAL._tables()[ti].blocks[bi].rows[ri].sub[si2].c[gi][si][li] = v; CAL._save(); },
+  setRowLabel(ti, bi, ri, li, v){ CAL._tables()[ti].blocks[bi].rows[ri].L[li] = v; CAL._save(); },
+  setGroupRowLabel(ti, bi, ri, v){ CAL._tables()[ti].blocks[bi].rows[ri].g = v; CAL._save(); },
+  setSubRowLabel(ti, bi, ri, si2, v){ CAL._tables()[ti].blocks[bi].rows[ri].sub[si2].s = v; CAL._save(); },
+
+  // -- image replace --
+  pickImage(ti, bi, ci, pi){
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = e => {
+      const f = e.target.files[0]; if(!f) return;
+      const r = new FileReader();
+      r.onload = ev => { CAL._tables()[ti].blocks[bi].cells[ci].parts[pi].src = ev.target.result; CAL.refresh(); CAL._save(); };
+      r.readAsDataURL(f);
+    };
+    inp.click();
+  },
+  clearImage(ti, bi, ci, pi){ CAL._snap('Clear image'); CAL._tables()[ti].blocks[bi].cells[ci].parts[pi].src = null; CAL.refresh(); CAL._save(); },
+
+  // -- limits rows --
+  addLimitRow(ti, bi){
+    CAL._snap('Add row');
+    const b = CAL._tables()[ti].blocks[bi];
+    b.rows.push(Array.from({length:b.per}, () => ({l:'', v:''})));
+    CAL.refresh(); CAL._save();
+  },
+  delLimitRow(ti, bi, ri){
+    const b = CAL._tables()[ti].blocks[bi];
+    if (b.rows.length <= 1) return;
+    CAL._snap('Delete row'); b.rows.splice(ri,1); CAL.refresh(); CAL._save();
   },
 
-  // ── STBD Rocker Arm Bushing ─────────────────────────────
-  stbdRockerArm: {
-    name: "STBD — Rocker Arm Bushing / Rocker Arm Shaft Diameter",
-    note: "1. Rocker Arm Bushing Inner Diameter = 55 +0.05/+0.12mm\n2. Rocker Arm Shaft Diameter = 55 -0.03/-0.05mm\n3. Clearance (Shaft – Bush) = 0.2mm",
-    hasImage: true, builtinImage: true, imageKey: "rockerArm",
-    headers: ["Cylinder No.","Valve Type","SHAFT - D1mm","SHAFT - D2mm","Remarks"],
-    rows: [
-      ["1","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
-      ["2","IV","54.98","54.98","Ok"],["","EV","54.99","54.99","Ok"],
-      ["3","IV","54.99","54.99","Ok"],["","EV","54.99","54.98","Ok"],
-      ["4","IV","54.99","54.99","Ok"],["","EV","54.98","54.99","Ok"],
-      ["5","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
-      ["6","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
-      ["7","IV","54.99","54.99","Ok"],["","EV","54.98","54.99","Ok"],
-      ["8","IV","54.99","54.99","Ok"],["","EV","54.99","54.99","Ok"],
-    ]
+  // -- grid: add/remove data row --
+  addGridRow(ti, bi){
+    CAL._snap('Add row');
+    const g = CAL._tables()[ti].blocks[bi];
+    if (g.rowMode === 'group') {
+      const sub = [];
+      const n = g.rowSub || 1;
+      for (let i=0;i<n;i++) sub.push({ s: (g.rowSubLabels && g.rowSubLabels[i]) || '', c: CAL._blankRowCells(g) });
+      const nextNum = g.rows.length + 1;
+      g.rows.push({ g: g.autoNum ? String(nextNum) : '', sub });
+    } else {
+      const nextNum = g.rows.length + 1;
+      const L = g.left.map(col => col.kind === 'auto' ? String(nextNum) : '');
+      g.rows.push({ L, c: CAL._blankRowCells(g) });
+    }
+    CAL._renumber(g);
+    CAL.refresh(); CAL._save();
+  },
+  delGridRow(ti, bi, ri){
+    const g = CAL._tables()[ti].blocks[bi];
+    if (g.rows.length <= 1) return;
+    CAL._snap('Delete row'); g.rows.splice(ri,1); CAL._renumber(g); CAL.refresh(); CAL._save();
+  },
+  _renumber(g){
+    if (g.rowMode === 'group') {
+      if (g.autoNum) g.rows.forEach((r,i)=> r.g = String(i+1));
+    } else {
+      g.left.forEach((col,li)=>{ if(col.kind==='auto') g.rows.forEach((r,i)=> r.L[li] = String(i+1)); });
+    }
   },
 
-  // ── PORT Ring Groove Clearance ──────────────────────────
-  portRingGroove: {
-    name: "PORT — Ring Groove Clearance",
-    note: "Standard: 1st Compression 0.21~0.25mm | 2nd Compression 0.11~0.15mm | 3rd Compression 0.07~0.11mm | Oil Ring 0.04~0.09mm\nPermissible Limit: 1st 0.35mm | 2nd 0.30mm | 3rd 0.30mm | Oil Ring 0.30mm",
-    hasImage: false,
-    headers: ["Cylinder No","1st Ring","2nd Ring","3rd Ring","Oil Ring","Remarks"],
-    rows: [
-      ["1","0.21","0.11","0.09","0.06","Ok"],["2","0.21","0.11","0.09","0.06","Ok"],
-      ["3","0.21","0.11","0.09","0.06","Ok"],["4","0.21","0.11","0.09","0.06","Ok"],
-      ["5","0.21","0.11","0.09","0.06","Ok"],["6","0.21","0.11","0.09","0.06","Ok"],
-      ["7","0.21","0.11","0.09","0.06","Ok"],["8","0.21","0.11","0.09","0.06","Ok"],
-    ]
+  // -- grid: add/remove column --
+  addGridCol(ti, bi){
+    const g = CAL._tables()[ti].blocks[bi];
+    if (g.addCol === 'none') return;
+    CAL._snap('Add column');
+    if (g.addCol === 'group') {
+      const idx = g.groups.length - (g.tail || 0);   // before trailing fixed groups
+      const tpl = g.subTpl;
+      const count = g.groups.filter(x=>!x.fixed).length + 1;
+      const newGroup = { label: (tpl.labelPrefix||'') + count, fixed:false, sub: tpl.sub.map(s=>({label:s.label})) };
+      g.groups.splice(idx, 0, newGroup);
+      CAL._eachGridRowCells(g, cellsArr => cellsArr.splice(idx, 0, CAL._blankGroup(newGroup, g.leaf||1)));
+    } else { // single
+      const idx = g.groups.length - (g.tail || 0);
+      const newGroup = { label:'New', fixed:false, sub:[{label:''}] };
+      g.groups.splice(idx, 0, newGroup);
+      CAL._eachGridRowCells(g, cellsArr => cellsArr.splice(idx, 0, CAL._blankGroup(newGroup, g.leaf||1)));
+    }
+    CAL.refresh(); CAL._save();
+  },
+  delGridCol(ti, bi, gi){
+    const g = CAL._tables()[ti].blocks[bi];
+    if (g.groups[gi].fixed) return;
+    if (g.groups.filter(x=>!x.fixed).length <= 1) return;
+    CAL._snap('Delete column');
+    g.groups.splice(gi,1);
+    CAL._eachGridRowCells(g, cellsArr => cellsArr.splice(gi,1));
+    CAL.refresh(); CAL._save();
+  },
+  // apply fn to each row's cells array (handles flat + grouped rows)
+  _eachGridRowCells(g, fn){
+    if (g.rowMode === 'group') g.rows.forEach(r => r.sub.forEach(s => fn(s.c)));
+    else g.rows.forEach(r => fn(r.c));
   },
 
-  // ── STBD Ring Groove Clearance ──────────────────────────
-  stbdRingGroove: {
-    name: "STBD — Ring Groove Clearance",
-    note: "Standard: 1st Compression 0.21~0.25mm | 2nd Compression 0.11~0.15mm | 3rd Compression 0.07~0.11mm | Oil Ring 0.04~0.09mm\nPermissible Limit: 1st 0.35mm | 2nd 0.30mm | 3rd 0.30mm | Oil Ring 0.30mm",
-    hasImage: false,
-    headers: ["Cylinder No","1st Ring","2nd Ring","3rd Ring","Oil Ring","Remarks"],
-    rows: [
-      ["1","0.21","0.11","0.09","0.06","Ok"],["2","0.21","0.11","0.09","0.06","Ok"],
-      ["3","0.21","0.11","0.09","0.06","Ok"],["4","0.21","0.11","0.09","0.06","Ok"],
-      ["5","0.21","0.11","0.09","0.06","Ok"],["6","0.21","0.11","0.09","0.06","Ok"],
-      ["7","0.21","0.11","0.09","0.06","Ok"],["8","0.21","0.11","0.09","0.06","Ok"],
-    ]
+  // -- letters (Liner) : letters drive the linked grid groups --
+  _linkedGrid(tbl){ return tbl.blocks.find(b => b.k === 'grid' && b.linkLetters); },
+  addLetter(ti, bi){
+    CAL._snap('Add letter');
+    const tbl = CAL._tables()[ti];
+    const lb = tbl.blocks[bi];
+    const next = String.fromCharCode(65 + lb.items.length); // A,B,C...
+    lb.items.push({ letter: next, value:'' });
+    const g = CAL._linkedGrid(tbl);
+    if (g) {
+      const idx = g.groups.length - (g.tail || 0);
+      const newGroup = { label: next, fixed:false, sub: g.subTpl.sub.map(s=>({label:s.label})) };
+      g.groups.splice(idx, 0, newGroup);
+      CAL._eachGridRowCells(g, cellsArr => cellsArr.splice(idx, 0, CAL._blankGroup(newGroup, g.leaf||1)));
+    }
+    CAL.refresh(); CAL._save();
+  },
+  setLetter(ti, bi, i, field, v){
+    const tbl = CAL._tables()[ti];
+    const lb = tbl.blocks[bi];
+    lb.items[i][field] = v;
+    if (field === 'letter') { const g = CAL._linkedGrid(tbl); if (g && g.groups[i]) g.groups[i].label = v; }
+    CAL._save();
+  },
+  delLetter(ti, bi, i){
+    const tbl = CAL._tables()[ti];
+    const lb = tbl.blocks[bi];
+    if (lb.items.length <= 1) return;
+    CAL._snap('Delete letter');
+    lb.items.splice(i,1);
+    const g = CAL._linkedGrid(tbl);
+    if (g) { g.groups.splice(i,1); CAL._eachGridRowCells(g, cellsArr => cellsArr.splice(i,1)); }
+    CAL.refresh(); CAL._save();
   },
 
-  // ── PORT Liner & Piston Ring Gap ────────────────────────
-  portPistonRingGap: {
-    name: "PORT — Clearance between Liner & Piston Ring Gap",
-    note: "Standard: 1st Compression 1.1~1.4mm | 2nd Compression 1.1~1.4mm | 3rd Compression 1.1~1.4mm | Oil Ring 0.65~0.95mm\nPermissible Limit: 2nd 3.5mm | 3rd 3.5mm",
-    hasImage: false,
-    headers: ["Cylinder No","1st Ring","2nd Ring","3rd Ring","Oil Ring","Remarks"],
-    rows: [
-      ["1","1.25","1.25","1.25","0.90","Ok"],["2","1.25","1.25","1.25","0.90","Ok"],
-      ["3","1.25","1.25","1.25","0.90","Ok"],["4","1.25","1.25","1.25","0.90","Ok"],
-      ["5","1.25","1.25","1.25","0.90","Ok"],["6","1.25","1.25","1.25","0.90","Ok"],
-      ["7","1.25","1.25","1.25","0.90","Ok"],["8","1.25","1.25","1.25","0.90","Ok"],
-    ]
+  // -- table-level --
+  add(key){
+    const inst = CAL.create(key); if(!inst) return;
+    CAL._snap('Add ' + (inst.title||'table'));
+    CAL._tables().push(inst);
+    const pal = document.getElementById('table-palette'); if (pal) pal.classList.add('hidden');
+    CAL.refresh(); CAL._save();
+    Toast.show(`"${inst.title}" added.`, 'success');
+  },
+  remove(ti){
+    if (!confirm('Delete this calibration table?')) return;
+    CAL._snap('Delete table'); CAL._tables().splice(ti,1); CAL.refresh(); CAL._save();
+  },
+  move(ti, dir){
+    const a = CAL._tables(); const ni = ti+dir;
+    if (ni<0 || ni>=a.length) return;
+    CAL._snap('Reorder'); [a[ti],a[ni]] = [a[ni],a[ti]]; CAL.refresh(); CAL._save();
   },
 
-  // ── STBD Liner & Piston Ring Gap ────────────────────────
-  stbdPistonRingGap: {
-    name: "STBD — Clearance between Liner & Piston Ring Gap",
-    note: "Standard: 1st Compression 1.1~1.4mm | 2nd Compression 1.1~1.4mm | 3rd Compression 1.1~1.4mm | Oil Ring 0.65~0.95mm\nPermissible Limit: 2nd 3.5mm | 3rd 3.5mm",
-    hasImage: false,
-    headers: ["Cylinder No","1st Ring","2nd Ring","3rd Ring","Oil Ring","Remarks"],
-    rows: [
-      ["1","1.25","1.25","1.25","0.90","Ok"],["2","1.25","1.25","1.25","0.90","Ok"],
-      ["3","1.25","1.25","1.25","0.90","Ok"],["4","1.25","1.25","1.25","0.90","Ok"],
-      ["5","1.25","1.25","1.25","0.90","Ok"],["6","1.25","1.25","1.25","0.90","Ok"],
-      ["7","1.25","1.25","1.25","0.90","Ok"],["8","1.25","1.25","1.25","0.90","Ok"],
-    ]
+  // ════════════════════════════════════════════════════════════
+  //  RENDER — grid header (shared by all modes)
+  //  mode: 'edit' | 'ro' | 'ce' | 'pdf'
+  // ════════════════════════════════════════════════════════════
+  _gridHeaderRows(g, ti, bi, mode) {
+    const leaf = g.leaf || 1;
+    const lvl = g.levels || 1;
+    const E = CAL._esc;
+    const editLbl = (val, handler) => mode==='edit'
+      ? `<input class="th-input" value="${E(val)}" oninput="${handler}"/>`
+      : E(val);
+    const colBtn = (gi, fixed) => (mode==='edit' && !fixed) ? `<button class="col-del" title="Delete column" onclick="CAL.delGridCol(${ti},${bi},${gi})">✕</button>` : '';
+
+    let rows = [];
+    // Row 1: left headers (rowspan lvl) + group labels (colspan sub*leaf)
+    let r1 = g.left.map((col,li) => `<th rowspan="${lvl}">${ mode==='edit' ? `<input class="th-input" value="${E(col.label)}" oninput="CAL.setLeft(${ti},${bi},${li},this.value)"/>` : E(col.label)}</th>`).join('');
+    g.groups.forEach((grp,gi) => {
+      const span = grp.sub.length * leaf;
+      // a fixed single-sub group with empty sub-label spans all levels
+      const solo = grp.fixed && grp.sub.length===1 && !grp.sub[0].label;
+      if (solo) {
+        r1 += `<th rowspan="${lvl}">${E(grp.label)}</th>`;
+      } else if (lvl === 1) {
+        r1 += `<th>${editLbl(grp.label, `CAL.setGroupLabel(${ti},${bi},${gi},this.value)`)}${colBtn(gi,grp.fixed)}</th>`;
+      } else {
+        r1 += `<th colspan="${span}">${editLbl(grp.label, `CAL.setGroupLabel(${ti},${bi},${gi},this.value)`)}${colBtn(gi,grp.fixed)}</th>`;
+      }
+    });
+    if (mode==='edit' && g.addCol && g.addCol!=='none')
+      r1 += `<th rowspan="${lvl}"><button class="add-col-btn" onclick="CAL.addGridCol(${ti},${bi})">+ Col</button></th>`;
+    rows.push('<tr>'+r1+'</tr>');
+
+    // Row 2: sub labels (colspan leaf)
+    if (lvl >= 2) {
+      let r2 = '';
+      g.groups.forEach((grp,gi) => {
+        const solo = grp.fixed && grp.sub.length===1 && !grp.sub[0].label;
+        if (solo) return; // already spanned
+        grp.sub.forEach((s,si) => {
+          r2 += `<th colspan="${leaf}">${ mode==='edit' && !grp.fixed ? `<input class="th-input" value="${E(s.label)}" oninput="CAL.setSubLabel(${ti},${bi},${gi},${si},this.value)"/>` : E(s.label)}</th>`;
+        });
+      });
+      rows.push('<tr>'+r2+'</tr>');
+    }
+    // Row 3: leaf labels
+    if (lvl >= 3) {
+      let r3 = '';
+      g.groups.forEach(grp => {
+        const solo = grp.fixed && grp.sub.length===1 && !grp.sub[0].label;
+        if (solo) return;
+        grp.sub.forEach(() => { for (let l=0;l<leaf;l++) r3 += `<th>${E(g.leafLabel||'')}</th>`; });
+      });
+      rows.push('<tr>'+r3+'</tr>');
+    }
+    return rows.join('');
   },
 
-  // ── PORT Cylinder Liner Calibration ────────────────────
-  portLinerCalib: {
-    name: "PORT — Cylinder Liner Calibration after Honing",
-    note: "A=70mm | B=280mm | C=490mm | D=615mm\nNormal Size: 280 +0.040mm | Permissible Limit: 280.5mm\nC: Cam Side | E: Exhaust Side | F: Free End | A: Alternator End (Flywheel End)",
-    hasImage: true, builtinImage: true, imageKey: "linerCalib",
-    headers: ["Unit No.","A C-E","A F-A","B C-E","B F-A","C C-E","C F-A","D C-E","D F-A","Remark"],
-    rows: [
-      ["1","280.04","280.02","280.04","280.04","280.04","280.04","280.04","280.04","ok"],
-      ["2","280.03","280.04","280.04","280.04","280.03","280.03","280.02","280.02","ok"],
-      ["3","280.03","280.03","280.04","280.04","280.03","280.04","280.03","280.04","ok"],
-      ["4","280.04","280.04","280.3","280.03","280.03","280.03","280.03","280.03","ok"],
-      ["5","280.04","280.04","280.04","280.03","280.4","280.04","280.03","280.03","ok"],
-      ["6","280.04","280.04","280.04","280.04","280.04","280.04","280.03","280.02","ok"],
-    ]
+  _totalCols(g) {
+    return g.left.length + CAL._leafCount(g) ;
   },
 
-  // ── STBD Cylinder Liner Calibration ────────────────────
-  stbdLinerCalib: {
-    name: "STBD — Cylinder Liner Calibration after Honing",
-    note: "A=70mm | B=280mm | C=490mm | D=615mm\nNormal Size: 280 +0.040mm | Permissible Limit: 280.5mm\nC: Cam Side | E: Exhaust Side | F: Free End | A: Alternator End (Flywheel End)",
-    hasImage: true, builtinImage: true, imageKey: "linerCalib",
-    headers: ["Unit No.","A C-E","A F-A","B C-E","B F-A","C C-E","C F-A","D C-E","D F-A","Remark"],
-    rows: [
-      ["1","280.04","280.03","280.04","280.04","280.04","280.04","280.03","280.03","ok"],
-      ["2","280.04","280.05","280.04","280.04","280.04","280.04","280.02","280.03","ok"],
-      ["3","280.04","280.04","280.04","280.04","280.05","280.04","280.03","280.03","ok"],
-      ["4","280.05","280.04","280.04","280.04","280.04","280.04","280.03","280.02","ok"],
-      ["5","280.03","280.04","280.04","280.04","280.04","280.04","280.03","280.03","ok"],
-      ["6","280.05","280.04","280.04","280.03","280.05","280.04","280.02","280.02","ok"],
-    ]
+  // grid data cell wrapper per mode
+  _cell(val, mode, handler) {
+    const E = CAL._esc;
+    if (mode==='edit') return `<td><input class="td-input" value="${E(val)}" oninput="${handler}"/></td>`;
+    if (mode==='ce')   return `<td contenteditable="true">${E(val)}</td>`;
+    return `<td>${E(val)||(mode==='pdf'?'':'')}</td>`;
   },
 
-  // ── PORT Valve Stem Diameter ────────────────────────────
-  portValveStem: {
-    name: "PORT — Valve Stem Diameter",
-    note: "dX1: At Top Position | dX2: At Bottom Position\nAvg. Intake Valve Stem Dia. d1 = (dX1 + dX2) / 2\nAvg. Exhaust Valve Stem Dia. d2 = (dX1 + dX2) / 2\nStandard: Inlet & Exhaust Valve Limit = 19.80mm | Valve Guide Limit = 20.40mm | Allowable Clearance = 0.06~0.10mm",
-    hasImage: true, builtinImage: true, imageKey: "valveStem",
-    headers: ["Cylinder No.","Valve Type","Stem Dia. dX1mm","Stem Dia. dX2mm","Guide-Dia D1mm","Guide-Dia D2mm"],
-    rows: [
-      ["1","IV","19.94","19.94","20.05","20.04"],["","IV","19.94","19.94","20.04","20.04"],
-      ["","EV","19.96","19.96","20.06","20.03"],["","EV","19.96","19.96","20.02","20.01"],
-      ["2","IV","19.94","19.94","20.00","20.00"],["","IV","19.94","19.94","20.00","20.00"],
-      ["","EV","19.96","19.96","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],
-      ["3","IV","19.94","19.94","20.00","20.00"],["","IV","19.94","19.94","20.00","20.00"],
-      ["","EV","19.96","19.96","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],
-      ["4","IV","19.94","19.94","20.00","20.00"],["","IV","19.94","19.94","20.00","20.00"],
-      ["","EV","19.96","19.96","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],
-      ["5","IV","19.94","19.94","20.00","20.00"],["","IV","19.94","19.94","20.00","20.00"],
-      ["","EV","19.96","19.96","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],
-      ["6","IV","19.94","19.94","20.00","20.00"],["","IV","19.94","19.94","20.00","20.00"],
-      ["","EV","19.96","19.96","20.00","20.00"],["","EV","19.96","19.96","20.00","20.00"],
-    ]
+  // ════════════════════════════════════════════════════════════
+  //  RENDER — full table for screen modes (edit / ro / ce)
+  // ════════════════════════════════════════════════════════════
+  _renderScreen(tbl, ti, mode) {
+    const E = CAL._esc;
+    let h = '';
+    tbl.blocks.forEach((b, bi) => {
+      if (b.k === 'band') {
+        h += `<div class="cal-band">`;
+        b.cells.forEach((cell,ci) => {
+          h += `<div class="cal-band-cell">`;
+          cell.parts.forEach((part,pi) => {
+            if (part.p === 'img') {
+              if (mode==='edit') {
+                h += `<div class="cal-img-slot" onclick="CAL.pickImage(${ti},${bi},${ci},${pi})">${ part.src ? `<img src="${part.src}"/>` : `<span class="cal-img-ph">📷 Click to add diagram</span>` }</div>`;
+                if (part.src) h += `<button class="cal-img-clear" onclick="CAL.clearImage(${ti},${bi},${ci},${pi})">remove image</button>`;
+                if (part.cap!==undefined) h += `<input class="cal-cap" value="${E(part.cap)}" oninput="CAL.setBandCap(${ti},${bi},${ci},${pi},this.value)" placeholder="caption"/>`;
+              } else {
+                if (part.src) h += `<img class="cal-img-ro" src="${part.src}"/>`;
+                if (part.cap) h += `<div class="cal-cap-ro"${mode==='ce'?' contenteditable="true"':''}>${E(part.cap)}</div>`;
+              }
+            } else { // txt
+              if (mode==='edit') h += `<textarea class="cal-zone" rows="3" oninput="CAL.setBandText(${ti},${bi},${ci},${pi},this.value)">${E(part.v)}</textarea>`;
+              else h += `<div class="cal-zone-ro"${mode==='ce'?' contenteditable="true"':''}>${E(part.v).replace(/\n/g,'<br/>')}</div>`;
+            }
+          });
+          h += `</div>`;
+        });
+        h += `</div>`;
+      }
+      else if (b.k === 'text') {
+        if (mode==='edit') h += `<textarea class="cal-zone" rows="6" oninput="CAL.setText(${ti},${bi},this.value)">${E(b.v)}</textarea>`;
+        else h += `<div class="cal-zone-ro"${mode==='ce'?' contenteditable="true"':''}>${E(b.v).replace(/\n/g,'<br/>')}</div>`;
+      }
+      else if (b.k === 'limits') {
+        h += `<table class="cal-grid"><tbody>`;
+        b.rows.forEach((row,ri) => {
+          h += `<tr>`;
+          row.forEach((pair,ci) => {
+            if (mode==='edit') {
+              h += `<td class="lc"><input class="td-input" value="${E(pair.l)}" oninput="CAL.setLimit(${ti},${bi},${ri},${ci},'l',this.value)"/></td><td><input class="td-input" value="${E(pair.v)}" oninput="CAL.setLimit(${ti},${bi},${ri},${ci},'v',this.value)"/></td>`;
+            } else {
+              h += `<td class="lc">${E(pair.l)}</td><td${mode==='ce'?' contenteditable="true"':''}>${E(pair.v)}</td>`;
+            }
+          });
+          if (mode==='edit' && b.canAdd) h += `<td><button class="row-del-btn" onclick="CAL.delLimitRow(${ti},${bi},${ri})">✕</button></td>`;
+          h += `</tr>`;
+        });
+        h += `</tbody></table>`;
+        if (mode==='edit' && b.canAdd) h += `<button class="add-row-btn" onclick="CAL.addLimitRow(${ti},${bi})">+ Add Row</button>`;
+      }
+      else if (b.k === 'letters') {
+        h += `<table class="cal-grid"><tbody><tr>`;
+        b.items.forEach((it,i) => {
+          if (mode==='edit') h += `<td class="lc" style="text-align:center"><input class="td-input" style="text-align:center" value="${E(it.letter)}" oninput="CAL.setLetter(${ti},${bi},${i},'letter',this.value)"/>${b.items.length>1?`<button class="col-del" onclick="CAL.delLetter(${ti},${bi},${i})">✕</button>`:''}</td>`;
+          else h += `<th style="text-align:center">${E(it.letter)}</th>`;
+        });
+        if (mode==='edit') h += `<td><button class="add-col-btn" onclick="CAL.addLetter(${ti},${bi})">+ Letter</button></td>`;
+        h += `</tr><tr>`;
+        b.items.forEach((it,i) => {
+          if (mode==='edit') h += `<td><input class="td-input" style="text-align:center" value="${E(it.value)}" oninput="CAL.setLetter(${ti},${bi},${i},'value',this.value)"/></td>`;
+          else h += `<td style="text-align:center"${mode==='ce'?' contenteditable="true"':''}>${E(it.value)}</td>`;
+        });
+        if (mode==='edit') h += `<td></td>`;
+        h += `</tr></tbody></table>`;
+      }
+      else if (b.k === 'grid') {
+        h += `<div class="cal-grid-scroll"><table class="cal-grid">`;
+        h += `<thead>${CAL._gridHeaderRows(b, ti, bi, mode)}</thead><tbody>`;
+        if (b.cap) {
+          const span = CAL._totalCols(b) + (mode==='edit' ? 1 : 0);
+          h += `<tr><td colspan="${span}" class="cal-cap-row">${ mode==='edit' ? `<input class="td-input" value="${E(b.cap.v)}" oninput="CAL.setCaption(${ti},${bi},this.value)"/>` : E(b.cap.v) }</td></tr>`;
+        }
+        if (b.rowMode === 'group') {
+          b.rows.forEach((r,ri) => {
+            r.sub.forEach((s,si2) => {
+              h += `<tr>`;
+              if (si2 === 0) {
+                h += `<td rowspan="${r.sub.length}" class="lc">${ mode==='edit' && !b.autoNum ? `<input class="td-input" value="${E(r.g)}" oninput="CAL.setGroupRowLabel(${ti},${bi},${ri},this.value)"/>` : E(r.g) }</td>`;
+              }
+              // sub-row label (e.g. IV/EV) if left has 2 cols (label + valveType)
+              if (b.left.length >= 2) {
+                h += `<td class="lc">${ mode==='edit' ? `<input class="td-input" value="${E(s.s)}" oninput="CAL.setSubRowLabel(${ti},${bi},${ri},${si2},this.value)"/>` : E(s.s) }</td>`;
+              }
+              b.groups.forEach((grp,gi) => grp.sub.forEach((sub,si) => { for (let l=0;l<(b.leaf||1);l++) {
+                h += CAL._cell(s.c[gi][si][l], mode, `CAL.setGCell(${ti},${bi},${ri},${si2},${gi},${si},${l},this.value)`);
+              }}));
+              if (si2 === 0 && mode==='edit') h += `<td rowspan="${r.sub.length}"><button class="row-del-btn" onclick="CAL.delGridRow(${ti},${bi},${ri})">✕</button></td>`;
+              h += `</tr>`;
+            });
+          });
+        } else {
+          b.rows.forEach((r,ri) => {
+            h += `<tr>`;
+            b.left.forEach((col,li) => {
+              h += `<td class="lc">${ mode==='edit' && col.kind!=='auto' ? `<input class="td-input" value="${E(r.L[li])}" oninput="CAL.setRowLabel(${ti},${bi},${ri},${li},this.value)"/>` : E(r.L[li]) }</td>`;
+            });
+            b.groups.forEach((grp,gi) => grp.sub.forEach((sub,si) => { for (let l=0;l<(b.leaf||1);l++) {
+              h += CAL._cell(r.c[gi][si][l], mode, `CAL.setCell(${ti},${bi},${ri},${gi},${si},${l},this.value)`);
+            }}));
+            if (mode==='edit') h += `<td><button class="row-del-btn" onclick="CAL.delGridRow(${ti},${bi},${ri})">✕</button></td>`;
+            h += `</tr>`;
+          });
+        }
+        h += `</tbody></table></div>`;
+        if (mode==='edit' && b.addRow !== false) h += `<button class="add-row-btn" onclick="CAL.addGridRow(${ti},${bi})">+ Add Row</button>`;
+      }
+    });
+    return h;
   },
 
-  // ── STBD Valve Stem Diameter (with Valve Number) ────────
-  stbdValveStem: {
-    name: "STBD — Valve Stem Diameter",
-    note: "dX1: At Top Position | dX2: At Bottom Position\nAvg. Intake Valve Stem Dia. d1 = (dX1 + dX2) / 2\nAvg. Exhaust Valve Stem Dia. d2 = (dX1 + dX2) / 2\nStandard: Inlet & Exhaust Valve Limit = 19.80mm | Valve Guide Limit = 20.40mm | Allowable Clearance = 0.06~0.10mm",
-    hasImage: true, builtinImage: true, imageKey: "valveStem",
-    headers: ["Cylinder No.","Valve Type","Valve Number","Stem Dia. dX1mm","Stem Dia. dX2mm","Guide-Dia D1mm","Guide-Dia D2mm"],
-    rows: [
-      ["1","IV","1","19.94","19.94","20.00","20.00"],["","IV","","19.94","19.94","20.00","20.00"],
-      ["","EV","","19.96","19.96","20.00","20.00"],["","EV","","19.96","19.96","20.00","20.00"],
-      ["2","IV","2","19.9","19.94","20.00","20.00"], ["","IV","","19.94","19.94","20.00","20.00"],
-      ["","EV","","19.96","19.96","20.00","20.00"],["","EV","","19.96","19.96","20.00","20.00"],
-      ["3","IV","3","19.94","19.94","20.00","20.00"],["","IV","","19.90","19.94","20.00","20.00"],
-      ["","EV","","19.96","19.96","20.00","20.00"],["","EV","","19.96","19.96","20.00","20.00"],
-      ["4","IV","4","19.94","19.94","20.00","20.00"],["","IV","","19.94","19.94","20.00","20.00"],
-      ["","EV","","19.96","19.96","20.00","20.00"],["","EV","","19.96","19.96","20.00","20.00"],
-      ["5","IV","5","19.94","19.94","20.00","20.00"],["","IV","","19.94","19.94","20.00","20.00"],
-      ["","EV","","19.96","19.96","20.00","20.00"],["","EV","","19.96","19.96","20.00","20.00"],
-      ["6","IV","6","19.94","19.94","20.00","20.00"],["","IV","","19.94","19.94","20.00","20.00"],
-      ["","EV","","19.96","19.96","20.00","20.00"],["","EV","","19.96","19.96","20.00","20.00"],
-    ]
+  // ── BUILDER ────────────────────────────────────────────────
+  _legacy(tbl){ return !tbl || !Array.isArray(tbl.blocks); },
+  renderEditor(tables) {
+    if (!tables.length) return `<div class="empty-state">No calibration tables yet. Use the palette above to add tables.</div>`;
+    return tables.map((tbl, ti) => CAL._legacy(tbl) ? `
+      <div class="cal-table-block" style="border-color:var(--amber)">
+        <div class="cal-table-header">
+          <input class="cal-table-title" value="${CAL._esc(tbl.name||tbl.title||'Legacy table')}" readonly/>
+          <div class="cal-table-actions"><button class="tbl-action-btn danger" onclick="CAL.remove(${ti})">🗑 Remove</button></div>
+        </div>
+        <div class="empty-state" style="margin:8px 0">⚠ This is an old-format calibration table. Please remove it and re-add the table from the palette above.</div>
+      </div>` : `
+      <div class="cal-table-block">
+        <div class="cal-table-header">
+          <input class="cal-table-title" value="${CAL._esc(tbl.title)}" oninput="CAL.setTitle(${ti},this.value)"/>
+          <div class="cal-table-actions">
+            <button class="tbl-action-btn" onclick="Undo.last()" title="Undo">↩ Undo</button>
+            ${ti>0?`<button class="tbl-action-btn" onclick="CAL.move(${ti},-1)">↑</button>`:''}
+            ${ti<tables.length-1?`<button class="tbl-action-btn" onclick="CAL.move(${ti},1)">↓</button>`:''}
+            <button class="tbl-action-btn danger" onclick="CAL.remove(${ti})">🗑</button>
+          </div>
+        </div>
+        ${CAL._renderScreen(tbl, ti, 'edit')}
+      </div>`).join('') +
+      `<div style="margin-top:14px;text-align:right"><button class="btn-save-history" onclick="App.saveCalibrationTables()">💾 Save Calibration Tables</button></div>`;
   },
 
-  // ── Load Trial Sheet ────────────────────────────────────
-  loadTrial: {
-    name: "Load Trial Sheet — PORT & STBD ENGINE",
-    note: "Model: 8L28HX",
-    hasImage: false,
-    headers: ["Parameter","Sub-Parameter","Unit","P(P) 600rpm 15min","P(P) 750rpm 15min","S(S) 600rpm 15min","S(S) 750rpm 15min"],
-    rows: [
-      ["Load","%","","","","",""],
-      ["","Duration","HH:MM","15 min","15 min","15 min","15 min"],
-      ["","Engine Speed","Rpm","600","750","600","750"],
-      ["","Lay shaft Handle pointer","Scale","3.5","5","3.5","5"],
-      ["Pressure","Eng. Lube oil","Mpa","","","",""],
-      ["","FW cooling","Mpa","","","",""],
-      ["","SW cooling","Mpa","","","",""],
-      ["","Charge air","Mpa","","","",""],
-      ["","T/C Lube oil","Mpa","","","",""],
-      ["","Fuel oil","Mpa","","","",""],
-      ["Lube oil Temp","Cooler inlet","°C","","","",""],
-      ["Water Temp","Engine Inlet","°C","","","",""],
-      ["Max Pressure","No. 1 Cylinder","Mpa","","","",""],
-      ["","No. 2 Cylinder","Mpa","","","",""],
-      ["","No. 3 Cylinder","Mpa","","","",""],
-      ["","No. 4 Cylinder","Mpa","","","",""],
-      ["","No. 5 Cylinder","Mpa","","","",""],
-      ["","No. 6 Cylinder","Mpa","","","",""],
-      ["","No. 7 Cylinder","Mpa","","","",""],
-      ["","No. 8 Cylinder","Mpa","","","",""],
-      ["Exh. Gas Temp","No. 1 Cylinder","°C","","","",""],
-      ["","No. 2 Cylinder","°C","","","",""],
-      ["","No. 3 Cylinder","°C","","","",""],
-      ["","No. 4 Cylinder","°C","","","",""],
-      ["","No. 5 Cylinder","°C","","","",""],
-      ["","No. 6 Cylinder","°C","","","",""],
-      ["","No. 7 Cylinder","°C","","","",""],
-      ["","No. 8 Cylinder","°C","","","",""],
-      ["F.I.P Rack Index","No. 1 Cylinder","Mm","","","",""],
-      ["","No. 2 Cylinder","Mm","","","",""],
-      ["","No. 3 Cylinder","Mm","","","",""],
-      ["","No. 4 Cylinder","Mm","","","",""],
-      ["","No. 5 Cylinder","Mm","","","",""],
-      ["","No. 6 Cylinder","Mm","","","",""],
-      ["","No. 7 Cylinder","Mm","","","",""],
-      ["","No. 8 Cylinder","Mm","","","",""],
-    ]
+  // ── READ-ONLY (review screen) ──────────────────────────────
+  renderStatic(tbl) {
+    if (CAL._legacy(tbl)) return '';
+    return `<div class="cal-static"><h3 class="cal-static-title">${CAL._esc(tbl.title)}</h3>${CAL._renderScreen(tbl, 0, 'ro')}</div>`;
+  },
+  // ── SEMI-FINAL (contenteditable preview) ───────────────────
+  renderEditable(tbl) {
+    if (CAL._legacy(tbl)) return '';
+    return `<div class="sf-cal-block"><h3 class="sf-cal-title" contenteditable="true">${CAL._esc(tbl.title)}</h3>${CAL._renderScreen(tbl, 0, 'ce')}</div>`;
   },
 
+  // ════════════════════════════════════════════════════════════
+  //  PDF — push flow + table items into the paginator stream
+  //  pushFlow(section,title,html,head) ; pushTable(obj)
+  // ════════════════════════════════════════════════════════════
+  buildPdfItems(tbl, ti, pushFlow, pushTable, headTitle) {
+    if (CAL._legacy(tbl)) return;
+    const E = CAL._esc;
+    const section = 'cal'+ti;
+    const title = headTitle ? E(headTitle) : E(tbl.title);
+    // pre-grid blocks (band/text/limits/letters) become the table's preHtml,
+    // or standalone flow if there's no following grid.
+    let pre = `<h2>${title}</h2>`;
+    let gridBlock = null, lettersBlock = null;
 
-  // ── Main Journal Pin Diameter ───────────────────────────
-  mainJournalDia: {
-    name: "Main Journal Pin Diameter",
-    note: "Makers nominal dia: ___  |  Max dia allowed: ___  |  Max ovality allowed: ___\nPS: Port Side to Starboard  |  TB: Top to Bottom\nNote pitting, scoring or other abnormalities. Record results of Crack test (MPI/DP).",
-    hasImage: false,
-    headers: ["","MJ 1","","MJ 2","","MJ 3","","MJ 4","","MJ 5","","MJ 6","","MJ 7","","MJ 8","","MJ 9","","MJ 10","","MJ 11",""],
-    rows: [
-      ["Bmax","","","","","","","","","","","","","","","","","","","","","",""],
-      ["Bmin","","","","","","","","","","","","","","","","","","","","","",""],
-    ]
+    tbl.blocks.forEach(b => {
+      if (b.k === 'band') {
+        pre += `<table class="cal-pdf-band"><tr>`;
+        b.cells.forEach(cell => {
+          pre += `<td>`;
+          cell.parts.forEach(part => {
+            if (part.p === 'img') {
+              if (part.src) pre += `<img src="${part.src}" class="cal-pdf-img"/>`;
+              if (part.cap) pre += `<div class="cal-pdf-cap">${E(part.cap)}</div>`;
+            } else {
+              pre += `<div class="cal-pdf-txt">${E(part.v).replace(/\n/g,'<br/>')}</div>`;
+            }
+          });
+          pre += `</td>`;
+        });
+        pre += `</tr></table>`;
+      }
+      else if (b.k === 'text') {
+        pre += `<div class="cal-pdf-txt">${E(b.v).replace(/\n/g,'<br/>')}</div>`;
+      }
+      else if (b.k === 'limits') {
+        pre += `<table class="cal-pdf-limits"><tbody>`;
+        b.rows.forEach(row => {
+          pre += `<tr>`;
+          row.forEach(p => pre += `<td class="lc">${E(p.l)}</td><td>${E(p.v)}</td>`);
+          pre += `</tr>`;
+        });
+        pre += `</tbody></table>`;
+      }
+      else if (b.k === 'letters') {
+        lettersBlock = b;
+        pre += `<table class="cal-pdf-letters"><tbody><tr>`;
+        b.items.forEach(it => pre += `<th>${E(it.letter)}</th>`);
+        pre += `</tr><tr>`;
+        b.items.forEach(it => pre += `<td>${E(it.value)}</td>`);
+        pre += `</tr></tbody></table>`;
+      }
+      else if (b.k === 'grid') {
+        gridBlock = b;
+      }
+    });
+
+    if (!gridBlock) { pushFlow(section, title, pre, true); return; }
+
+    // build thead + caption + rows + groupSizes for the grid
+    const g = gridBlock;
+    const headHtml = CAL._gridHeaderRows(g, ti, 0, 'pdf');
+    let thead = `<thead>${headHtml}`;
+    if (g.cap) thead += `<tr><td colspan="${CAL._totalCols(g)}" class="cal-cap-row">${E(g.cap.v)}</td></tr>`;
+    thead += `</thead>`;
+
+    const leaf = g.leaf || 1;
+    const rowsHtml = [];
+    const groupSizes = [];
+    if (g.rowMode === 'group') {
+      g.rows.forEach(r => {
+        groupSizes.push(r.sub.length);
+        r.sub.forEach((s, si2) => {
+          let tr = `<tr>`;
+          if (si2 === 0) tr += `<td rowspan="${r.sub.length}" class="lc">${E(r.g)}</td>`;
+          if (g.left.length >= 2) tr += `<td class="lc">${E(s.s)}</td>`;
+          g.groups.forEach((grp,gi) => grp.sub.forEach((sub,si) => { for (let l=0;l<leaf;l++) tr += `<td>${E(s.c[gi][si][l])}</td>`; }));
+          tr += `</tr>`;
+          rowsHtml.push(tr);
+        });
+      });
+    } else {
+      g.rows.forEach(r => {
+        groupSizes.push(1);
+        let tr = `<tr>`;
+        g.left.forEach((col,li) => tr += `<td class="lc">${E(r.L[li])}</td>`);
+        g.groups.forEach((grp,gi) => grp.sub.forEach((sub,si) => { for (let l=0;l<leaf;l++) tr += `<td>${E(r.c[gi][si][l])}</td>`; }));
+        tr += `</tr>`;
+        rowsHtml.push(tr);
+      });
+    }
+
+    const wide = CAL._leafCount(g) > 7;
+    pushTable({ section, title, preHtml: pre, thead, rows: rowsHtml, groupSizes,
+                className: 'fit' + (wide ? ' wide' : '') });
   },
-
-  // ── Crankpin Diameter ───────────────────────────────────
-  crankpinDia: {
-    name: "Crankpin Diameter",
-    note: "Makers nominal dia: ___  |  Max dia allowed: ___  |  Max ovality allowed: ___\nF: Flywheel  |  A: Alternator  |  PS: Port Side to Starboard  |  TB: Top to Bottom\nOvality Permissible Limit: 0.1mm",
-    hasImage: false,
-    headers: ["","CR 1","","CR 2","","CR 3","","CR 4","","CR 5","","CR 6","","CR 7","","CR 8","","CR 9",""],
-    rows: [
-      ["","F","A","F","A","F","A","F","A","F","A","F","A","F","A","F","A","F","A"],
-      ["Amax","","","","","","","","","","","","","","","","","",""],
-      ["Amin","","","","","","","","","","","","","","","","","",""],
-    ]
-  },
-
-  // ── PORT Connecting Rod Small End Bore ──────────────────
-  portConRodSmallEnd: {
-    name: "PORT — Connecting Rod Small End Bore Calibration",
-    note: "Piston pin bushing inner dia: 110.0 +0.13/+0.17mm  |  Piston pin to bushing clearance: 0.3mm\nPS: Port Side to Starboard  |  TB: Top to Bottom",
-    hasImage: false,
-    headers: ["Cylinder No","T-B","P-S","","T-B","P-S","Remarks"],
-    rows: [
-      ["1","","","","","",""],["2","","","","","",""],["3","","","","","",""],
-      ["4","","","","","",""],["5","","","","","",""],["6","","","","","",""],
-      ["7","","","","","",""],["8","","","","","",""],["9","","","","","",""],
-    ]
-  },
-
-  // ── STBD Connecting Rod Small End Bore ──────────────────
-  stbdConRodSmallEnd: {
-    name: "STBD — Connecting Rod Small End Bore Calibration",
-    note: "Piston pin bushing inner dia: 110.0 +0.13/+0.17mm  |  Piston pin to bushing clearance: 0.3mm\nPS: Port Side to Starboard  |  TB: Top to Bottom",
-    hasImage: false,
-    headers: ["Cylinder No","T-B","P-S","","T-B","P-S","Remarks"],
-    rows: [
-      ["1","","","","","",""],["2","","","","","",""],["3","","","","","",""],
-      ["4","","","","","",""],["5","","","","","",""],["6","","","","","",""],
-      ["7","","","","","",""],["8","","","","","",""],["9","","","","","",""],
-    ]
-  },
-
-  // ── Gudgeon Pin Diameter ────────────────────────────────
-  gudgeonPin: {
-    name: "Gudgeon Pin Diameter",
-    note: "Nominal diameter of the Piston Pin: ___  |  All dimensions in mm",
-    hasImage: false,
-    headers: ["Cylinder No","D1x","D1y","D2x","D2y","Remarks"],
-    rows: [
-      ["1","","","","",""],["2","","","","",""],["3","","","","",""],
-      ["4","","","","",""],["5","","","","",""],["6","","","","",""],
-      ["7","","","","",""],["8","","","","",""],["9","","","","",""],
-    ]
-  },
-
-  // ── Connecting Rod Big End Bore ─────────────────────────
-  conRodBigEnd: {
-    name: "Connecting Rod Big End Bore (With/Without Bearing Shells)",
-    note: "No shrinkage allowed!  |  Ovality Permissible Limit: 0.1mm\nF: Flywheel  |  A: Alternator",
-    hasImage: false,
-    headers: ["","Unit 1","","Unit 2","","Unit 3","","Unit 4","","Unit 5","","Unit 6","","Unit 7","","Unit 8","","Unit 9",""],
-    rows: [
-      ["","F","A","F","A","F","A","F","A","F","A","F","A","F","A","F","A","F","A"],
-      ["A","","","","","","","","","","","","","","","","","",""],
-      ["B","","","","","","","","","","","","","","","","","",""],
-      ["(B+C)/2","","","","","","","","","","","","","","","","","",""],
-      ["C","","","","","","","","","","","","","","","","","",""],
-      ["Ovality","","","","","","","","","","","","","","","","","",""],
-    ]
-  },
-
-  // ── Valve Stem & Valve Guide Diameter ───────────────────
-  valveStemGuide: {
-    name: "Valve Stem & Valve Guide Diameter",
-    note: "All dimensions in mm. Refer manual for tightening torques and all wear limit values.",
-    hasImage: false,
-    headers: ["Cyl No","Guide Bore D1mm","Guide Bore D2mm","Stem Dia d1mm","Stem Dia d2mm","Seat-In mm","Seat-Ex mm","Guide-In mm","Guide-Ex mm","Lip T1mm","Lip T2mm"],
-    rows: [
-      ["1","","","","","","","","","",""],["2","","","","","","","","","",""],
-      ["3","","","","","","","","","",""],["4","","","","","","","","","",""],
-      ["5","","","","","","","","","",""],["6","","","","","","","","","",""],
-      ["7","","","","","","","","","",""],["8","","","","","","","","","",""],
-      ["9","","","","","","","","","",""],
-    ]
-  },
-
-  // ── Piston Groove Clearances ────────────────────────────
-  pistonGroove: {
-    name: "Piston Groove Clearances",
-    note: "Standard: 1st Compression 6mm +0.22/+0.20mm | 2nd Compression 6mm +0.12/+0.10mm | 3rd Compression 6mm +0.05/+0.03mm | Oil ring 8mm +0.05/+0.03mm\nMakers nominal height: ___  |  Max height allowed: ___",
-    hasImage: false,
-    headers: ["Piston No","Ring","Position 1","Position 2","Position 3","Position 4","Position 5"],
-    rows: [
-      ["1","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
-      ["2","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
-      ["3","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
-      ["4","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
-      ["5","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
-      ["6","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
-      ["7","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
-      ["8","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
-      ["9","1st Comp","","","","",""],["","2nd Comp","","","","",""],["","3rd Comp","","","","",""],["","Oil Ring","","","","",""],
-    ]
-  },
-
-  // ── Camshaft Bush Clearance ─────────────────────────────
-  camshaftBush: {
-    name: "Camshaft Bush Clearance — PORT",
-    note: "Standard: Bearing clearance: ___",
-    hasImage: false,
-    headers: ["Bushing No","Position","Remarks"],
-    rows: [
-      ["1","",""],["2","",""],["3","",""],["4","",""],
-      ["5","",""],["6","",""],["7","",""],
-    ]
-  },
-
-  // ── Custom Table ────────────────────────────────────────
-  custom: {
-    name: "Custom Table",
-    note: "",
-    hasImage: false,
-    headers: ["Column 1","Column 2","Column 3"],
-    rows: [["","",""],["","",""],["","",""]]
-  },
-
 };
+
+/* ══════════════════════════════════════════════════════════════
+   TEMPLATES — the 14 Niigata calibration tables (each .build()
+   returns a fresh instance).  Helpers below keep them compact.
+   ══════════════════════════════════════════════════════════════ */
+(function(){
+  const txt = v => ({ p:'txt', v });
+  const img = (cap) => ({ p:'img', src:null, cap: cap===undefined?undefined:cap });
+  const cell = (...parts) => ({ parts });
+  // flat grid row from leaf values laid out group-major
+  const flatRow = (Lvals, groups, leaf) => {
+    const c = groups.map(g => g.sub.map(()=> Array.from({length:leaf},()=> '')));
+    return { L: Lvals.slice(), c };
+  };
+  const blankGroups = (groups, leaf) => groups.map(g => g.sub.map(()=> Array.from({length:leaf},()=> '')));
+
+  CAL.TEMPLATES = {
+
+    // 1 ── Crankshaft Deflections ─────────────────────────────
+    crankshaftDeflection: { build: () => ({
+      title: 'Crankshaft Deflections',
+      blocks: [
+        { k:'band', cells:[
+          cell(txt("Noted as per customer's requirement")),
+          cell(img('Looking from Aft to Forward')),
+          cell(img('Dial Gauge Orientation')),
+        ]},
+        { k:'text', v:"Instructions\n1. The Deflection measurements should be made when the engine is cold.\n2. Indicate whether positive or negative.\n3. All readings in 1/100 mm.\n4. Webs opening gives a +ve reading.\n5. Maximum permissible deflection readings are as per engine manufacturer's instruction.\n6. Last check of holding down bolt tension.\n7. Other factors which may influence readings: Main bearing assembly, hot/cold condition, shaft line/gear case alignment etc." },
+        { k:'grid', levels:1, leaf:1, addCol:'single', tail:1, addRow:true,
+          left:[{label:'Crankpin Position', kind:'text'}],
+          groups:[
+            {label:'1',fixed:false,sub:[{label:''}]},{label:'2',fixed:false,sub:[{label:''}]},
+            {label:'3',fixed:false,sub:[{label:''}]},{label:'4',fixed:false,sub:[{label:''}]},
+            {label:'5',fixed:false,sub:[{label:''}]},{label:'6',fixed:false,sub:[{label:''}]},
+            {label:'7',fixed:false,sub:[{label:''}]},{label:'8',fixed:false,sub:[{label:''}]},
+            {label:'9',fixed:false,sub:[{label:''}]},{label:'Remarks',fixed:true,sub:[{label:''}]},
+          ],
+          rowMode:'flat',
+          rows:['B1','P','T','S','B2'].map(lbl => ({ L:[lbl], c: blankGroups(Array.from({length:10},()=>({sub:[{}]})),1) })),
+        },
+      ],
+    })},
+
+    // 2 ── Main Journal pin dia (B) ───────────────────────────
+    mainJournalB: { build: () => ({
+      title: 'Main Journal pin dia (B)',
+      blocks: [
+        { k:'band', cells:[
+          cell(img()),
+          cell(txt("Crank pin Dia :\nlimit:\nNoted : 1. PS-port side to starboard\n2. TB-Top to Bottom"), img()),
+        ]},
+        { k:'limits', per:3, canAdd:true, rows:[[
+          {l:'Makers nominal dia.',v:''},{l:'Max. dia. allowed',v:''},{l:'Max ovality allowed',v:''}
+        ]]},
+        { k:'grid', levels:1, leaf:1, addCol:'single', tail:0, addRow:true,
+          left:[{label:'', kind:'text'}],
+          groups: Array.from({length:11},(_,i)=>({label:'MJ '+(i+1),fixed:false,sub:[{label:''}]})),
+          rowMode:'flat',
+          rows:['Bmax','Bmin'].map(lbl => ({ L:[lbl], c: blankGroups(Array.from({length:11},()=>({sub:[{}]})),1) })),
+        },
+        { k:'text', v:"Observations on non-conformities of main Journals\nNote pitting, scoring or other abnormalities. Record results of Crack test (MPI/DP)." },
+      ],
+    })},
+
+    // 3 ── Main Journal pin dia (A) ───────────────────────────
+    mainJournalA: { build: () => ({
+      title: 'Main Journal pin dia (A)',
+      blocks: [
+        { k:'band', cells:[
+          cell(img()),
+          cell(txt("Crank pin Dia :\nlimit:\nNoted : 1. PS-port side to starboard\n2. TB-Top to Bottom"), img()),
+        ]},
+        { k:'limits', per:3, canAdd:true, rows:[[
+          {l:'Makers nominal dia.',v:''},{l:'Max. dia. allowed',v:''},{l:'Max. ovality allowed',v:''}
+        ]]},
+        { k:'grid', levels:2, leaf:1, addCol:'group', tail:0, addRow:true,
+          subTpl:{ labelPrefix:'CR ', sub:[{label:'F'},{label:'A'}] },
+          left:[{label:'', kind:'text'}],
+          groups: Array.from({length:9},(_,i)=>({label:'CR '+(i+1),fixed:false,sub:[{label:'F'},{label:'A'}]})),
+          rowMode:'flat',
+          rows:['Amax','Amin'].map(lbl => ({ L:[lbl], c: blankGroups(Array.from({length:9},()=>({sub:[{},{}]})),1) })),
+        },
+        { k:'text', v:"(F-Flywheel, A-Alternator, PS-port side to starboard, TB-Top to Bottom)" },
+        { k:'text', v:"Observations on non-conformities on crankpins\nNote pitting, scoring or other abnormalities. Record results of Crack test (MPI/DP)." },
+      ],
+    })},
+
+    // 4 ── Liner Calibration (linked letters) ─────────────────
+    linerCalibration: { build: () => ({
+      title: 'Liner Calibration',
+      blocks: [
+        { k:'band', cells:[ cell(img()) ]},
+        { k:'letters', items:[{letter:'A',value:'70'},{letter:'B',value:'280'},{letter:'C',value:'490'},{letter:'D',value:'615'}] },
+        { k:'text', v:"Normal Size:\nPermissible Limit:" },
+        { k:'grid', levels:2, leaf:1, addCol:'none', tail:1, addRow:true, linkLetters:true,
+          subTpl:{ sub:[{label:'C-E'},{label:'F-A'}] },
+          left:[{label:'Unit No.', kind:'auto'}],
+          groups: ['A','B','C','D'].map(L=>({label:L,fixed:false,sub:[{label:'C-E'},{label:'F-A'}]}))
+                  .concat([{label:'Remark',fixed:true,sub:[{label:''}]}]),
+          rowMode:'flat',
+          rows: Array.from({length:9},(_,i)=>({ L:[String(i+1)], c: blankGroups(
+            ['A','B','C','D'].map(()=>({sub:[{},{}]})).concat([{sub:[{}]}]) ,1) })),
+        },
+        { k:'text', v:"C: Cam Side    E: Exhaust Side    F: Free End    A: Alternator End (Flywheel End)" },
+      ],
+    })},
+
+    // 5 ── PORT Connecting rod small end bore ─────────────────
+    portConRodSmallEnd: { build: () => CAL._conRodSmallEnd('PORT') },
+    // 6 ── STBD Connecting rod small end bore ─────────────────
+    stbdConRodSmallEnd: { build: () => CAL._conRodSmallEnd('STBD') },
+
+    // 7 ── Gudgeon Pin Dia ────────────────────────────────────
+    gudgeonPin: { build: () => ({
+      title: 'Gudgeon Pin Dia',
+      blocks: [
+        { k:'band', cells:[ cell(img()), cell(img('DX / DY')) ]},
+        { k:'text', v:"All dimensions are in mm\nNominal diameter of the Piston Pin is -" },
+        { k:'grid', levels:1, leaf:1, addCol:'none', tail:1, addRow:true,
+          left:[{label:'CYLINDER NO', kind:'auto'}],
+          groups:[
+            {label:'D1x',fixed:false,sub:[{label:''}]},{label:'D1y',fixed:false,sub:[{label:''}]},
+            {label:'D2x',fixed:false,sub:[{label:''}]},{label:'D2y',fixed:false,sub:[{label:''}]},
+            {label:'Remarks',fixed:true,sub:[{label:''}]},
+          ],
+          rowMode:'flat',
+          rows: Array.from({length:9},(_,i)=>({ L:[String(i+1)], c: blankGroups(Array.from({length:5},()=>({sub:[{}]})),1) })),
+        },
+      ],
+    })},
+
+    // 8 ── Connecting rod big end ─────────────────────────────
+    conRodBigEnd: { build: () => ({
+      title: 'Connecting rod big end (With/Without) bearing shells',
+      blocks: [
+        { k:'band', cells:[
+          cell(img()),
+          cell(txt("Instructions: No shrinkage allowed!\nOvality is given as-"), img(), txt("OV - Permissible Limit:  0.1MM")),
+        ]},
+        { k:'grid', levels:2, leaf:1, addCol:'group', tail:0, addRow:true,
+          subTpl:{ labelPrefix:'Unit ', sub:[{label:'F'},{label:'A'}] },
+          left:[{label:'', kind:'text'}],
+          groups: Array.from({length:9},(_,i)=>({label:'Unit '+(i+1),fixed:false,sub:[{label:'F'},{label:'A'}]})),
+          rowMode:'flat',
+          rows:['A','B','(B+C)/2','C','Ovality'].map(lbl => ({ L:[lbl], c: blankGroups(Array.from({length:9},()=>({sub:[{},{}]})),1) })),
+        },
+        { k:'text', v:"(F-Flywheel, A-Alternator)" },
+      ],
+    })},
+
+    // 9 ── Valve Stem & Valve Guide Dia (3-level) ─────────────
+    valveStemGuide: { build: () => {
+      const grp = (label) => ({label, fixed:false, sub:[{label:'D1'},{label:'D2'}]});
+      const def = [
+        {label:'Valve guide bore', sub:[{label:'D1'},{label:'D2'}]},
+        {label:'Valve stem diameter', sub:[{label:'d1'},{label:'d2'}]},
+        {label:'Valve seat', sub:[{label:'In'},{label:'Ex'}]},
+        {label:'Valve guide', sub:[{label:'In'},{label:'Ex'}]},
+        {label:'Valve lip Thickness', sub:[{label:'T1'},{label:'T2'}]},
+      ].map(g=>({label:g.label,fixed:false,sub:g.sub}));
+      return {
+        title: 'Valve Stem & Valve Guide Dia',
+        blocks: [
+          { k:'band', cells:[ cell(img()) ]},
+          { k:'grid', levels:3, leaf:2, leafLabel:'mm', addCol:'group', tail:0, addRow:true,
+            subTpl:{ labelPrefix:'Group ', sub:[{label:'S1'},{label:'S2'}] },
+            left:[{label:'UOM', kind:'auto'}],
+            groups: def,
+            rowMode:'flat',
+            rows: Array.from({length:9},(_,i)=>({ L:[String(i+1)], c: def.map(()=>[['',''],['','']]) })),
+          },
+        ],
+      };
+    }},
+
+    // 10 ── Rocker Arm Bushing / Shaft (grouped rows IV/EV) ───
+    rockerArm: { build: () => ({
+      title: 'ROCKER ARM BUSHING / ROCKER ARM SHAFT DIAMETER',
+      blocks: [
+        { k:'band', cells:[
+          cell(img()),
+          cell(txt("1. ROCKER ARM BUSHING INNER DIAMETER =\n2. ROCKER ARM SHAFT DIAMETER =\n3. CLEARANCE  (SHAFT – BUSH) =")),
+        ]},
+        { k:'grid', levels:1, leaf:1, addCol:'single', tail:1, addRow:true,
+          rowMode:'group', autoNum:true, rowSub:2, rowSubLabels:['IV','EV'],
+          left:[{label:'Cylinder No.', kind:'auto'},{label:'Valve Type', kind:'text'}],
+          groups:[
+            {label:'BUSHING - D1mm',fixed:false,sub:[{label:''}]},
+            {label:'BUSHING - D2mm',fixed:false,sub:[{label:''}]},
+            {label:'SHAFT - D1mm',fixed:false,sub:[{label:''}]},
+            {label:'SHAFT - D2mm',fixed:false,sub:[{label:''}]},
+            {label:'Remarks',fixed:true,sub:[{label:''}]},
+          ],
+          rows: Array.from({length:9},(_,i)=>({ g:String(i+1), sub:[
+            { s:'IV', c: blankGroups(Array.from({length:5},()=>({sub:[{}]})),1) },
+            { s:'EV', c: blankGroups(Array.from({length:5},()=>({sub:[{}]})),1) },
+          ]})),
+        },
+      ],
+    })},
+
+    // 11 ── Butt Clearance ────────────────────────────────────
+    buttClearance: { build: () => ({
+      title: 'Butt Clearance',
+      blocks: [
+        { k:'band', cells:[
+          cell(txt("Standard :\n1st  Compression ring -  1.1 ~ 1.4 mm\n2nd Compression ring -  1.1 ~ 1.4 mm\n3rd  Compression ring -  1.1 ~ 1.4 mm\nOil ring                    -  0.65 ~ 0.95  mm")),
+          cell(img()),
+          cell(txt("Permissible Limit:\n2nd    -    3.5mm\n3rd    -    3.5mm")),
+        ]},
+        { k:'grid', levels:1, leaf:1, addCol:'single', tail:1, addRow:true,
+          left:[{label:'CYLINDER NO', kind:'auto'}],
+          groups:[
+            {label:'1st Ring',fixed:false,sub:[{label:''}]},{label:'2nd Ring',fixed:false,sub:[{label:''}]},
+            {label:'3rd Ring',fixed:false,sub:[{label:''}]},{label:'Oil ring',fixed:false,sub:[{label:''}]},
+            {label:'Remarks',fixed:true,sub:[{label:''}]},
+          ],
+          rowMode:'flat',
+          rows: Array.from({length:9},(_,i)=>({ L:[String(i+1)], c: blankGroups(Array.from({length:5},()=>({sub:[{}]})),1) })),
+        },
+      ],
+    })},
+
+    // 12 ── Piston Groove Clearance (grouped rows x4) ─────────
+    pistonGroove: { build: () => ({
+      title: 'Piston Groove Clearance',
+      blocks: [
+        { k:'limits', per:2, canAdd:false, rows:[[ {l:"Maker's nominal height",v:''},{l:'Max. height allowed',v:''} ]]},
+        { k:'band', cells:[
+          cell(img()),
+          cell(txt("Standard :\n1st  Compression ring -  6 mm, +0.22 to +0.20 mm\n2nd Compression ring -  6 mm, +0.12 to +0.10 mm\n3rd  Compression ring -  6 mm, +0.05 to +0.03 mm\nOil ring                    -  8 mm, +0.05 to +0.03 mm")),
+        ]},
+        { k:'grid', levels:1, leaf:1, addCol:'single', tail:0, addRow:true,
+          rowMode:'group', autoNum:true, rowSub:4, rowSubLabels:['','','',''],
+          left:[{label:'Piston No.', kind:'auto'}],
+          groups: Array.from({length:5},(_,i)=>({label:'Position '+(i+1),fixed:false,sub:[{label:''}]})),
+          rows: Array.from({length:2},(_,i)=>({ g:String(i+1), sub: Array.from({length:4},()=>({ s:'', c: blankGroups(Array.from({length:5},()=>({sub:[{}]})),1) })) })),
+        },
+      ],
+    })},
+
+    // 13 ── Cam shaft bush clearance PORT ─────────────────────
+    camshaftBushPort: { build: () => CAL._camshaftBush('PORT') },
+    // 14 ── Cam shaft bush clearance STBD ─────────────────────
+    camshaftBushStbd: { build: () => CAL._camshaftBush('STBD') },
+  };
+
+  // shared builders for twins
+  CAL._conRodSmallEnd = (side) => ({
+    title: side + ' Connecting rod small end bore calibration',
+    blocks: [
+      { k:'grid', levels:2, leaf:1, addCol:'none', tail:0, addRow:true,
+        left:[{label:'Cylinder no', kind:'auto'}],
+        cap:{ v:'PS-port side to Starboard side ,  TB-Top Bottom' },
+        groups:[
+          {label:"Maker's nominal dia", fixed:false, sub:[{label:'T-B'},{label:'P-S'}]},
+          {label:'Piston pin bushing inner dia - 110.0 +0.13/+0.17', fixed:false, sub:[{label:'T-B'},{label:'P-S'}]},
+          {label:'Piston pin to bushing clearance - 0.3 mm', fixed:true, sub:[{label:'Remarks'}]},
+        ],
+        rowMode:'flat',
+        rows: Array.from({length:9},(_,i)=>({ L:[String(i+1)], c:[ [[''],['']], [[''],['']], [['']] ] })),
+      },
+    ],
+  });
+
+  CAL._camshaftBush = (side) => ({
+    title: 'Cam shaft bush clearance of ' + side,
+    blocks: [
+      { k:'band', cells:[ cell(img()), cell(txt("Standard :\nBearing clearance-")) ]},
+      { k:'grid', levels:1, leaf:1, addCol:'single', tail:0, addRow:true,
+        left:[{label:'Bushing No.', kind:'auto'}],
+        groups:[ {label:'Position', fixed:false, sub:[{label:''}]} ],
+        rowMode:'flat',
+        rows: Array.from({length:7},(_,i)=>({ L:[String(i+1)], c: [[['']]] })),
+      },
+    ],
+  });
+})();
 // ── STATE ────────────────────────────────────────────────
 const State = {
   currentUser: null,       // { empNo, name, isHOD }
@@ -1456,14 +1890,7 @@ const App = {
 
     // Calibration Tables
     if (w.calibrationTables?.length) {
-      let calHtml = w.calibrationTables.map(t => {
-        const imgSrc = t.imageBase64 || DGRAMS[t.templateKey] || null;
-        return `<div style="margin-bottom:16px">
-          <h3 style="font-size:10pt;font-weight:bold;margin-bottom:6px">${t.name}</h3>
-          ${imgSrc && t.hasImage ? `<div style="display:flex;gap:12px;margin-bottom:8px;align-items:flex-start"><img src="${imgSrc}" style="width:130px;flex-shrink:0" /><p style="font-size:8pt;line-height:1.6">${(t.note||"").replace(/\n/g,"<br/>")}</p></div>` : t.note ? `<p style="font-size:8.5pt;margin-bottom:6px">${(t.note||"").replace(/\n/g,"<br/>")}</p>` : ""}
-          <table class="rp-table"><thead><tr>${t.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${(t.rows||[]).map(row => `<tr>${row.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>
-        </div>`;
-      }).join("");
+      let calHtml = w.calibrationTables.map(t => CAL.renderStatic(t)).join("");
       html += section("cal", "Calibration Tables", calHtml);
     }
 
@@ -2971,112 +3398,11 @@ const App = {
   // ── Calibration Tables ──
   showTablePalette() { document.getElementById("table-palette").classList.toggle("hidden"); },
 
-  insertTable(templateKey) {
-    const tmpl = TABLE_TEMPLATES[templateKey];
-    const imgKey = tmpl.imageKey || templateKey;
-    const builtinImg = (typeof DIAGRAMS !== 'undefined') && DIAGRAMS[imgKey] ? DIAGRAMS[imgKey] : null;
-    const table = { id:"tbl_"+Date.now(), templateKey, name:tmpl.name, note:tmpl.note, hasImage:tmpl.hasImage||false, imageBase64:builtinImg, imageSrc:null, headers:[...tmpl.headers], rows:tmpl.rows.map(r=>[...r]) };
-    const prev = State.currentDraft.wcr.calibrationTables.map(t => ({...t, rows:t.rows.map(r=>[...r]), headers:[...t.headers]}));
-    Undo.push(() => { State.currentDraft.wcr.calibrationTables = prev; App.renderCalibrationTables(); }, `Add ${tmpl.name}`);
-    State.currentDraft.wcr.calibrationTables.push(table);
-    document.getElementById("table-palette").classList.add("hidden");
-    App.renderCalibrationTables();
-    Toast.show(`"${tmpl.name}" table added.`, "success");
-  },
+  insertTable(key) { CAL.add(key); },
 
   renderCalibrationTables() {
-    const tables = State.currentDraft.wcr.calibrationTables;
-    const container = document.getElementById("cal-tables");
-    if (tables.length === 0) { container.innerHTML = `<div class="empty-state">No calibration tables yet. Use the palette above to add tables.</div>`; return; }
-    container.innerHTML = tables.map((t, ti) => `
-      <div class="cal-table-block">
-        <div class="cal-table-header">
-          <input class="cal-table-title" value="${t.name}" oninput="App.updateTableName(${ti},this.value)" />
-          <div class="cal-table-actions">
-            <button class="tbl-action-btn" onclick="Undo.last()" title="Undo last action">↩ Undo</button>
-            ${ti > 0 ? `<button class="tbl-action-btn" onclick="App.moveTable(${ti},-1)">↑</button>` : ""}
-            ${ti < tables.length-1 ? `<button class="tbl-action-btn" onclick="App.moveTable(${ti},1)">↓</button>` : ""}
-            <button class="tbl-action-btn danger" onclick="App.deleteTable(${ti})">🗑</button>
-          </div>
-        </div>
-        ${t.hasImage ? `
-          <div class="cal-image-row">
-            <div class="cal-image-box" onclick="document.getElementById('cal-img-${ti}').click()">
-              ${t.imageBase64 ? `<img src="${t.imageBase64}" class="cal-img-preview" />` : `<span class="cal-img-placeholder">📷 Click to add diagram image</span>`}
-            </div>
-            <input type="file" id="cal-img-${ti}" accept="image/*" style="display:none" onchange="App.onCalImageSelect(${ti},event)" />
-            <textarea class="form-input cal-note-edit" rows="4" oninput="App.updateTableNote(${ti},this.value)">${t.note||""}</textarea>
-          </div>` : t.note ? `<div class="cal-table-note"><textarea class="form-input cal-note-edit" rows="2" oninput="App.updateTableNote(${ti},this.value)">${t.note}</textarea></div>` : ""}
-        <div class="cal-table-scroll">
-          <table class="cal-editable-table">
-            <thead><tr>${t.headers.map((h,hi) => `<th><input class="th-input" value="${h}" oninput="App.updateHeader(${ti},${hi},this.value)" /><button class="col-del" onclick="App.deleteCol(${ti},${hi})">✕</button></th>`).join("")}<th><button class="add-col-btn" onclick="App.addCol(${ti})">+ Col</button></th></tr></thead>
-            <tbody>${t.rows.map((row,ri) => `<tr>${row.map((cell,ci) => `<td><input class="td-input" value="${cell}" oninput="App.updateCell(${ti},${ri},${ci},this.value)" /></td>`).join("")}<td><button class="row-del-btn" onclick="App.deleteTableRow(${ti},${ri})">✕</button></td></tr>`).join("")}</tbody>
-          </table>
-        </div>
-        <button class="add-row-btn" onclick="App.addTableRow(${ti})">+ Add Row</button>
-      </div>`).join("") + `<div style="margin-top:14px;text-align:right"><button class="btn-save-history" onclick="App.saveCalibrationTables()">💾 Save Calibration Tables</button></div>`;
-  },
-
-  onCalImageSelect(ti, event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => { State.currentDraft.wcr.calibrationTables[ti].imageBase64 = e.target.result; App.renderCalibrationTables(); AutoSave.trigger(); };
-    reader.readAsDataURL(file);
-  },
-
-  updateTableName(ti, v) { State.currentDraft.wcr.calibrationTables[ti].name = v; AutoSave.trigger(); },
-  updateTableNote(ti, v) { State.currentDraft.wcr.calibrationTables[ti].note = v; AutoSave.trigger(); },
-  updateHeader(ti, hi, v) { State.currentDraft.wcr.calibrationTables[ti].headers[hi] = v; AutoSave.trigger(); },
-  updateCell(ti, ri, ci, v) { State.currentDraft.wcr.calibrationTables[ti].rows[ri][ci] = v; AutoSave.trigger(); },
-
-  deleteTable(ti) {
-    if (!confirm("Delete this table?")) return;
-    const prev = State.currentDraft.wcr.calibrationTables.map(t => ({...t}));
-    Undo.push(() => { State.currentDraft.wcr.calibrationTables = prev; App.renderCalibrationTables(); }, `Delete calibration table`);
-    State.currentDraft.wcr.calibrationTables.splice(ti,1); App.renderCalibrationTables();
-  },
-
-  moveTable(ti, dir) {
-    const tables = State.currentDraft.wcr.calibrationTables;
-    const ni = ti + dir;
-    if (ni < 0 || ni >= tables.length) return;
-    const prev = [...tables];
-    Undo.push(() => { State.currentDraft.wcr.calibrationTables = prev; App.renderCalibrationTables(); });
-    [tables[ti], tables[ni]] = [tables[ni], tables[ti]];
-    App.renderCalibrationTables();
-  },
-
-  addTableRow(ti) {
-    const t = State.currentDraft.wcr.calibrationTables[ti];
-    const prev = t.rows.map(r=>[...r]);
-    Undo.push(() => { t.rows = prev; App.renderCalibrationTables(); });
-    t.rows.push(new Array(t.headers.length).fill(""));
-    App.renderCalibrationTables();
-  },
-
-  deleteTableRow(ti, ri) {
-    const t = State.currentDraft.wcr.calibrationTables[ti];
-    const prev = t.rows.map(r=>[...r]);
-    Undo.push(() => { t.rows = prev; App.renderCalibrationTables(); });
-    t.rows.splice(ri,1); App.renderCalibrationTables();
-  },
-
-  addCol(ti) {
-    const t = State.currentDraft.wcr.calibrationTables[ti];
-    const prevH = [...t.headers]; const prevR = t.rows.map(r=>[...r]);
-    Undo.push(() => { t.headers = prevH; t.rows = prevR; App.renderCalibrationTables(); });
-    t.headers.push("New Column"); t.rows.forEach(r => r.push(""));
-    App.renderCalibrationTables();
-  },
-
-  deleteCol(ti, hi) {
-    const t = State.currentDraft.wcr.calibrationTables[ti];
-    if (t.headers.length <= 1) return;
-    const prevH = [...t.headers]; const prevR = t.rows.map(r=>[...r]);
-    Undo.push(() => { t.headers = prevH; t.rows = prevR; App.renderCalibrationTables(); });
-    t.headers.splice(hi,1); t.rows.forEach(r => r.splice(hi,1));
-    App.renderCalibrationTables();
+    const el = document.getElementById('cal-tables');
+    if (el) el.innerHTML = CAL.renderEditor(State.currentDraft.wcr.calibrationTables);
   },
 
   // ── Parts Consumed ──
@@ -3350,6 +3676,18 @@ const App = {
       /* Wide annexures (many columns) auto-shrink to stay portrait */
       table.wide { font-size: 7pt; }
       table.wide td, table.wide th { padding: 2px 3px; }
+      .cal-pdf-band { width:100%; border-collapse:collapse; margin-bottom:8px; table-layout:fixed; }
+      .cal-pdf-band td { border:1px solid #aaa; padding:6px; vertical-align:top; text-align:center; }
+      .cal-pdf-img { max-width:100%; max-height:200px; height:auto; object-fit:contain; display:block; margin:0 auto 4px; }
+      .cal-pdf-cap { font-size:8pt; font-weight:bold; text-align:center; margin-top:2px; }
+      .cal-pdf-txt { font-size:8.5pt; line-height:1.5; text-align:left; margin-bottom:6px; }
+      .cal-pdf-limits { width:100%; border-collapse:collapse; margin-bottom:8px; font-size:8.5pt; }
+      .cal-pdf-limits td { border:1px solid #aaa; padding:3px 6px; }
+      .cal-pdf-limits td:nth-child(odd) { background:#f5f5f5; font-weight:bold; width:18%; }
+      .cal-pdf-letters { border-collapse:collapse; margin-bottom:8px; font-size:9pt; }
+      .cal-pdf-letters th, .cal-pdf-letters td { border:1px solid #aaa; padding:3px 12px; text-align:center; }
+      .cal-pdf-letters th { background:#dde4ef; color:#003366; }
+      .cal-cap-row { background:#eef1f6; font-weight:bold; text-align:center; font-size:8.5pt; }
       .photo-grid td { border: 1px solid #aaa; padding: 8px; text-align: center; width: 50%; vertical-align: top; }
       .photo-grid img { width: 100%; height: auto; max-width: 100%; object-fit: contain; display: block; }
       .pcap { font-size: 8.5pt; font-weight: bold; text-transform: uppercase; margin-top: 4px; }
@@ -3504,20 +3842,7 @@ const App = {
     // ── Calibration Tables (Annexures) ──
     if (w.calibrationTables?.length) {
       w.calibrationTables.forEach((t, ti) => {
-        const imgSrc = t.imageBase64 || DGRAMS[t.templateKey] || null;
-        const title = `Annexure ${ti+1} &mdash; ${t.name}`;
-        let pre = `<h2>${title}</h2>`;
-        if (t.hasImage && imgSrc) {
-          pre += `<div class="cal-row"><img src="${imgSrc}" class="cal-img-auto" /><div class="cal-note">${(t.note||"").replace(/\n/g,"<br/>")}</div></div>`;
-        } else if (t.note) {
-          pre += `<p style="font-size:8pt;margin-bottom:8px">${(t.note||"").replace(/\n/g,"<br/>")}</p>`;
-        }
-        const headers = t.headers || [];
-        const wide = headers.length > 7;
-        const rows = (t.rows||[]).map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`);
-        pushTable({ section:'cal'+ti, title, preHtml:pre,
-          thead:`<thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead>`,
-          rows, className:'fit' + (wide ? ' wide' : '') });
+        CAL.buildPdfItems(t, ti, pushFlow, pushTable, `Annexure ${ti+1} \u2014 ${t.title||""}`);
       });
     }
 
@@ -3607,9 +3932,13 @@ const App = {
       var mt=el('<table class="'+(it.className||'')+'">'+(it.thead||'')+'<tbody></tbody></table>');
       mt.querySelector('tbody').innerHTML=(it.rows||[]).join('');
       measure.appendChild(mt);
+      var rn=Array.prototype.slice.call(mt.querySelector('tbody').children);
+      var sizes=(it.groupSizes&&it.groupSizes.length)?it.groupSizes:null;
+      var rg=[];
+      if(sizes){var pp=0;for(var z=0;z<sizes.length;z++){rg.push(rn.slice(pp,pp+sizes[z]));pp+=sizes[z];}if(pp<rn.length)rg.push(rn.slice(pp));}
+      else{for(var z2=0;z2<rn.length;z2++)rg.push([rn[z2]]);}
       units.push({type:'table',preNode:preNode,thead:(it.thead||''),className:(it.className||''),
-                  rowNodes:Array.prototype.slice.call(mt.querySelector('tbody').children),
-                  section:it.section,title:it.title});
+                  rowGroups:rg,section:it.section,title:it.title});
     }
   }
 
@@ -3626,7 +3955,7 @@ const App = {
   }
 
   function placeTable(u){
-    var idx=0,first=true;
+    var gi=0,first=true;
     while(true){
       if(first){
         if(u.preNode){
@@ -3639,29 +3968,27 @@ const App = {
         newPage();
         contHeader(u.title);
       }
-      if(idx>=u.rowNodes.length)break;
+      if(gi>=u.rowGroups.length)break;
       var table=el('<table class="'+u.className+'">'+u.thead+'<tbody></tbody></table>');
       content.appendChild(table);
       var tb=table.querySelector('tbody');
       var placed=0;
-      while(idx<u.rowNodes.length){
-        tb.appendChild(u.rowNodes[idx]);
-        if(over()){tb.removeChild(u.rowNodes[idx]);break;}
-        idx++;placed++;
+      while(gi<u.rowGroups.length){
+        var grp=u.rowGroups[gi];
+        for(var r=0;r<grp.length;r++)tb.appendChild(grp[r]);
+        if(over()){for(var r2=0;r2<grp.length;r2++)tb.removeChild(grp[r2]);break;}
+        gi++;placed++;
       }
       if(placed===0){
         content.removeChild(table);
         if(noRows()){
-          // Even one row won't fit on a fresh page — force it to guarantee progress.
           content.appendChild(table);
-          tb.appendChild(u.rowNodes[idx]);idx++;
-          if(idx>=u.rowNodes.length)break;
+          var grp3=u.rowGroups[gi];for(var r3=0;r3<grp3.length;r3++)tb.appendChild(grp3[r3]);gi++;
+          if(gi>=u.rowGroups.length)break;
         }
-        // otherwise loop: first=false -> new page + continued header
-      } else if(idx>=u.rowNodes.length){
+      } else if(gi>=u.rowGroups.length){
         break;
       }
-      // page full with rows remaining -> loop opens a new page
     }
     curSection=u.section;
   }
@@ -3822,15 +4149,7 @@ const App = {
     // Calibration Tables
     if (w.calibrationTables.length > 0) {
       html += `<div class="sf-section"><h2 class="sf-heading">Annexure — Calibration Reports</h2>
-        ${w.calibrationTables.map(t => `
-          <div class="sf-cal-block">
-            <h3 class="sf-cal-title" contenteditable="true">${t.name}</h3>
-            ${t.hasImage && t.imageBase64 ? `<div class="sf-cal-image-row"><img src="${t.imageBase64}" class="sf-cal-img" /><p class="sf-cal-note" contenteditable="true">${t.note||""}</p></div>` : t.note ? `<p class="sf-cal-note" contenteditable="true">${t.note}</p>` : ""}
-            <table class="sf-table">
-              <thead><tr>${t.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead>
-              <tbody>${t.rows.map(row => `<tr>${row.map(cell => `<td contenteditable="true">${cell}</td>`).join("")}</tr>`).join("")}</tbody>
-            </table>
-          </div>`).join("")}
+        ${w.calibrationTables.map(t => CAL.renderEditable(t)).join("")}
       </div>`;
     }
 
