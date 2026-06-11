@@ -373,29 +373,20 @@
       <div id="table-palette" class="table-palette hidden">
         <div class="palette-title">Select a table template:</div>
         <div class="palette-grid">
-          <button class="palette-item" onclick="App.insertTable('portCrankshaft')"><span>📐</span><strong>PORT Crankshaft Deflection</strong></button>
-          <button class="palette-item" onclick="App.insertTable('stbdCrankshaft')"><span>📐</span><strong>STBD Crankshaft Deflection</strong></button>
-          <button class="palette-item" onclick="App.insertTable('portRockerArm')"><span>🔧</span><strong>PORT Rocker Arm Bushing</strong></button>
-          <button class="palette-item" onclick="App.insertTable('stbdRockerArm')"><span>🔧</span><strong>STBD Rocker Arm Bushing</strong></button>
-          <button class="palette-item" onclick="App.insertTable('portRingGroove')"><span>⭕</span><strong>PORT Ring Groove Clearance</strong></button>
-          <button class="palette-item" onclick="App.insertTable('stbdRingGroove')"><span>⭕</span><strong>STBD Ring Groove Clearance</strong></button>
-          <button class="palette-item" onclick="App.insertTable('portPistonRingGap')"><span>📏</span><strong>PORT Liner &amp; Piston Ring Gap</strong></button>
-          <button class="palette-item" onclick="App.insertTable('stbdPistonRingGap')"><span>📏</span><strong>STBD Liner &amp; Piston Ring Gap</strong></button>
-          <button class="palette-item" onclick="App.insertTable('portLinerCalib')"><span>🔩</span><strong>PORT Liner Calibration</strong></button>
-          <button class="palette-item" onclick="App.insertTable('stbdLinerCalib')"><span>🔩</span><strong>STBD Liner Calibration</strong></button>
-          <button class="palette-item" onclick="App.insertTable('portValveStem')"><span>🎯</span><strong>PORT Valve Stem Diameter</strong></button>
-          <button class="palette-item" onclick="App.insertTable('stbdValveStem')"><span>🎯</span><strong>STBD Valve Stem Diameter</strong></button>
-          <button class="palette-item" onclick="App.insertTable('loadTrial')"><span>⚡</span><strong>Load Trial Sheet PORT &amp; STBD</strong></button>
-          <button class="palette-item" onclick="App.insertTable('mainJournalDia')"><span>📐</span><strong>Main Journal Pin Diameter</strong></button>
-          <button class="palette-item" onclick="App.insertTable('crankpinDia')"><span>📐</span><strong>Crankpin Diameter</strong></button>
-          <button class="palette-item" onclick="App.insertTable('portConRodSmallEnd')"><span>🔩</span><strong>PORT Con Rod Small End Bore</strong></button>
-          <button class="palette-item" onclick="App.insertTable('stbdConRodSmallEnd')"><span>🔩</span><strong>STBD Con Rod Small End Bore</strong></button>
-          <button class="palette-item" onclick="App.insertTable('gudgeonPin')"><span>📏</span><strong>Gudgeon Pin Diameter</strong></button>
-          <button class="palette-item" onclick="App.insertTable('conRodBigEnd')"><span>🔩</span><strong>Con Rod Big End Bore</strong></button>
-          <button class="palette-item" onclick="App.insertTable('valveStemGuide')"><span>🔧</span><strong>Valve Stem &amp; Guide Diameter</strong></button>
-          <button class="palette-item" onclick="App.insertTable('pistonGroove')"><span>⭕</span><strong>Piston Groove Clearances</strong></button>
-          <button class="palette-item" onclick="App.insertTable('camshaftBush')"><span>⚙️</span><strong>Camshaft Bush Clearance</strong></button>
-          <button class="palette-item" onclick="App.insertTable('custom')"><span>✏️</span><strong>Custom Table</strong></button>
+          <button class="palette-item" onclick="CAL.add('crankshaftDeflection')"><span>📐</span><strong>Crankshaft Deflections</strong></button>
+          <button class="palette-item" onclick="CAL.add('mainJournalB')"><span>📐</span><strong>Main Journal Pin Dia (B)</strong></button>
+          <button class="palette-item" onclick="CAL.add('mainJournalA')"><span>📐</span><strong>Main Journal Pin Dia (A)</strong></button>
+          <button class="palette-item" onclick="CAL.add('linerCalibration')"><span>🔩</span><strong>Liner Calibration</strong></button>
+          <button class="palette-item" onclick="CAL.add('portConRodSmallEnd')"><span>🔩</span><strong>PORT Con Rod Small End Bore</strong></button>
+          <button class="palette-item" onclick="CAL.add('stbdConRodSmallEnd')"><span>🔩</span><strong>STBD Con Rod Small End Bore</strong></button>
+          <button class="palette-item" onclick="CAL.add('gudgeonPin')"><span>📏</span><strong>Gudgeon Pin Dia</strong></button>
+          <button class="palette-item" onclick="CAL.add('conRodBigEnd')"><span>🔩</span><strong>Con Rod Big End (Bearing Shells)</strong></button>
+          <button class="palette-item" onclick="CAL.add('valveStemGuide')"><span>🔧</span><strong>Valve Stem &amp; Valve Guide Dia</strong></button>
+          <button class="palette-item" onclick="CAL.add('rockerArm')"><span>🔧</span><strong>Rocker Arm Bushing / Shaft Dia</strong></button>
+          <button class="palette-item" onclick="CAL.add('buttClearance')"><span>⭕</span><strong>Butt Clearance</strong></button>
+          <button class="palette-item" onclick="CAL.add('pistonGroove')"><span>⭕</span><strong>Piston Groove Clearance</strong></button>
+          <button class="palette-item" onclick="CAL.add('camshaftBushPort')"><span>⚙️</span><strong>Cam Shaft Bush Clearance PORT</strong></button>
+          <button class="palette-item" onclick="CAL.add('camshaftBushStbd')"><span>⚙️</span><strong>Cam Shaft Bush Clearance STBD</strong></button>
         </div>
       </div>
       <div id="cal-tables"></div>
