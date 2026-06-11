@@ -3303,24 +3303,31 @@ const App = {
     const p = draft.projectData;
     const LOGO  = (typeof LOGO_B64  !== "undefined") ? LOGO_B64  : "";
     const DGRAMS = (typeof DIAGRAMS !== "undefined") ? DIAGRAMS  : {};
+    const L = App.ENGINE_TYPE_LABELS[p.EngineType||'niigata'] || App.ENGINE_TYPE_LABELS.niigata;
+    const isCatEmdPdf = (p.EngineType === 'cat' || p.EngineType === 'emd');
 
     const FOOTER_TEXT = "Neptunus Power Plant Services Pvt. Ltd. &nbsp;|&nbsp; A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai – 400 710, India &nbsp;|&nbsp; Tel: +91 22 41410707 &nbsp;|&nbsp; www.neptunus-power.com &nbsp;|&nbsp; info@neptunus-power.com";
 
+    // ── CSS — visual styling preserved; pagination model changed ──
     const CSS = `
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: Arial, sans-serif; font-size: 10pt; color: #000; }
       @page { size: A4; margin: 0; }
-      .page { width: 210mm; height: 297mm; padding: 14mm 14mm 0 14mm; page-break-after: always; box-sizing: border-box; display: flex; flex-direction: column; }
+      .page { width: 210mm; height: 297mm; padding: 14mm 14mm 0 14mm; page-break-after: always;
+              box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; }
+      .page:last-child { page-break-after: auto; }
       .page-header { display: flex; align-items: center; justify-content: space-between;
         border-bottom: 2px solid #003366; padding-bottom: 5px; margin-bottom: 14px; flex-shrink: 0; }
       .page-header-title { font-size: 11pt; font-weight: bold; color: #003366; }
       .page-header img { height: 36px; width: auto; }
-      .page-body { flex: 1; overflow: hidden; }
+      .page-content { flex: 1 1 auto; overflow: hidden; }
       .page-footer { flex-shrink: 0; border-top: 1px solid #003366; padding: 4px 0 6mm 0;
         font-size: 7pt; color: #555; text-align: center; margin-top: auto; }
       h1 { text-align: center; font-size: 16pt; color: #003366; margin: 10px 0 6px; }
       h2 { font-size: 11pt; color: #003366; border-bottom: 2px solid #003366;
            padding-bottom: 3px; margin: 16px 0 6px; }
+      h2:first-child, .page-content > h2:first-child { margin-top: 0; }
+      h2 .cont { font-weight: normal; font-size: 9pt; color: #555; }
       h3 { font-size: 10pt; font-weight: bold; margin: 10px 0 3px; }
       table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 9pt; }
       td, th { border: 1px solid #aaa; padding: 4px 7px; vertical-align: top; }
@@ -3332,32 +3339,41 @@ const App = {
       ol li { margin-bottom: 4px; line-height: 1.5; }
       .maint-group { margin-bottom: 4px; }
       tr { page-break-inside: avoid; }
+      .tpre { margin: 0; }
       .cal-row { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
       .cal-row img { width: 120px; flex-shrink: 0; }
       .cal-note { font-size: 8pt; line-height: 1.6; flex: 1; }
       .cal-img-auto { max-width: 180px; height: auto; object-fit: contain; }
-      .photo-grid { width: 100%; border-collapse: collapse; }
+      /* Annexure / parts tables: never exceed the content width */
+      table.fit { table-layout: fixed; width: 100%; }
+      table.fit td, table.fit th { word-break: break-word; overflow-wrap: anywhere; }
+      /* Wide annexures (many columns) auto-shrink to stay portrait */
+      table.wide { font-size: 7pt; }
+      table.wide td, table.wide th { padding: 2px 3px; }
       .photo-grid td { border: 1px solid #aaa; padding: 8px; text-align: center; width: 50%; vertical-align: top; }
       .photo-grid img { width: 100%; height: auto; max-width: 100%; object-fit: contain; display: block; }
       .pcap { font-size: 8.5pt; font-weight: bold; text-transform: uppercase; margin-top: 4px; }
       .pdesc { font-size: 7.5pt; color: #444; margin-top: 2px; }
       .cover-img { max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; margin: 0 auto 10px; }
+      #measure { position: absolute; left: -99999px; top: 0; width: 182mm; }
+      @media print { #measure { display: none !important; } }
     `;
 
-    const hdr = () => `
-      <div class="page-header">
-        <span class="page-header-title">Work Completion Report &mdash; ${p.CustomerName||draft.projectCode}</span>
-        ${LOGO ? `<img src="${LOGO}" alt="NPPS" />` : `<span style="font-weight:bold;color:#003366">NEPTUNUS</span>`}
-      </div><div class="page-body">`;
-    const ftr = () => `</div><div class="page-footer">${FOOTER_TEXT}</div>`;
+    // ── Build the ordered item stream ────────────────────────
+    // Each item is one of:
+    //   { kind:'flow',  section, title, head, html }
+    //   { kind:'table', section, title, className, thead, rows:[html...], preHtml }
+    //   { kind:'pagebreak' }
+    const items = [];
+    const pushFlow  = (section, title, html, head) => items.push({ kind:'flow', section, title: title||'', head: !!head, html });
+    const pushTable = (o) => items.push(Object.assign({ kind:'table', title:'', className:'', thead:'', rows:[], preHtml:'' }, o));
+    const pushBreak = () => items.push({ kind:'pagebreak' });
 
-    // ── Page 1: Cover ──
-    let pages = `<div class="page">${hdr()}`;
-    pages += `<h1>Work Completion Report</h1>`;
-    if (p.CustomerName) pages += `<p style="text-align:center;font-size:12pt;font-weight:bold;color:#003366;margin:4px 0 10px">${p.CustomerName}</p>`;
-    if (p.VesselImageBase64) pages += `<div style="text-align:center;margin:10px 0"><img src="${p.VesselImageBase64}" class="cover-img"/></div>`;
-    pages += `<table>
-      ${(()=>{ const L=App.ENGINE_TYPE_LABELS[p.EngineType||'niigata']||App.ENGINE_TYPE_LABELS.niigata; return `
+    // ── Cover (own page) ──
+    let cover = `<div class="cover"><h1>Work Completion Report</h1>`;
+    if (p.CustomerName) cover += `<p style="text-align:center;font-size:12pt;font-weight:bold;color:#003366;margin:4px 0 10px">${p.CustomerName}</p>`;
+    if (p.VesselImageBase64) cover += `<div style="text-align:center;margin:10px 0"><img src="${p.VesselImageBase64}" class="cover-img"/></div>`;
+    cover += `<table>
       <tr><td class="lc">Customer Name</td><td><strong>${p.CustomerName||"—"}</strong></td><td class="lc">${L.contractNo}</td><td>${p.ContractNo||"—"}</td></tr>
       <tr><td class="lc">Start Date of Job</td><td>${p.StartDate||"—"}</td><td class="lc">${L.endDate}</td><td>${p.EndDate||"—"}</td></tr>
       <tr><td class="lc">${L.overhaulType}</td><td>${p.OverhaulType||"—"}</td><td class="lc">Engine Make and Model</td><td>${p.EngineModel||"—"}</td></tr>
@@ -3365,105 +3381,87 @@ const App = {
       <tr><td class="lc">RPM and Capacity</td><td>${p.RPMCapacity||"—"}</td><td class="lc">Current Running Hours</td><td>${p.RunningHours||"—"}</td></tr>
       <tr><td class="lc">Customer In-Charge</td><td>${p.CustomerIncharge||"—"}</td><td class="lc">Neptunus Team Leader</td><td>${p.TeamLeader||"—"}</td></tr>
       <tr><td class="lc">Neptunus Members</td><td colspan="3">${p.Members||"—"}</td></tr>
-      `; })()}
-    </table>`;
-    pages += ftr() + `</div>`;
+    </table></div>`;
+    pushFlow('__cover__', '', cover, true);
+    pushBreak();
 
-    // ── Page 2+: Content sections ──
-    let body = `<div class="page">${hdr()}`;
-
-    // History
+    // ── History ──
     if (w.historyActive && w.historyRows?.length) {
-      body += `<h2>History</h2><table>`;
-      w.historyRows.forEach(r => {
+      const rows = w.historyRows.map(r => {
         if (r.type === 'subtable') {
-          body += `<tr><td class="lc" style="vertical-align:top">${r.label}</td><td>
+          return `<tr><td class="lc" style="vertical-align:top">${r.label}</td><td>
             <table style="width:100%;border-collapse:collapse;font-size:8pt;margin:0">
               <tr>${(r.headers||[]).map(h=>`<th style="border:1px solid #aaa;padding:3px 5px;background:#dde4ef;font-size:7.5pt">${h}</th>`).join('')}</tr>
               <tr>${(r.subheaders||[]).map(h=>`<th style="border:1px solid #aaa;padding:3px 5px;background:#f0f0f0;font-size:7pt">${h}</th>`).join('')}</tr>
               ${(r.rows||[]).map(row=>`<tr>${row.map(c=>`<td style="border:1px solid #aaa;padding:3px 5px">${c||'—'}</td>`).join('')}</tr>`).join('')}
             </table>
           </td></tr>`;
-        } else {
-          const val = r.value && r.value.trim() ? r.value : 'NA';
-          body += `<tr><td class="lc">${r.label||"—"}</td><td>${val}</td></tr>`;
         }
+        const val = r.value && r.value.trim() ? r.value : 'NA';
+        return `<tr><td class="lc">${r.label||"—"}</td><td>${val}</td></tr>`;
       });
-      body += `</table>`;
+      pushTable({ section:'history', title:'History', preHtml:`<h2>History</h2>`, thead:'', rows });
     }
 
-    // Mandays (CAT/EMD)
-    const isCatEmdPdf = (p.EngineType === 'cat' || p.EngineType === 'emd');
+    // ── Mandays (CAT/EMD) ──
     if (isCatEmdPdf && w.mandaysActive && w.mandaysRows?.length) {
-      body += `<h2>Mandays</h2><table><tr><th colspan="2" style="text-align:center">Mandays</th></tr>`;
-      (w.mandaysRows||[]).forEach(r => {
-        if (!r) return;
-        body += `<tr><td class="lc">${r.label||''}</td><td>${r.value && r.value.trim() ? r.value : 'NA'}</td></tr>`;
-      });
-      body += `<tr><td colspan="2" style="font-size:7.5pt;font-style:italic">Note: All days to be on calendar day basis</td></tr></table>`;
+      const rows = (w.mandaysRows||[]).filter(Boolean).map(r =>
+        `<tr><td class="lc">${r.label||''}</td><td>${r.value && r.value.trim() ? r.value : 'NA'}</td></tr>`);
+      rows.push(`<tr><td colspan="2" style="font-size:7.5pt;font-style:italic">Note: All days to be on calendar day basis</td></tr>`);
+      pushTable({ section:'mandays', title:'Mandays', preHtml:`<h2>Mandays</h2>`,
+        thead:`<thead><tr><th colspan="2" style="text-align:center">Mandays</th></tr></thead>`, rows });
     }
-    // Scope of Work
+
+    // ── Scope of Work ──
     if (w.scopeActive) {
-      const et = p.EngineType || 'niigata';
-      const isCE = (et === 'cat' || et === 'emd');
+      const isCE = (p.EngineType === 'cat' || p.EngineType === 'emd');
       if (isCE && w.catEmdScope?.length) {
-        body += `<h2>Scope of Work</h2><table><thead><tr><th style="width:6%">Sr.</th><th>Contents</th><th style="width:15%">Included (Yes/No)</th></tr></thead><tbody>`;
-        (w.catEmdScope||[]).forEach(r => {
-          if (r.type === 'heading') {
-            body += `<tr><td colspan="3" style="background:#dde4ef;font-weight:bold;text-align:center">${r.text||''}</td></tr>`;
-          } else {
-            const inc = r.included && r.included.trim() ? r.included : 'NA';
-            body += `<tr><td style="text-align:center">${r.sr||''}</td><td>${r.contents||'—'}</td><td style="text-align:center">${inc}</td></tr>`;
-          }
-        });
-        body += `</tbody></table>`;
+        const rows = (w.catEmdScope||[]).map(r => r.type === 'heading'
+          ? `<tr><td colspan="3" style="background:#dde4ef;font-weight:bold;text-align:center">${r.text||''}</td></tr>`
+          : `<tr><td style="text-align:center">${r.sr||''}</td><td>${r.contents||'—'}</td><td style="text-align:center">${r.included && r.included.trim() ? r.included : 'NA'}</td></tr>`);
+        pushTable({ section:'scope', title:'Scope of Work', preHtml:`<h2>Scope of Work</h2>`,
+          thead:`<thead><tr><th style="width:6%">Sr.</th><th>Contents</th><th style="width:15%">Included (Yes/No)</th></tr></thead>`, rows });
       } else if (!isCE && w.scopeOfWork?.length) {
-        body += `<h2>Scope of Work</h2><table><tr><th>Describe what the original scope of work was</th><th>Describe what was done (include additions and omissions, with reasons)</th></tr>`;
-        w.scopeOfWork.forEach(r => { body += `<tr><td>${r.original||"—"}</td><td>${r.done||"—"}</td></tr>`; });
-        body += `</table>`;
+        const rows = w.scopeOfWork.map(r => `<tr><td>${r.original||"—"}</td><td>${r.done||"—"}</td></tr>`);
+        pushTable({ section:'scope', title:'Scope of Work', preHtml:`<h2>Scope of Work</h2>`,
+          thead:`<thead><tr><th>Describe what the original scope of work was</th><th>Describe what was done (include additions and omissions, with reasons)</th></tr></thead>`, rows });
       }
     }
 
-    // Deviations
+    // ── Deviations ──
     if (w.deviationsActive) {
-      body += `<h2>Deviations and Reference Notes for Next Overhaul</h2><table>`;
-      const rows = w.deviationRows || [{label:"Next Maintenance Type & Date", value:`${w.deviations?.nextMaintType||"—"} ${w.deviations?.nextMaintDate||""}`},{label:"Parts Renewal Required", value:w.deviations?.partsRenewal||"—"}];
-      rows.forEach(r => { body += `<tr><td class="lc">${r.label||"—"}</td><td>${r.value||"—"}</td></tr>`; });
-      body += `</table>`;
+      const devRows = w.deviationRows || [
+        { label:"Next Maintenance Type & Date", value:`${w.deviations?.nextMaintType||"—"} ${w.deviations?.nextMaintDate||""}` },
+        { label:"Parts Renewal Required", value:w.deviations?.partsRenewal||"—" }
+      ];
+      const rows = devRows.map(r => `<tr><td class="lc">${r.label||"—"}</td><td>${r.value||"—"}</td></tr>`);
+      pushTable({ section:'deviations', title:'Deviations and Reference Notes for Next Overhaul',
+        preHtml:`<h2>Deviations and Reference Notes for Next Overhaul</h2>`, thead:'', rows });
     }
 
-    // Maintenance Summary — paginated with header/footer on each page
-    body += ftr() + `</div>`;
-    // Build maint groups first, then paginate (~18 groups per page)
-    const MAINT_PER_PAGE = 18;
+    // ── Maintenance Summary ──
     if (isCatEmdPdf && w.catEmdMaintSummary && w.catEmdMaintSummary.length > 0) {
-      body += `<div class="page">${hdr()}<h2>Maintenance Summary</h2>`;
-      body += `<table><thead><tr><th style="width:22%">Parts Description</th><th>Brief Description</th><th style="width:8%;text-align:center">Replaced</th><th style="width:8%;text-align:center">Reused</th></tr></thead><tbody>`;
-      (w.catEmdMaintSummary||[]).forEach(row => {
-        if (!row) return;
+      const rows = (w.catEmdMaintSummary||[]).filter(Boolean).map(row => {
         const verbs = Array.isArray(row.verbs) ? row.verbs : [];
         const part = row.part || '—';
         const sentence = verbs.length > 0
           ? `${part} was ${verbs.slice(0,-1).join(', ')}${verbs.length > 1 ? ' and ' : ''}${verbs[verbs.length-1]}.`
           : 'NA';
-        body += `<tr><td>${part}</td><td>${sentence}</td><td style="text-align:center">${row.replaced ? '✓' : ''}</td><td style="text-align:center">${row.reused ? '✓' : ''}</td></tr>`;
+        return `<tr><td>${part}</td><td>${sentence}</td><td style="text-align:center">${row.replaced ? '✓' : ''}</td><td style="text-align:center">${row.reused ? '✓' : ''}</td></tr>`;
       });
-      body += `</tbody></table>`;
+      pushTable({ section:'maint', title:'Maintenance Summary', preHtml:`<h2>Maintenance Summary</h2>`,
+        thead:`<thead><tr><th style="width:22%">Parts Description</th><th>Brief Description</th><th style="width:8%;text-align:center">Replaced</th><th style="width:8%;text-align:center">Reused</th></tr></thead>`, rows });
       const pdfBullets = Array.isArray(w.catEmdRemarksBullets) ? w.catEmdRemarksBullets.filter(b=>b&&b.trim()) : [];
       const pdfLegacy = (w.catEmdRemarks||'').trim();
       if (pdfBullets.length || pdfLegacy) {
-        body += `<h3 style="margin-top:10px">Additional Remarks / Non-Conformities</h3>`;
-        if (pdfBullets.length) {
-          body += `<ul>${pdfBullets.map(b=>`<li>${b}</li>`).join('')}</ul>`;
-        } else {
-          body += `<p style="white-space:pre-line;font-size:9pt">${pdfLegacy}</p>`;
-        }
+        const remHtml = `<h3 style="margin-top:10px">Additional Remarks / Non-Conformities</h3>` +
+          (pdfBullets.length ? `<ul>${pdfBullets.map(b=>`<li>${b}</li>`).join('')}</ul>`
+                             : `<p style="white-space:pre-line;font-size:9pt">${pdfLegacy}</p>`);
+        pushFlow('maint', 'Maintenance Summary', remHtml, false);
       }
-      body += ftr() + `</div>`;
     } else {
-      // Group each heading with its bullets, paginate every 18 groups
       let currentGroup = null;
-      let maintGroups = [];
+      const maintGroups = [];
       (w.maintItems||[]).forEach(item => {
         if (item.type === "heading") {
           if (currentGroup) maintGroups.push(currentGroup);
@@ -3475,94 +3473,93 @@ const App = {
         }
       });
       if (currentGroup) maintGroups.push(currentGroup);
-      // Each group on proper page with header/footer
-      body += `<div class="page">${hdr()}<h2>Maintenance Summary</h2>`;
-      let pgCount = 0;
+      pushFlow('maint', 'Maintenance Summary', `<h2>Maintenance Summary</h2>`, true);
       maintGroups.forEach(g => {
-        if (pgCount > 0 && pgCount % 6 === 0) {
-          body += ftr() + `</div><div class="page">${hdr()}<h2>Maintenance Summary <span style="font-size:9pt;font-weight:normal;color:#555">(continued)</span></h2>`;
-        }
-        body += `<div class="maint-group">`;
-        if (g.heading) body += `<h3>${g.heading}</h3>`;
-        if (g.bullets.length) {
-          body += `<ul>`;
-          g.bullets.forEach(b => { body += `<li>${b}</li>`; });
-          body += `</ul>`;
-        }
-        body += `</div>`;
-        pgCount++;
+        let html = `<div class="maint-group">`;
+        if (g.heading) html += `<h3>${g.heading}</h3>`;
+        if (g.bullets.length) html += `<ul>${g.bullets.map(b=>`<li>${b}</li>`).join('')}</ul>`;
+        html += `</div>`;
+        pushFlow('maint', 'Maintenance Summary', html, false);
       });
-      body += ftr() + `</div>`;
     }
 
-    // Scope for Improvement — new page
-    body += `<div class="page">${hdr()}<h2>Scope for Improvement</h2><table><tr><th>No.</th><th>Area</th><th>Observations</th><th>Recommendations</th></tr>`;
-    (w.scopeForImprovement||[]).forEach((r,i) => { body += `<tr><td style="text-align:center">${i+1}</td><td>${r.area||"—"}</td><td>${r.observations||"—"}</td><td>${r.recommendations||"—"}</td></tr>`; });
-    body += `</table>`;
+    // ── Scope for Improvement ──
+    {
+      const rows = (w.scopeForImprovement||[]).map((r,i) =>
+        `<tr><td style="text-align:center">${i+1}</td><td>${r.area||"—"}</td><td>${r.observations||"—"}</td><td>${r.recommendations||"—"}</td></tr>`);
+      pushTable({ section:'sfi', title:'Scope for Improvement', preHtml:`<h2>Scope for Improvement</h2>`,
+        thead:`<thead><tr><th style="width:5%">No.</th><th>Area</th><th style="width:22%">Observations</th><th style="width:22%">Recommendations</th></tr></thead>`,
+        rows, className:'fit' });
+    }
 
-    // Recommendations
-    body += `<h2>Recommendations</h2><p style="font-size:8.5pt;margin-bottom:6px">The engine post overhaul must be closely monitored for any abnormalities which could cause serious breakdowns. It is a known fact that most breakdowns on overhauled engines occur within the first 100 hours post overhaul. We therefore, recommend the following:</p><ol>`;
-    (w.recommendations||[]).forEach(r => { body += `<li>${r}</li>`; });
-    body += `</ol>`;
+    // ── Recommendations ──
+    {
+      const intro = `<h2>Recommendations</h2><p style="font-size:8.5pt;margin-bottom:6px">The engine post overhaul must be closely monitored for any abnormalities which could cause serious breakdowns. It is a known fact that most breakdowns on overhauled engines occur within the first 100 hours post overhaul. We therefore, recommend the following:</p>`;
+      pushFlow('recs', 'Recommendations', intro, true);
+      (w.recommendations||[]).forEach((r,i) => {
+        pushFlow('recs', 'Recommendations', `<ol start="${i+1}"><li>${r}</li></ol>`, false);
+      });
+    }
 
-    body += ftr() + `</div>`;
-
-    // ── Calibration Tables — one per page ──────────────────
+    // ── Calibration Tables (Annexures) ──
     if (w.calibrationTables?.length) {
       w.calibrationTables.forEach((t, ti) => {
         const imgSrc = t.imageBase64 || DGRAMS[t.templateKey] || null;
-        body += ``;
-        body += `<h2>Annexure ${ti+1} &mdash; ${t.name}</h2>`;
+        const title = `Annexure ${ti+1} &mdash; ${t.name}`;
+        let pre = `<h2>${title}</h2>`;
         if (t.hasImage && imgSrc) {
-          // Detect image orientation before rendering
-          body += `<div class="cal-row"><img src="${imgSrc}" class="cal-img-auto" /><div class="cal-note">${(t.note||"").replace(/\n/g,"<br/>")}</div></div>`;
+          pre += `<div class="cal-row"><img src="${imgSrc}" class="cal-img-auto" /><div class="cal-note">${(t.note||"").replace(/\n/g,"<br/>")}</div></div>`;
         } else if (t.note) {
-          body += `<p style="font-size:8pt;margin-bottom:8px">${(t.note||"").replace(/\n/g,"<br/>")}</p>`;
+          pre += `<p style="font-size:8pt;margin-bottom:8px">${(t.note||"").replace(/\n/g,"<br/>")}</p>`;
         }
-        body += `<table><thead><tr>${t.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`;
-        (t.rows||[]).forEach(row => { body += `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`; });
-        body += `</tbody></table>`;
-        body += ftr() + `</div>`;
+        const headers = t.headers || [];
+        const wide = headers.length > 7;
+        const rows = (t.rows||[]).map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`);
+        pushTable({ section:'cal'+ti, title, preHtml:pre,
+          thead:`<thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead>`,
+          rows, className:'fit' + (wide ? ' wide' : '') });
       });
     }
 
-    // ── Parts Consumed page ──
+    // ── Parts Consumed ──
     if (w.partsColumns?.rows?.length) {
-      body += `<h2>Parts Consumed List</h2>`;
-      body += `<table><thead><tr>${w.partsColumns.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`;
-      w.partsColumns.rows.forEach(row => { body += `<tr>${row.map(c => `<td>${c}</td>`).join("")}</tr>`; });
-      body += `</tbody></table>`;
-      body += ftr() + `</div>`;
+      const headers = w.partsColumns.headers || [];
+      const wide = headers.length > 6;
+      const rows = w.partsColumns.rows.map(row => `<tr>${row.map(c => `<td>${c}</td>`).join("")}</tr>`);
+      pushTable({ section:'parts', title:'Parts Consumed List', preHtml:`<h2>Parts Consumed List</h2>`,
+        thead:`<thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead>`,
+        rows, className:'fit' + (wide ? ' wide' : '') });
     }
 
-    // ── Photo Gallery page ──
+    // ── Photo Gallery ──
     const realPhotos = (w.photos||[]).filter(ph => ph.src);
     if (realPhotos.length) {
-      body += `<h2>Photo Gallery</h2><table class="photo-grid"><tbody>`;
+      const rows = [];
       for (let i = 0; i < realPhotos.length; i += 2) {
         const ph1 = realPhotos[i], ph2 = realPhotos[i+1]||null;
-        body += `<tr>
+        rows.push(`<tr>
           <td><img src="${ph1.src}" style="width:100%;height:auto;object-fit:contain;max-height:260px;display:block"/><div class="pcap">${(ph1.title||"").toUpperCase()}</div>${ph1.description?`<div class="pdesc">${ph1.description}</div>`:""}</td>
           <td>${ph2?`<img src="${ph2.src}" style="width:100%;height:auto;object-fit:contain;max-height:260px;display:block"/><div class="pcap">${(ph2.title||"").toUpperCase()}</div>${ph2.description?`<div class="pdesc">${ph2.description}</div>`:""}`:""}</td>
-        </tr>`;
+        </tr>`);
       }
-      body += `</tbody></table>`;
-      body += ftr() + `</div>`;
+      pushTable({ section:'photos', title:'Photo Gallery', preHtml:`<h2>Photo Gallery</h2>`,
+        thead:'', rows, className:'photo-grid' });
     }
 
-    // ── Sign-off page ──
-    const so = w.signoff||{};
-    body += `<div class="page">${hdr()}<h2>Sign-off</h2>
-      <table>
-        <tr><th colspan="2" style="text-align:center">On behalf of Neptunus</th><th colspan="2" style="text-align:center">On behalf of Customer</th></tr>
-        <tr><td class="lc">Maker Name</td><td>${so.makerName||"—"}</td><td class="lc">Name</td><td>${so.customerName||"—"}</td></tr>
-        <tr><td class="lc">Checker Name</td><td>${so.checkerName||"—"}</td><td class="lc">Date</td><td>${so.customerDate||"—"}</td></tr>
-        <tr><td class="lc">Approver Name</td><td>${so.approverName||"—"}</td><td></td><td></td></tr>
-        <tr><td class="lc">Date</td><td>${so.makerDate||"—"}</td><td></td><td></td></tr>
-      </table>
-    `;
+    // ── Sign-off ──
+    {
+      const so = w.signoff||{};
+      const rows = [
+        `<tr><td class="lc">Maker Name</td><td>${so.makerName||"—"}</td><td class="lc">Name</td><td>${so.customerName||"—"}</td></tr>`,
+        `<tr><td class="lc">Checker Name</td><td>${so.checkerName||"—"}</td><td class="lc">Date</td><td>${so.customerDate||"—"}</td></tr>`,
+        `<tr><td class="lc">Approver Name</td><td>${so.approverName||"—"}</td><td></td><td></td></tr>`,
+        `<tr><td class="lc">Date</td><td>${so.makerDate||"—"}</td><td></td><td></td></tr>`
+      ];
+      pushTable({ section:'signoff', title:'Sign-off', preHtml:`<h2>Sign-off</h2>`,
+        thead:`<thead><tr><th colspan="2" style="text-align:center">On behalf of Neptunus</th><th colspan="2" style="text-align:center">On behalf of Customer</th></tr></thead>`, rows });
+    }
 
-    // ── Generate filename ──
+    // ── Filename ──
     const today = new Date();
     const dd = String(today.getDate()).padStart(2,'0');
     const mm = String(today.getMonth()+1).padStart(2,'0');
@@ -3570,30 +3567,149 @@ const App = {
     const authorName = (draft.authorName || State.currentUser?.name || 'User').replace(/\s+/g,'_');
     const pdfFileName = `${draft.projectCode}_${authorName}_${dd}-${mm}-${yy}`;
 
-    // ── Build full HTML with auto-print script ──
+    // ── Header HTML (repeats on every page) ──
+    const headerHtml = `<span class="page-header-title">Work Completion Report &mdash; ${p.CustomerName||draft.projectCode}</span>` +
+      (LOGO ? `<img src="${LOGO}" alt="NPPS" />` : `<span style="font-weight:bold;color:#003366">NEPTUNUS</span>`);
+
+    // ── Data + paginator scripts for the print window ──
+    const itemsJson = JSON.stringify(items).replace(/<\/script/gi, '<\\/script');
+    const dataScript = `var ITEMS=${itemsJson};var HDR=${JSON.stringify(headerHtml)};var FTR=${JSON.stringify(FOOTER_TEXT)};var DOCTITLE=${JSON.stringify(pdfFileName)};`;
+
+    // Measure-and-pack engine. No template literals here (keeps ${ } literal-free).
+    const paginatorScript = `
+(function(){
+  var measure=document.getElementById('measure');
+  var root=document.getElementById('pages');
+  var page,content,curSection=null;
+
+  function el(html){var d=document.createElement('div');d.innerHTML=html;return d.firstElementChild;}
+  function newPage(){
+    page=document.createElement('div');page.className='page';
+    page.innerHTML='<div class="page-header">'+HDR+'</div><div class="page-content"></div><div class="page-footer">'+FTR+'</div>';
+    root.appendChild(page);
+    content=page.querySelector('.page-content');
+  }
+  function over(){return content.scrollHeight>content.clientHeight+1;}
+  function contHeader(t){if(!t)return;content.appendChild(el('<h2 class="sec-h">'+t+' <span class="cont">(continued)</span></h2>'));}
+  function noRows(){return content.querySelectorAll('tbody tr').length===0;}
+
+  // Instantiate every item once in the offscreen measure area (also kicks off image loads).
+  var units=[];
+  for(var k=0;k<ITEMS.length;k++){
+    var it=ITEMS[k];
+    if(it.kind==='pagebreak'){units.push({type:'break'});continue;}
+    if(it.kind==='flow'){
+      var node=el(it.html);measure.appendChild(node);
+      units.push({type:'flow',node:node,section:it.section,title:it.title,head:!!it.head});
+    } else {
+      var preNode=null;
+      if(it.preHtml){preNode=el('<div class="tpre">'+it.preHtml+'</div>');measure.appendChild(preNode);}
+      var mt=el('<table class="'+(it.className||'')+'">'+(it.thead||'')+'<tbody></tbody></table>');
+      mt.querySelector('tbody').innerHTML=(it.rows||[]).join('');
+      measure.appendChild(mt);
+      units.push({type:'table',preNode:preNode,thead:(it.thead||''),className:(it.className||''),
+                  rowNodes:Array.prototype.slice.call(mt.querySelector('tbody').children),
+                  section:it.section,title:it.title});
+    }
+  }
+
+  function placeFlow(u){
+    var had=content.children.length;
+    content.appendChild(u.node);
+    if(over()&&had>0){
+      content.removeChild(u.node);
+      newPage();
+      if(!u.head&&u.section===curSection)contHeader(u.title);
+      content.appendChild(u.node);
+    }
+    curSection=u.section;
+  }
+
+  function placeTable(u){
+    var idx=0,first=true;
+    while(true){
+      if(first){
+        if(u.preNode){
+          var had=content.children.length;
+          content.appendChild(u.preNode);
+          if(over()&&had>0){content.removeChild(u.preNode);newPage();content.appendChild(u.preNode);}
+        }
+        first=false;
+      } else {
+        newPage();
+        contHeader(u.title);
+      }
+      if(idx>=u.rowNodes.length)break;
+      var table=el('<table class="'+u.className+'">'+u.thead+'<tbody></tbody></table>');
+      content.appendChild(table);
+      var tb=table.querySelector('tbody');
+      var placed=0;
+      while(idx<u.rowNodes.length){
+        tb.appendChild(u.rowNodes[idx]);
+        if(over()){tb.removeChild(u.rowNodes[idx]);break;}
+        idx++;placed++;
+      }
+      if(placed===0){
+        content.removeChild(table);
+        if(noRows()){
+          // Even one row won't fit on a fresh page — force it to guarantee progress.
+          content.appendChild(table);
+          tb.appendChild(u.rowNodes[idx]);idx++;
+          if(idx>=u.rowNodes.length)break;
+        }
+        // otherwise loop: first=false -> new page + continued header
+      } else if(idx>=u.rowNodes.length){
+        break;
+      }
+      // page full with rows remaining -> loop opens a new page
+    }
+    curSection=u.section;
+  }
+
+  function run(){
+    newPage();
+    for(var u=0;u<units.length;u++){
+      var x=units[u];
+      if(x.type==='break'){newPage();curSection=null;continue;}
+      if(x.type==='flow')placeFlow(x);else placeTable(x);
+    }
+    if(measure&&measure.parentNode)measure.parentNode.removeChild(measure);
+    document.title=DOCTITLE;
+    setTimeout(function(){window.print();},300);
+  }
+
+  // Wait for images (correct heights) before packing.
+  var imgs=measure.querySelectorAll('img');
+  var n=imgs.length,done=0;
+  if(!n){run();}
+  else{
+    for(var i=0;i<n;i++){
+      var im=imgs[i];
+      if(im.complete){if(++done===n)run();}
+      else{im.onload=im.onerror=function(){if(++done===n)run();};}
+    }
+    // Safety: never hang if an image stalls.
+    setTimeout(function(){if(done<n){done=n;run();}},4000);
+  }
+})();
+`;
+
     const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
       <title>${pdfFileName}</title>
       <style>${CSS}
-        @media print {
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        }
-      </style></head><body>${pages}${body}
-      <script>
-        // Auto-trigger print dialog as soon as page loads
-        window.addEventListener('load', function() {
-          document.title = '${pdfFileName}';
-          setTimeout(function() { window.print(); }, 500);
-        });
-      <\/script>
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+      </style></head><body>
+      <div id="measure"></div>
+      <div id="pages"></div>
+      <script>${dataScript}<\/script>
+      <script>${paginatorScript}<\/script>
       </body></html>`;
 
     // ── Open in new tab — auto-prints on load ──
-    // User sees print dialog immediately, selects "Save as PDF", done.
     const blob = new Blob([fullHtml], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const win = window.open(url, '_blank');
     if (!win) {
-      // Popup blocked — download the HTML as fallback
       const a = document.createElement('a');
       a.href = url; a.download = pdfFileName + '.html';
       a.style.display = 'none'; document.body.appendChild(a); a.click();
