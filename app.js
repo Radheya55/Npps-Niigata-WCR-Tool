@@ -146,6 +146,10 @@ const CAL = {
     const inst = CAL._clone(t.build());
     inst.id = CAL._uid();
     inst.key = key;
+    const D = (typeof DIAGRAMS !== 'undefined') ? DIAGRAMS : {};
+    (inst.blocks||[]).forEach(b => { if (b.k==='band') (b.cells||[]).forEach(c => (c.parts||[]).forEach(part => {
+      if (part.p==='img' && part.imgKey && !part.src && D[part.imgKey]) part.src = D[part.imgKey];
+    })); });
     return inst;
   },
 
@@ -648,7 +652,7 @@ const CAL = {
    ══════════════════════════════════════════════════════════════ */
 (function(){
   const txt = v => ({ p:'txt', v });
-  const img = (cap) => ({ p:'img', src:null, cap: cap===undefined?undefined:cap });
+  const img = (cap, key) => ({ p:'img', src:null, cap: cap===undefined?undefined:cap, imgKey: key||null });
   const cell = (...parts) => ({ parts });
   // flat grid row from leaf values laid out group-major
   const flatRow = (Lvals, groups, leaf) => {
@@ -665,7 +669,7 @@ const CAL = {
       blocks: [
         { k:'band', cells:[
           cell(txt("Noted as per customer's requirement")),
-          cell(img('Looking from Aft to Forward')),
+          cell(img('Looking from Aft to Forward','crankshaft')),
           cell(img('Dial Gauge Orientation')),
         ]},
         { k:'text', v:"Instructions\n1. The Deflection measurements should be made when the engine is cold.\n2. Indicate whether positive or negative.\n3. All readings in 1/100 mm.\n4. Webs opening gives a +ve reading.\n5. Maximum permissible deflection readings are as per engine manufacturer's instruction.\n6. Last check of holding down bolt tension.\n7. Other factors which may influence readings: Main bearing assembly, hot/cold condition, shaft line/gear case alignment etc." },
@@ -732,7 +736,7 @@ const CAL = {
     linerCalibration: { build: () => ({
       title: 'Liner Calibration',
       blocks: [
-        { k:'band', cells:[ cell(img()) ]},
+        { k:'band', cells:[ cell(img(undefined,'linerCalib')) ]},
         { k:'letters', items:[{letter:'A',value:'70'},{letter:'B',value:'280'},{letter:'C',value:'490'},{letter:'D',value:'615'}] },
         { k:'text', v:"Normal Size:\nPermissible Limit:" },
         { k:'grid', levels:2, leaf:1, addCol:'none', tail:1, addRow:true, linkLetters:true,
@@ -804,7 +808,7 @@ const CAL = {
       return {
         title: 'Valve Stem & Valve Guide Dia',
         blocks: [
-          { k:'band', cells:[ cell(img()) ]},
+          { k:'band', cells:[ cell(img(undefined,'valveStem')) ]},
           { k:'grid', levels:3, leaf:2, leafLabel:'mm', addCol:'group', tail:0, addRow:true,
             subTpl:{ labelPrefix:'Group ', sub:[{label:'S1'},{label:'S2'}] },
             left:[{label:'UOM', kind:'auto'}],
@@ -821,7 +825,7 @@ const CAL = {
       title: 'ROCKER ARM BUSHING / ROCKER ARM SHAFT DIAMETER',
       blocks: [
         { k:'band', cells:[
-          cell(img()),
+          cell(img(undefined,'rockerArm')),
           cell(txt("1. ROCKER ARM BUSHING INNER DIAMETER =\n2. ROCKER ARM SHAFT DIAMETER =\n3. CLEARANCE  (SHAFT – BUSH) =")),
         ]},
         { k:'grid', levels:1, leaf:1, addCol:'single', tail:1, addRow:true,
@@ -3693,6 +3697,9 @@ const App = {
       .pcap { font-size: 8.5pt; font-weight: bold; text-transform: uppercase; margin-top: 4px; }
       .pdesc { font-size: 7.5pt; color: #444; margin-top: 2px; }
       .cover-img { max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; margin: 0 auto 10px; }
+      .toc { margin-top: 16px; }
+      .toc-list { margin: 8px 0 4px 24px; }
+      .toc-list li { margin-bottom: 6px; font-size: 10.5pt; line-height: 1.5; }
       #measure { position: absolute; left: -99999px; top: 0; width: 182mm; }
       @media print { #measure { display: none !important; } }
     `;
@@ -3895,6 +3902,21 @@ const App = {
     // ── Header HTML (repeats on every page) ──
     const headerHtml = `<span class="page-header-title">Work Completion Report &mdash; ${p.CustomerName||draft.projectCode}</span>` +
       (LOGO ? `<img src="${LOGO}" alt="NPPS" />` : `<span style="font-weight:bold;color:#003366">NEPTUNUS</span>`);
+
+    // ── Table of Contents (page 1, under the base-data table) ──
+    (function(){
+      const order = [];
+      items.forEach(it => {
+        if (!it.section || it.section === '__cover__' || it.kind === 'pagebreak') return;
+        const label = /^cal\d+$/.test(it.section) ? 'Calibration Reports' : (it.title || '');
+        if (label && order.indexOf(label) === -1) order.push(label);
+      });
+      if (order.length && items[0] && typeof items[0].html === 'string') {
+        const toc = '<div class="toc"><h2>Table of Contents</h2><ol class="toc-list">' +
+          order.map(n => '<li>' + n + '</li>').join('') + '</ol></div>';
+        items[0].html = items[0].html.replace('</table></div>', '</table>' + toc + '</div>');
+      }
+    })();
 
     // ── Data + paginator scripts for the print window ──
     const itemsJson = JSON.stringify(items).replace(/<\/script/gi, '<\\/script');
