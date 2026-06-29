@@ -17,79 +17,7 @@ const CONFIG = {
 };
 
 
-const MAINT_TEMPLATE = [
-  { type:"heading", text:"Cylinder Heads: Dismounting, Dismantling, Inspection and Cleaning" },
-  { type:"bullet", text:"All cylinder heads were removed from the engine block." },
-  { type:"bullet", text:"Normal carbon residue was observed on the combustion surface. All cylinder heads cleaning was carried out." },
-  { type:"heading", text:"Dye Penetrant Test" },
-  { type:"bullet", text:"All cylinder heads' combustion surface area was dye penetrant tested. Found ok." },
-  { type:"bullet", text:"All inlet and exhaust valves were dye penetrant tested." },
-  { type:"heading", text:"Hydro Pressure Test" },
-  { type:"bullet", text:"All cylinder heads were hydro pressure tested. Found normal." },
-  { type:"heading", text:"Valve Seats, Inlet and Exhaust Valves, Valve Guides, Valve Rotators" },
-  { type:"bullet", text:"All components were reused." },
-  { type:"heading", text:"Rocker Arm" },
-  { type:"bullet", text:"All rocker arm bushings were reused." },
-  { type:"heading", text:"Fuel Injection Valves" },
-  { type:"bullet", text:"All fuel injectors were cleaned and inspected and found normal." },
-  { type:"bullet", text:"All injector body to new nozzle lapping done. Nozzle and O-ring renewed." },
-  { type:"bullet", text:"All fuel injectors leak tested and calibrated at 33 MPa. Spray pattern and pressure hold tested." },
-  { type:"bullet", text:"All fuel injectors were mounted back into cylinder heads with new washers and O-rings and tightened as per OEM recommendations." },
-  { type:"heading", text:"Final Cleaning, Assembling and Mounting" },
-  { type:"bullet", text:"All cylinder heads assembled with new parts (valve springs, valve rotators, collets, valve guides, inlet and exhaust valve seats, O-rings)." },
-  { type:"bullet", text:"All cylinder heads were finally cleaned, assembled and mounted back on the engine block and tightened as per OEM recommendations." },
-  { type:"bullet", text:"All auxiliary pipe lines were assembled and tightened with torque wherever necessary." },
-  { type:"bullet", text:"Tappet setting was done with 0.50mm clearances for both inlet and exhaust valves." },
-  { type:"heading", text:"Fuel Injection Pumps" },
-  { type:"bullet", text:"Fuel injection pumps were cleaned and timing checks found within limits." },
-  { type:"bullet", text:"STBD — All fuel injection pumps overhauled. New O-ring, Teflon ring, gasket, delivery valves and distributors renewed. All unit barrel plunger and deflector renewed." },
-  { type:"bullet", text:"PORT — All fuel injection pumps overhauled. New O-ring, Teflon ring, gasket, delivery valves and distributors renewed. All unit barrel plunger and deflector renewed." },
-  { type:"bullet", text:"Mounted back and tightened as per OEM recommendations." },
-  { type:"heading", text:"Air Starting Valves" },
-  { type:"bullet", text:"All air starting valves were dismounted, dismantled and cleaned. Lapping done. Valve-seat contact checked, assembled and functionality checked." },
-  { type:"bullet", text:"All air starting valves were mounted back with new O-rings and gaskets renewed." },
-  { type:"heading", text:"Piston and Connecting Rod Assembly" },
-  { type:"bullet", text:"Pistons were removed from selected units. Piston and connecting rods were dismounted from the engine." },
-  { type:"bullet", text:"Top surface of all pistons were cleaned. Piston pin diameter was measured and found within limits." },
-  { type:"bullet", text:"Both connecting rod small end bushes were measured. All connecting rod big end bolts were reused." },
-  { type:"bullet", text:"Connecting rod big end bore was calibrated. All readings were within limits." },
-  { type:"bullet", text:"DP test performed on the piston crown of both engines — found ok. DP test performed on connecting rods — found ok." },
-  { type:"bullet", text:"Piston rings were replaced by new on all unit pistons. Clearance between piston ring, liner and groove clearances were checked and found within limits." },
-  { type:"bullet", text:"Connecting rod bolts renewed and tightened as per OEM recommendation and mounted back." },
-  { type:"heading", text:"Cylinder Liner" },
-  { type:"bullet", text:"All unit liners were cleaned and calibrated." },
-  { type:"heading", text:"Cylinder Block" },
-  { type:"bullet", text:"Cleaned the head mounting area. Cleaned cooling water port." },
-  { type:"bullet", text:"Cooling water joint pipe and bush rod cover of seating area cleaned. O-ring and rubber seal renewed." },
-  { type:"heading", text:"Main Bearings and Thrust Bearings" },
-  { type:"bullet", text:"One main bearing from each engine was removed and visually inspected." },
-  { type:"heading", text:"Camshaft" },
-  { type:"bullet", text:"Camshaft cleaned and visually inspected — found ok. Camcase cover cleaned and new gaskets renewed. Bearing clearance checked — found ok." },
-  { type:"heading", text:"Tappet Roller" },
-  { type:"bullet", text:"Both engine tappet rollers were dismantled and cleaned. All tappet roller bushes were replaced by new. Mounted back on the engine." },
-  { type:"heading", text:"Starting Air Distributor" },
-  { type:"bullet", text:"Starting air distributor dismantled, cleaned and visually inspected — found ok." },
-  { type:"heading", text:"Crank Web Deflection" },
-  { type:"bullet", text:"Crank web deflection measured and readings recorded. All readings were found within limits." },
-  { type:"heading", text:"Cooling Fresh Water Pump" },
-  { type:"bullet", text:"Dismantled fresh water pump on both sides. Replaced mechanical seal, bearing, oil seal, O-ring and gasket. Mounted back on the engine." },
-  { type:"heading", text:"Cooling Sea Water Pump" },
-  { type:"bullet", text:"Both engine sea water pumps were replaced by new." },
-  { type:"heading", text:"Engine Fixing Bolts" },
-  { type:"bullet", text:"Engine fixing bolts cleaned and visually inspected — found ok." },
-  { type:"heading", text:"Geislinger Coupling" },
-  { type:"bullet", text:"Geislinger coupling is cleaned and all bolts are visually inspected — found ok." },
-  { type:"heading", text:"Exhaust Manifold" },
-  { type:"bullet", text:"Exhaust manifold expansion joints visually inspected — found normal. Exhaust manifold gasket area cleaned and gaskets renewed." },
-  { type:"heading", text:"Inlet Manifold" },
-  { type:"bullet", text:"Inlet manifold cleaned and gaskets renewed and inspected." },
-  { type:"heading", text:"Fuel Injection Union" },
-  { type:"bullet", text:"Fuel injection union and pipe cleaned and inspected. Inner surface found ok. O-ring replaced." },
-  { type:"heading", text:"Crankcase and Sump" },
-  { type:"bullet", text:"Crankcase cleaned and inspected — found ok. Oil sump cleaned and inspected — found ok." },
-  { type:"heading", text:"Overspeed Trip" },
-  { type:"bullet", text:"Checked function of overspeed cylinder — found ok." },
-];
+// MAINT_TEMPLATE removed — Niigata now uses table-based maintenance summary (maintTables)
 
 
 const DEFAULT_RECOMMENDATIONS = [
@@ -1868,10 +1796,33 @@ const App = {
       }
       html += section("maint", "Maintenance Summary", cmHtml);
     } else {
-    let mHtml = (w.maintItems||[]).map(item =>
-      item.type === "heading" ? `<h3 class="rp-maint-h">${item.text}</h3>` : `<div class="rp-bullet"><span>•</span><span>${item.text}</span></div>`
-    ).join("");
-    // DWR points removed from final WCR preview — insights only in builder
+    // Niigata — new table-based maintenance summary
+    const maintTables = w.maintTables || [];
+    let mHtml = '';
+    if (w.execSummary && w.execSummary.length > 0) {
+      const edited = w.execSummaryEdited || {};
+      mHtml += `<div style="background:rgba(232,160,32,0.08);border:1px solid rgba(232,160,32,0.3);border-radius:8px;padding:12px 16px;margin-bottom:14px"><div style="font-weight:700;color:var(--amber);margin-bottom:8px;font-size:11px">⚡ EXECUTIVE SUMMARY</div><ul style="margin:0 0 0 16px">` +
+        w.execSummary.map((f, i) => {
+          if (edited[i]) return `<li>${edited[i]}</li>`;
+          let line = '';
+          if (f.name) line += `<strong>${f.name}</strong>: `;
+          if (f.criticalFinding) line += f.criticalFinding;
+          if (f.actionStep) line += ` — <em>Action: ${f.actionStep}</em>`;
+          return `<li>${line}</li>`;
+        }).join('') + `</ul></div>`;
+    }
+    maintTables.forEach((tbl, ti) => {
+      const name = tbl.nameOfItem || `Item ${ti+1}`;
+      mHtml += `<h3 class="rp-maint-h">${name}</h3>`;
+      mHtml += `<table class="rp-table" style="margin-bottom:6px"><thead><tr><th>Activity</th><th style="width:9%">In Scope</th><th style="width:12%">Status</th><th style="width:10%">Calibration</th><th style="width:16%">Replaced/Reused</th><th>Comment</th></tr></thead><tbody>`;
+      tbl.rows.forEach(r => {
+        mHtml += `<tr><td>${r.activity||'—'}</td><td style="text-align:center">${r.inScope||'—'}</td><td style="text-align:center">${r.status||'—'}</td><td style="text-align:center">${r.calibration||'—'}</td><td>${r.replaced||'—'}</td><td>${r.comment||''}</td></tr>`;
+      });
+      mHtml += `</tbody></table>`;
+      if ((tbl.specificNote||'').trim()) mHtml += `<div class="rp-bullet"><span>📝</span><span>${tbl.specificNote}</span></div>`;
+      if ((tbl.criticalFinding||'').trim()) mHtml += `<div class="rp-bullet" style="color:#e74c3c"><span>⚠</span><span><strong>Critical:</strong> ${tbl.criticalFinding}</span></div>`;
+      if ((tbl.actionStep||'').trim()) mHtml += `<div class="rp-bullet"><span>→</span><span><strong>Action:</strong> ${tbl.actionStep}</span></div>`;
+    });
     html += section("maint", "Maintenance Summary", mHtml);
     } // end else (Niigata maint)
 
@@ -2563,8 +2514,8 @@ const App = {
     const myDrafts = State.drafts.filter(d => d.empNo === State.currentUser.empNo);
     if (myDrafts.length >= CONFIG.MAX_DRAFTS) { Toast.show(`You have ${CONFIG.MAX_DRAFTS} drafts. Delete one to continue.`, "error"); return; }
 
-    // Build maintenance summary from template + DWR extras
-    const maintItems = MAINT_TEMPLATE.map(item => ({ ...item, id: "mi_" + Math.random().toString(36).substr(2,8) }));
+    // Niigata maintenance — new table-based structure
+    const maintTables = [App._blankMaintTable()];
     // DWR points stored separately — shown below template as "Points from DWR"
     const dwrPoints = (State.dvrParsedData?.maintPoints || []).map(pt => ({
       id: "dwr_" + Math.random().toString(36).substr(2,8),
@@ -2603,7 +2554,10 @@ const App = {
         catEmdRemarks: "",
         deviationsActive: false,
         deviations: { nextMaintType:"", nextMaintDate:"", partsRenewal:"" },
-        maintItems,
+        maintTables,
+        execSummary: null,
+        execSummaryEdited: {},
+        maintItems: [],
         dwrPoints,
         scopeForImprovement: [{ area:"Engine Operation and Maintenance", observations:"", recommendations:"" },{ area:"Maintenance Tools (lifting arrangements, jacking tools, special tools)", observations:"", recommendations:"" },{ area:"Emergency Spare Parts Stock on Board", observations:"", recommendations:"" }],
         recommendations: recs,
@@ -3290,29 +3244,180 @@ const App = {
     const engineType = State.currentDraft.projectData?.EngineType || 'niigata';
     const isCatEmd = (engineType === 'cat' || engineType === 'emd');
     if (isCatEmd) { App.renderCatEmdMaintSummary(); return; }
-    const items = State.currentDraft.wcr.maintItems;
+    const w = State.currentDraft.wcr;
+    if (!w.maintTables) w.maintTables = [App._blankMaintTable()];
     const container = document.getElementById("maint-items");
-    container.innerHTML = items.map((item, i) => {
-      if (item.type === "heading") {
-        return `<div class="maint-item maint-heading" data-id="${item.id}">
-          <input class="maint-heading-input" value="${item.text}" oninput="App.updateMaintItem('${item.id}','text',this.value)" />
-          <div class="maint-item-actions">
-            <button class="maint-action-btn" onclick="App.addMaintItem(${i},'bullet')" title="Add bullet below">+ Bullet</button>
-            <button class="maint-action-btn" onclick="App.addMaintItem(${i},'heading')" title="Add heading below">+ Heading</button>
-            <button class="maint-action-btn danger" onclick="App.deleteMaintItem('${item.id}')">✕</button>
-          </div>
-        </div>`;
-      } else {
-        return `<div class="maint-item maint-bullet" data-id="${item.id}">
-          <span class="bullet-dot">•</span>
-          <textarea class="maint-bullet-input" oninput="App.updateMaintItem('${item.id}','text',this.value)">${item.text}</textarea>
-          <div class="maint-item-actions">
-            <button class="maint-action-btn" onclick="App.addMaintItem(${i},'bullet')" title="Add bullet below">+ Bullet</button>
-            <button class="maint-action-btn danger" onclick="App.deleteMaintItem('${item.id}')">✕</button>
-          </div>
-        </div>`;
-      }
-    }).join("") + `<div style="margin-top:12px;text-align:right"><button class="btn-save-history" onclick="App.saveNiigataMaint()">💾 Save Maintenance Summary</button></div>`;
+    let html = `<div class="maint-table-wrap"><div class="maint-table-hint">Each table block = one component or activity. Add as many as needed.</div>`;
+    w.maintTables.forEach((tbl, ti) => { html += App._renderMaintTable(tbl, ti); });
+    html += `<div class="maint-table-footer"><button class="add-row-btn" onclick="App.addMaintTable()">+ Add Another Table</button><button class="btn-save-history" onclick="App.saveNiigataMaint()">💾 Save Maintenance Summary</button></div></div>`;
+    container.innerHTML = html;
+    App.renderExecSummary();
+  },
+
+  _blankMaintTable() {
+    return {
+      id: 'mt_' + Math.random().toString(36).substr(2, 8),
+      nameOfItem: '',
+      rows: [
+        { activity: 'Dismounting',         inScope: '', status: '', calibration: '', replaced: '', comment: '' },
+        { activity: 'Further dismantling', inScope: '', status: '', calibration: '', replaced: '', comment: '' },
+        { activity: 'Inspection',          inScope: '', status: '', calibration: '', replaced: '', comment: '' },
+        { activity: 'Cleaning',            inScope: '', status: '', calibration: '', replaced: '', comment: '' },
+        { activity: 'Assembly',            inScope: '', status: '', calibration: '', replaced: '', comment: '' },
+        { activity: 'Final inspection',    inScope: '', status: '', calibration: '', replaced: '', comment: '' },
+      ],
+      specificNote: '',
+      criticalFinding: '',
+      actionStep: '',
+    };
+  },
+
+  _renderMaintTable(tbl, ti) {
+    const E = (s) => (s == null ? '' : String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const scopeOpts  = ['', 'Yes', 'No'];
+    const statusOpts = ['', 'Done', 'Partially Done', 'Not Done'];
+    const calOpts    = ['', 'Yes', 'No'];
+    const replOpts   = ['', 'Replaced', 'Reused', 'Reused, Good Condition', 'Not Applicable'];
+    const sel = (opts, val, handler) => `<select class="maint-sel" onchange="${handler}">${opts.map(o=>`<option value="${E(o)}"${o===val?' selected':''}>${o||'—'}</option>`).join('')}</select>`;
+    const rowsHtml = tbl.rows.map((row, ri) => `<tr>
+      <td><input class="maint-cell-input" value="${E(row.activity)}" placeholder="Activity..." oninput="App.updateMaintRow(${ti},${ri},'activity',this.value)"/></td>
+      <td>${sel(scopeOpts,  row.inScope,    `App.updateMaintRow(${ti},${ri},'inScope',this.value)`)}</td>
+      <td>${sel(statusOpts, row.status,     `App.updateMaintRow(${ti},${ri},'status',this.value)`)}</td>
+      <td>${sel(calOpts,    row.calibration,`App.updateMaintRow(${ti},${ri},'calibration',this.value)`)}</td>
+      <td>${sel(replOpts,   row.replaced,   `App.updateMaintRow(${ti},${ri},'replaced',this.value)`)}</td>
+      <td><input class="maint-cell-input" value="${E(row.comment)}" placeholder="Comment..." oninput="App.updateMaintRow(${ti},${ri},'comment',this.value)"/></td>
+      <td><button class="row-del-btn" onclick="App.deleteMaintRow(${ti},${ri})">✕</button></td>
+    </tr>`).join('');
+    return `<div class="maint-table-block" id="maint-tbl-${tbl.id}">
+      <div class="maint-table-block-header">
+        <input class="maint-name-input" value="${E(tbl.nameOfItem)}" placeholder="Name of Item (e.g. Cylinder Head, Fuel Injection Pump...)" oninput="App.updateMaintTableField(${ti},'nameOfItem',this.value)"/>
+        <div class="maint-tbl-actions">
+          ${ti>0?`<button class="tbl-action-btn" onclick="App.moveMaintTable(${ti},-1)">↑</button>`:''}
+          <button class="tbl-action-btn danger" onclick="App.deleteMaintTable(${ti})">🗑</button>
+        </div>
+      </div>
+      <div class="maint-table-scroll">
+        <table class="maint-grid">
+          <thead><tr>
+            <th style="min-width:180px">List of Activities</th>
+            <th style="width:90px">In Scope Y/N</th>
+            <th style="width:130px">Status</th>
+            <th style="width:100px">Calibration</th>
+            <th style="width:170px">Replaced / Reused</th>
+            <th style="min-width:140px">Comment</th>
+            <th style="width:36px"></th>
+          </tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+      <button class="add-row-btn" style="margin:6px 0 10px" onclick="App.addMaintRow(${ti})">+ Add Row</button>
+      <div class="maint-notes-section">
+        <div class="maint-note-row">
+          <label class="maint-note-label">Specific Note or additional info about anything</label>
+          <textarea class="maint-note-input form-input" placeholder="Any specific notes for this item..." oninput="App.updateMaintTableField(${ti},'specificNote',this.value)">${E(tbl.specificNote)}</textarea>
+        </div>
+        <div class="maint-note-row maint-critical-row">
+          <label class="maint-note-label maint-critical-label">⚠ Any critical finding or non-conformity</label>
+          <textarea class="maint-note-input form-input maint-critical-input" placeholder="Describe any critical findings..." oninput="App.updateMaintTableField(${ti},'criticalFinding',this.value)">${E(tbl.criticalFinding)}</textarea>
+        </div>
+        <div class="maint-note-row">
+          <label class="maint-note-label">Any action step or recommendation for this item</label>
+          <textarea class="maint-note-input form-input" placeholder="Action steps or recommendations..." oninput="App.updateMaintTableField(${ti},'actionStep',this.value)">${E(tbl.actionStep)}</textarea>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  addMaintTable() {
+    const w = State.currentDraft.wcr;
+    if (!w.maintTables) w.maintTables = [];
+    const prev = JSON.parse(JSON.stringify(w.maintTables));
+    Undo.push(() => { w.maintTables = prev; App.renderMaintSummary(); }, 'Add maintenance table');
+    w.maintTables.push(App._blankMaintTable());
+    App.renderMaintSummary();
+    setTimeout(() => { const blocks = document.querySelectorAll('.maint-table-block'); if (blocks.length) blocks[blocks.length-1].scrollIntoView({behavior:'smooth',block:'start'}); }, 100);
+  },
+
+  deleteMaintTable(ti) {
+    const w = State.currentDraft.wcr;
+    if (w.maintTables.length <= 1) { Toast.show('At least one table is required.', 'error'); return; }
+    if (!confirm('Delete this maintenance table?')) return;
+    const prev = JSON.parse(JSON.stringify(w.maintTables));
+    Undo.push(() => { w.maintTables = prev; App.renderMaintSummary(); }, 'Delete maintenance table');
+    w.maintTables.splice(ti, 1);
+    App.renderMaintSummary();
+  },
+
+  moveMaintTable(ti, dir) {
+    const w = State.currentDraft.wcr;
+    const ni = ti + dir;
+    if (ni < 0 || ni >= w.maintTables.length) return;
+    const prev = JSON.parse(JSON.stringify(w.maintTables));
+    Undo.push(() => { w.maintTables = prev; App.renderMaintSummary(); }, 'Reorder tables');
+    [w.maintTables[ti], w.maintTables[ni]] = [w.maintTables[ni], w.maintTables[ti]];
+    App.renderMaintSummary();
+  },
+
+  updateMaintTableField(ti, field, val) {
+    State.currentDraft.wcr.maintTables[ti][field] = val;
+    AutoSave.trigger();
+    if (field === 'criticalFinding' || field === 'actionStep' || field === 'specificNote') {
+      App.renderExecSummary();
+    }
+  },
+
+  addMaintRow(ti) {
+    const w = State.currentDraft.wcr;
+    const prev = JSON.parse(JSON.stringify(w.maintTables[ti].rows));
+    Undo.push(() => { w.maintTables[ti].rows = prev; App.renderMaintSummary(); }, 'Add row');
+    w.maintTables[ti].rows.push({ activity:'', inScope:'', status:'', calibration:'', replaced:'', comment:'' });
+    App.renderMaintSummary();
+  },
+
+  deleteMaintRow(ti, ri) {
+    const w = State.currentDraft.wcr;
+    if (w.maintTables[ti].rows.length <= 1) { Toast.show('At least one row is required.', 'error'); return; }
+    const prev = JSON.parse(JSON.stringify(w.maintTables[ti].rows));
+    Undo.push(() => { w.maintTables[ti].rows = prev; App.renderMaintSummary(); }, 'Delete row');
+    w.maintTables[ti].rows.splice(ri, 1);
+    App.renderMaintSummary();
+  },
+
+  updateMaintRow(ti, ri, field, val) {
+    State.currentDraft.wcr.maintTables[ti].rows[ri][field] = val;
+    AutoSave.trigger();
+  },
+
+  renderExecSummary() {
+    const w = State.currentDraft.wcr;
+    const el = document.getElementById('exec-summary-section');
+    if (!el) return;
+    const tables = w.maintTables || [];
+    const findings = tables.filter(t => (t.criticalFinding||'').trim() || (t.actionStep||'').trim());
+    if (!findings.length) { el.classList.add('hidden'); w.execSummary = null; return; }
+    el.classList.remove('hidden');
+    w.execSummary = findings.map(t => ({ name: t.nameOfItem, criticalFinding: t.criticalFinding, actionStep: t.actionStep }));
+    const edited = w.execSummaryEdited || {};
+    document.getElementById('exec-summary-body').innerHTML = `
+      <div class="exec-summary-hint">Auto-generated from critical findings. Click any bullet to edit directly.</div>
+      <div id="exec-bullets">
+        ${findings.map((t, i) => {
+          if (edited[i]) return `<div class="exec-bullet-row"><span class="exec-bullet-dot">•</span><div class="exec-bullet-text" contenteditable="true" onblur="App.saveExecBullet(${i},this.innerHTML)">${edited[i]}</div></div>`;
+          let line = '';
+          if (t.nameOfItem) line += `<strong>${t.nameOfItem}</strong>: `;
+          if (t.criticalFinding) line += t.criticalFinding;
+          if (t.actionStep) line += ` — <em>Action: ${t.actionStep}</em>`;
+          return `<div class="exec-bullet-row"><span class="exec-bullet-dot">•</span><div class="exec-bullet-text" contenteditable="true" onblur="App.saveExecBullet(${i},this.innerHTML)">${line}</div></div>`;
+        }).join('')}
+      </div>
+      <div class="exec-summary-note"><span style="font-size:11px;color:var(--amber-dim)">ℹ Appears above History in the final report and PDF.</span></div>`;
+  },
+
+  saveExecBullet(i, html) {
+    const w = State.currentDraft.wcr;
+    if (!w.execSummaryEdited) w.execSummaryEdited = {};
+    w.execSummaryEdited[i] = html;
+    AutoSave.trigger();
   },
 
   saveNiigataMaint() {
@@ -3805,26 +3910,50 @@ const App = {
         pushFlow('maint', 'Maintenance Summary', remHtml, false);
       }
     } else {
-      let currentGroup = null;
-      const maintGroups = [];
-      (w.maintItems||[]).forEach(item => {
-        if (item.type === "heading") {
-          if (currentGroup) maintGroups.push(currentGroup);
-          currentGroup = { heading: item.text, bullets: [] };
-        } else if (currentGroup) {
-          currentGroup.bullets.push(item.text);
-        } else {
-          maintGroups.push({ heading: null, bullets: [item.text] });
-        }
-      });
-      if (currentGroup) maintGroups.push(currentGroup);
+      // Niigata — table-based maintenance summary
+      const maintTables = w.maintTables || [];
+      // Executive Summary first (if present)
+      if (w.execSummary && w.execSummary.length > 0) {
+        const edited = w.execSummaryEdited || {};
+        const bullets = w.execSummary.map((f, i) => {
+          if (edited[i]) return `<li>${edited[i]}</li>`;
+          let line = '';
+          if (f.name) line += `<strong>${f.name}</strong>: `;
+          if (f.criticalFinding) line += f.criticalFinding;
+          if (f.actionStep) line += ` — <em>Action: ${f.actionStep}</em>`;
+          return `<li>${line}</li>`;
+        });
+        pushFlow('execsummary', 'Executive Summary', `<h2>Executive Summary</h2><ul>${bullets.join('')}</ul>`, true);
+      }
       pushFlow('maint', 'Maintenance Summary', `<h2>Maintenance Summary</h2>`, true);
-      maintGroups.forEach(g => {
-        let html = `<div class="maint-group">`;
-        if (g.heading) html += `<h3>${g.heading}</h3>`;
-        if (g.bullets.length) html += `<ul>${g.bullets.map(b=>`<li>${b}</li>`).join('')}</ul>`;
-        html += `</div>`;
-        pushFlow('maint', 'Maintenance Summary', html, false);
+      maintTables.forEach((tbl, ti) => {
+        const name = tbl.nameOfItem || `Item ${ti + 1}`;
+        const rowsHtml = tbl.rows.map(r => `<tr>
+          <td>${r.activity||'—'}</td>
+          <td style="text-align:center">${r.inScope||'—'}</td>
+          <td style="text-align:center">${r.status||'—'}</td>
+          <td style="text-align:center">${r.calibration||'—'}</td>
+          <td>${r.replaced||'—'}</td>
+          <td>${r.comment||''}</td>
+        </tr>`);
+        pushTable({
+          section: 'maint', title: 'Maintenance Summary',
+          preHtml: `<h3 style="margin-top:10px;margin-bottom:4px">${name}</h3>`,
+          thead: `<thead><tr>
+            <th style="width:22%">List of Activities</th>
+            <th style="width:9%;text-align:center">In Scope</th>
+            <th style="width:13%;text-align:center">Status</th>
+            <th style="width:10%;text-align:center">Calibration</th>
+            <th style="width:16%">Replaced / Reused</th>
+            <th>Comment</th>
+          </tr></thead>`,
+          rows: rowsHtml, className: 'fit',
+        });
+        const notes = [];
+        if ((tbl.specificNote||'').trim()) notes.push(`<div style="margin-top:6px;font-size:8.5pt"><strong>Note:</strong> ${tbl.specificNote}</div>`);
+        if ((tbl.criticalFinding||'').trim()) notes.push(`<div style="margin-top:4px;font-size:8.5pt;color:#c0392b"><strong>⚠ Critical Finding:</strong> ${tbl.criticalFinding}</div>`);
+        if ((tbl.actionStep||'').trim()) notes.push(`<div style="margin-top:4px;font-size:8.5pt"><strong>Action Step:</strong> ${tbl.actionStep}</div>`);
+        if (notes.length) pushFlow('maint', 'Maintenance Summary', notes.join(''), false);
       });
     }
 
