@@ -1747,3 +1747,131 @@ html, body {
 .cal-cap-row { background:var(--navy-mid); color:var(--white); font-weight:600; text-align:center; padding:4px; }
 .cal-static { margin-bottom:16px; }
 .cal-static-title { font-size:14px; color:var(--amber-light); margin-bottom:8px; font-weight:700; }
+
+/* ═══════════════════════════════════════════════════════
+   MAINTENANCE SUMMARY — NEW TABLE UI
+   Added for Niigata table-based maintenance summary
+═══════════════════════════════════════════════════════ */
+
+.maint-table-wrap { display: flex; flex-direction: column; }
+.maint-table-hint { font-size: 11px; color: var(--white-dim); margin-bottom: 12px; font-style: italic; }
+
+.maint-table-block {
+  background: var(--card-bg);
+  border: 1px solid var(--navy-border);
+  border-radius: 10px;
+  padding: 18px 20px 14px;
+  margin-bottom: 20px;
+}
+
+.maint-table-block-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+}
+.maint-name-input {
+  flex: 1;
+  background: var(--input-bg);
+  border: 1px solid var(--amber-dim);
+  border-radius: 7px;
+  padding: 9px 13px;
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px; font-weight: 600;
+  outline: none;
+}
+.maint-name-input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(232,160,32,0.12); }
+.maint-name-input::placeholder { color: var(--white-dim); font-weight: 400; }
+
+.maint-tbl-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.maint-table-scroll { overflow-x: auto; border-radius: 6px; margin-bottom: 4px; }
+
+.maint-grid {
+  width: 100%; border-collapse: collapse;
+  background: var(--input-bg);
+  font-size: 12px;
+}
+.maint-grid th {
+  background: var(--navy-light);
+  border: 1px solid var(--navy-border);
+  padding: 8px 10px; text-align: left;
+  font-size: 10px; font-weight: 700;
+  color: var(--amber); letter-spacing: 0.05em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.maint-grid td {
+  border: 1px solid var(--navy-border);
+  padding: 4px 6px; vertical-align: middle;
+}
+.maint-grid tr:hover td { background: rgba(232,160,32,0.03); }
+
+.maint-cell-input {
+  width: 100%; background: transparent; border: none; outline: none;
+  color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 12px;
+  padding: 4px 2px;
+}
+.maint-cell-input::placeholder { color: var(--white-dim); }
+
+.maint-sel {
+  background: var(--navy-light); border: 1px solid var(--navy-border);
+  border-radius: 5px; color: var(--white);
+  font-family: 'DM Sans', sans-serif; font-size: 11px;
+  padding: 4px 6px; width: 100%; cursor: pointer; outline: none;
+}
+.maint-sel:focus { border-color: var(--amber); }
+.maint-sel option { background: var(--navy); }
+
+.maint-notes-section {
+  display: flex; flex-direction: column; gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--navy-border);
+  margin-top: 4px;
+}
+.maint-note-row { display: flex; flex-direction: column; gap: 4px; }
+.maint-note-label {
+  font-size: 11px; font-weight: 600; color: var(--white-dim);
+  letter-spacing: 0.04em;
+}
+.maint-critical-label { color: var(--amber); }
+.maint-note-input {
+  font-size: 12px; padding: 8px 10px; min-height: 52px; resize: vertical;
+}
+.maint-critical-input { border-color: rgba(232,160,32,0.35); }
+.maint-critical-row {
+  padding: 8px;
+  background: rgba(232,160,32,0.05);
+  border-radius: 6px;
+}
+
+.maint-table-footer {
+  display: flex; gap: 12px; align-items: center;
+  padding-top: 4px; flex-wrap: wrap;
+}
+
+/* ── Executive Summary ── */
+#exec-summary-section {
+  background: rgba(232,160,32,0.07);
+  border: 1px solid rgba(232,160,32,0.3);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 4px;
+}
+#exec-summary-section.hidden { display: none !important; }
+
+.exec-summary-hint {
+  font-size: 10px; color: var(--amber-dim);
+  margin-bottom: 12px; font-style: italic;
+}
+.exec-bullet-row {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(232,160,32,0.1);
+}
+.exec-bullet-row:last-child { border-bottom: none; }
+.exec-bullet-dot { color: var(--amber); font-size: 16px; flex-shrink: 0; margin-top: 2px; }
+.exec-bullet-text {
+  flex: 1; font-size: 13px; color: var(--white); line-height: 1.6;
+  outline: none; border-radius: 4px; padding: 2px 4px;
+  min-height: 24px;
+}
+.exec-bullet-text:focus { background: rgba(255,255,255,0.04); }
+.exec-summary-note { margin-top: 10px; }
