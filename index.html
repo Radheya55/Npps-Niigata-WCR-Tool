@@ -10,7 +10,6 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
 <!-- ═══ SCREEN 1 — HOME ═══ -->
 <div id="screen-home" class="screen active">
   <div class="home-bg"></div>
@@ -49,7 +48,6 @@
     <div class="home-footer">Neptunus Power Plant Services Pvt. Ltd. &nbsp;·&nbsp; A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai – 400 710</div>
   </div>
 </div>
-
 <!-- ═══ SCREEN 2 — LOGIN ═══ -->
 <div id="screen-login" class="screen">
   <div class="modal-wrap">
@@ -77,7 +75,6 @@
     </div>
   </div>
 </div>
-
 <!-- ═══ SCREEN 3 — DASHBOARD ═══ -->
 <div id="screen-dashboard" class="screen">
   <header class="app-header">
@@ -94,7 +91,6 @@
         </div>
         <div id="project-details" class="project-details hidden">
           <div class="project-info-grid" id="project-info-grid"></div>
-          <!-- DWR Upload (optional) -->
           <button class="btn-full mt" onclick="App.startWCR()">Create WCR for This Project →</button>
         </div>
         <div id="project-not-found" class="project-not-found hidden">
@@ -106,12 +102,10 @@
       <h2 class="dash-heading">Your Drafts <span class="draft-count" id="draft-count">0 / 10</span></h2>
       <div id="drafts-list" class="drafts-list"><div class="empty-state">No drafts yet.</div></div>
     </div>
-
     <div class="dash-section">
       <h2 class="dash-heading" style="color:var(--amber-dim)">Sent to HOD</h2>
       <div id="submitted-list" class="drafts-list"><div class="empty-state">No submissions yet.</div></div>
     </div>
-
     <div class="dash-section">
       <h2 class="dash-heading" style="color:#7ab3ff">⬇ PDF Downloads</h2>
       <p class="dash-sub" style="margin-top:-8px;margin-bottom:10px;font-size:11px;color:var(--white-dim)">WCRs you have downloaded as PDF. Click any to open, make changes, and re-download.</p>
@@ -123,7 +117,6 @@
     </div>
   </div>
 </div>
-
 <!-- ═══ SCREEN 4 — BASE DATA ═══ -->
 <div id="screen-basedata" class="screen">
   <header class="app-header">
@@ -142,7 +135,6 @@
       <p class="dash-sub">This data auto-fills when an engineer enters the project code. Project Code is mandatory.</p>
       <div class="basedata-card">
         <div class="form-grid">
-          <!-- Engine Type selector — simple dropdown -->
           <div class="form-group">
             <label class="form-label" style="color:var(--amber)">Engine Type *</label>
             <select id="bd-engine-type" class="form-input" onchange="App.onEngineTypeChange()">
@@ -152,12 +144,10 @@
               <option value="other">Other</option>
             </select>
           </div>
-          <!-- Other engine name (shown only when Other selected) -->
           <div class="form-group hidden" id="bd-other-engine-row">
             <label class="form-label">Specify Engine Make and Model <span style="color:var(--amber)">*</span></label>
             <input type="text" id="bd-other-engine-name" class="form-input" placeholder="e.g. MAN B&W 6S50ME-C" />
           </div>
-
           <div class="form-group"><label class="form-label">Project Code *</label><input type="text" id="bd-project-code" class="form-input" placeholder="e.g. ABC1000" oninput="if(State._engineType==='cat'||State._engineType==='emd'){const c=document.getElementById('bd-contract-no');if(c)c.value=this.value;}" /></div>
           <div class="form-group"><label class="form-label">Customer Name</label><input type="text" id="bd-customer" class="form-input" placeholder="e.g. TOPAZ-BELEUZI" /></div>
           <div class="form-group" id="bd-contract-no-row"><label id="lbl-contract-no" class="form-label">Project / Contract Number</label><input type="text" id="bd-contract-no" class="form-input" /></div>
@@ -187,13 +177,11 @@
           <div class="form-group"><label class="form-label">Neptunus Team Leader</label><input type="text" id="bd-team-leader" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Vessel / Rig Name</label><input type="text" id="bd-vessel" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Location</label><input type="text" id="bd-location" class="form-input" /></div>
-          <!-- Team Members -->
           <div class="form-group form-group-full">
             <label class="form-label">Neptunus Team Members</label>
             <div id="members-container"></div>
             <button class="add-member-btn" onclick="App.addMember()">+ Add Member</button>
           </div>
-          
         </div>
         <div class="form-actions">
           <button class="btn-full" id="save-base-btn" onclick="App.saveBaseData()">Save to Database →</button>
@@ -208,7 +196,6 @@
     </div>
   </div>
 </div>
-
 <!-- ═══ SCREEN 5 — WCR BUILDER ═══ -->
 <div id="screen-wcr-builder" class="screen">
   <header class="app-header">
@@ -223,7 +210,6 @@
     </div>
   </header>
   <div class="wcr-body">
-
     <!-- Cover -->
     <div class="wcr-section">
       <div class="wcr-section-label">Cover Page (auto-filled from Base Data)</div>
@@ -233,7 +219,7 @@
           <label for="cover-image-input" class="cover-img-upload-btn">📷 Upload Vessel / Customer Image</label>
           <input type="file" id="cover-image-input" accept="image/*" style="display:none" onchange="App.onCoverImageSelect(event)" />
           <button class="cover-img-clear hidden" id="cover-image-clear" onclick="App.clearCoverImage()">✕ Remove</button>
-              <button class="btn-save-history" style="margin-top:6px;font-size:11px" onclick="App.saveCoverSection()">💾 Save Cover Photo</button>
+          <button class="btn-save-history" style="margin-top:6px;font-size:11px" onclick="App.saveCoverSection()">💾 Save Cover Photo</button>
         </div>
         <div class="wcr-cover-grid">
           <div class="cover-item"><label>Customer Name</label><span id="wcr-cover-customer"></span></div>
@@ -253,24 +239,27 @@
         <p class="cover-note">↑ To update, go to Add Base Data screen.</p>
       </div>
     </div>
-
     <!-- DWR Upload Section -->
     <div class="wcr-section" style="padding:0">
       <div id="dwr-upload-section" class="dwr-section">
-            <div class="dwr-header">
-              <span class="dwr-label">📄 Upload DWRs (Optional)</span>
-              <small>Upload Daily Work Report PDFs to auto-populate Maintenance Summary, Recommendations and Photos</small>
-            </div>
-            <div class="dwr-controls">
-              <input type="file" id="dwr-file-input" accept="application/pdf" multiple style="display:none"
-                onchange="App.onDWRFilesSelected(this)" />
-              <button class="btn-dwr-pick" onclick="document.getElementById('dwr-file-input').click()">📂 Choose DWR PDFs</button>
-              <button class="btn-dwr-load" id="load-dwr-btn" onclick="App.loadDWRData()" disabled
-                style="opacity:0.4;cursor:not-allowed" title="Select PDF files first">Parse DWRs →</button>
-            </div>
-            <div id="dwr-file-names" style="font-size:10px;color:var(--white-dim);margin-top:4px"></div>
-            <div id="dwr-status" class="dwr-status"></div>
-          </div>
+        <div class="dwr-header">
+          <span class="dwr-label">📄 Upload DWRs (Optional)</span>
+          <small>Upload Daily Work Report PDFs to auto-populate Maintenance Summary, Recommendations and Photos</small>
+        </div>
+        <div class="dwr-controls">
+          <input type="file" id="dwr-file-input" accept="application/pdf" multiple style="display:none" onchange="App.onDWRFilesSelected(this)" />
+          <button class="btn-dwr-pick" onclick="document.getElementById('dwr-file-input').click()">📂 Choose DWR PDFs</button>
+          <button class="btn-dwr-load" id="load-dwr-btn" onclick="App.loadDWRData()" disabled style="opacity:0.4;cursor:not-allowed" title="Select PDF files first">Parse DWRs →</button>
+        </div>
+        <div id="dwr-file-names" style="font-size:10px;color:var(--white-dim);margin-top:4px"></div>
+        <div id="dwr-status" class="dwr-status"></div>
+      </div>
+    </div>
+
+    <!-- ══ EXECUTIVE SUMMARY (auto-generated, hidden until critical findings exist) ══ -->
+    <div class="wcr-section hidden" id="exec-summary-section">
+      <div class="wcr-section-label" style="color:var(--amber)">⚡ Executive Summary <span style="font-size:10px;font-weight:400;color:var(--amber-dim);margin-left:8px">Auto-generated · Editable · Appears above History in final report</span></div>
+      <div id="exec-summary-body"></div>
     </div>
 
     <!-- History (collapsible) -->
@@ -295,7 +284,6 @@
         </div>
       </div>
     </div>
-
     <!-- Scope of Work (collapsible) -->
     <div class="wcr-section">
       <div class="wcr-section-toggle-row">
@@ -307,7 +295,6 @@
         <div id="scope-rows"></div>
       </div>
     </div>
-
     <!-- Mandays (CAT/EMD only, collapsible) -->
     <div class="wcr-section hidden" id="mandays-section">
       <div class="wcr-section-toggle-row">
@@ -316,23 +303,16 @@
       </div>
       <div id="mandays-body" class="hidden"></div>
     </div>
-
     <!-- Maintenance Summary -->
     <div class="wcr-section">
       <div class="wcr-section-label">Maintenance Summary</div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
-        <p class="wcr-section-hint" style="margin:0;flex:1">Template pre-loaded with standard activities. Edit, delete or add sections and bullet points as needed.</p>
+        <p class="wcr-section-hint" style="margin:0;flex:1">Add one table per component or activity. Fill in critical findings to auto-generate the Executive Summary above.</p>
         <button class="btn-dwr-insights" onclick="App.showDWRInsights()" title="View activities extracted from your DWR PDFs">💡 DWR Insights</button>
       </div>
       <div id="maint-items"></div>
-      <div class="maint-add-bar">
-        <button class="add-row-btn" onclick="App.addMaintItem(State.currentDraft.wcr.maintItems.length-1,'heading')">+ Add Section Heading</button>
-        <button class="add-row-btn" onclick="App.addMaintItem(State.currentDraft.wcr.maintItems.length-1,'bullet')">+ Add Bullet Point</button>
-      </div>
+      <div class="maint-add-bar" style="display:none"></div>
     </div>
-
-    <!-- DWR Insights button shown inside Maintenance Summary section via JS -->
-
     <!-- Deviations (collapsible) -->
     <div class="wcr-section">
       <div class="wcr-section-toggle-row">
@@ -348,7 +328,6 @@
         <div id="dev-save-footer" style="margin-top:10px;text-align:right"></div>
       </div>
     </div>
-
     <!-- Scope for Improvement -->
     <div class="wcr-section">
       <div class="wcr-section-label">Scope for Improvement</div>
@@ -356,7 +335,6 @@
       <div id="sfi-rows"></div>
       <button class="add-row-btn" onclick="App.addSFI()">+ Add Row</button>
     </div>
-
     <!-- Recommendations -->
     <div class="wcr-section">
       <div class="wcr-section-label">Recommendations</div>
@@ -364,7 +342,6 @@
       <div id="rec-rows"></div>
       <button class="add-row-btn" onclick="App.addRec()">+ Add Recommendation</button>
     </div>
-
     <!-- Calibration Tables -->
     <div class="wcr-section">
       <div class="wcr-section-label">Annexure — Calibration Tables</div>
@@ -390,14 +367,13 @@
         </div>
       </div>
       <div id="cal-tables"></div>
-
+    </div>
     <!-- Parts Consumed -->
     <div class="wcr-section">
       <div class="wcr-section-label">Parts Consumed List</div>
       <p class="wcr-section-hint">Paste each column from your spreadsheet into the boxes, finalise each column, then preview as a table. Click Save after previewing.</p>
       <div id="parts-container"></div>
     </div>
-
     <!-- Photos -->
     <div class="wcr-section">
       <div class="wcr-section-label">Photo Gallery</div>
@@ -406,7 +382,6 @@
       <input type="file" id="photo-input" accept="image/*" multiple style="display:none" onchange="App.onPhotoSelect(event)" />
       <div id="photos-grid" class="photos-grid"></div>
     </div>
-
     <!-- Sign-off -->
     <div class="wcr-section">
       <div class="wcr-section-label">Sign-off</div>
@@ -426,7 +401,6 @@
       </div>
     </div>
     <div id="signoff-save-footer" style="padding:0 20px 16px;text-align:right"></div>
-
     <div class="wcr-bottom-actions">
       <button class="btn-undo-wcr" onclick="Undo.last()" title="Undo">↩ Undo</button>
       <button class="btn-save-wcr-large" onclick="App.saveWCRSection()">💾 Save Draft</button>
@@ -435,7 +409,6 @@
     </div>
   </div>
 </div>
-
 <!-- ═══ SCREEN 6 — SEMI-FINAL PREVIEW ═══ -->
 <div id="screen-semi-final" class="screen">
   <header class="app-header">
@@ -457,7 +430,6 @@
     </div>
   </div>
 </div>
-
 <!-- ═══ SCREEN 7 — HISTORICAL DRAFTS ═══ -->
 <div id="screen-historical-drafts" class="screen">
   <header class="app-header">
@@ -475,7 +447,6 @@
     </div>
   </div>
 </div>
-
 <div id="toast" class="toast"></div>
 <!-- DWR Insights Modal -->
 <div id="dwr-insights-modal" class="dwr-modal-overlay hidden" onclick="if(event.target===this)App.closeDWRInsights()">
@@ -491,73 +462,64 @@
     </div>
   </div>
 </div>
-
 <script src="https://apis.google.com/js/api.js"></script>
 <script src="https://accounts.google.com/gsi/client"></script>
 <script src="assets.js"></script>
 <script src="app.js"></script>
-
-  <!-- HOD Dashboard -->
-  <div class="screen" id="screen-hod-dashboard">
-    <header class="app-header">
-      <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">HOD Review Queue</span></div>
-      <div class="app-header-right"><span class="user-pill" id="hod-user-pill"></span><button class="logout-btn" onclick="App.logout()">Sign Out</button></div>
-    </header>
-    <div class="dashboard-body">
-      <div class="dash-section">
-        <h2 class="dash-heading">WCRs Pending Review</h2>
-        <div id="hod-queue-list"><div class="empty-state">No WCRs pending review.</div></div>
+<!-- HOD Dashboard -->
+<div class="screen" id="screen-hod-dashboard">
+  <header class="app-header">
+    <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">HOD Review Queue</span></div>
+    <div class="app-header-right"><span class="user-pill" id="hod-user-pill"></span><button class="logout-btn" onclick="App.logout()">Sign Out</button></div>
+  </header>
+  <div class="dashboard-body">
+    <div class="dash-section">
+      <h2 class="dash-heading">WCRs Pending Review</h2>
+      <div id="hod-queue-list"><div class="empty-state">No WCRs pending review.</div></div>
+    </div>
+  </div>
+</div>
+<!-- Review Preview Screen -->
+<div class="screen" id="screen-review-preview">
+  <header class="app-header">
+    <div class="app-header-left">
+      <button class="logout-btn" onclick="App.backFromReview()">← Back</button>
+      <span class="app-header-title" id="rp-project-title">WCR Preview</span>
+    </div>
+    <div class="app-header-right">
+      <span class="rp-mode-badge" id="rp-mode-label" style="font-size:11px;color:var(--amber);padding:4px 10px;border:1px solid var(--amber);border-radius:6px"></span>
+      <div id="hod-controls" class="hidden" style="display:flex;gap:8px">
+        <button class="btn-save-wcr" style="background:#c8371a;color:#fff" onclick="App.hodSendBack()">↩ Send Back with Comments</button>
+        <button class="btn-save-wcr" style="background:#1a7a38;color:#fff" onclick="App.hodApprove()">✓ Approve WCR</button>
+      </div>
+      <div id="engineer-controls" class="hidden">
+        <button class="logout-btn" onclick="App.backFromReview()">← Back to Dashboard</button>
+      </div>
+    </div>
+  </header>
+  <div class="rp-layout">
+    <div class="rp-main">
+      <div id="rp-content"></div>
+    </div>
+    <div class="rp-sidebar">
+      <div class="rp-sidebar-header">
+        <h3>💬 Comments</h3>
+        <span style="font-size:10px;color:var(--amber-dim)" id="rp-comment-hint">HOD feedback appears here</span>
+      </div>
+      <div id="comment-input-box" class="comment-input-box hidden">
+        <div id="comment-input-header" class="comment-input-header">Comment on section</div>
+        <textarea id="comment-textarea" class="form-input" rows="4" placeholder="Type your comment..."></textarea>
+        <div class="comment-input-actions">
+          <button class="btn-primary" onclick="App.saveComment()">Add Comment</button>
+          <button class="btn-secondary" onclick="App.closeCommentBox()">Cancel</button>
+        </div>
+      </div>
+      <div id="rp-comments-sidebar"></div>
+      <div class="engineer-hint-box hidden" id="engineer-hint-box">
+        <p style="font-size:11px;color:var(--amber-dim);margin-bottom:8px">Address HOD comments above, go back and update your WCR, then resubmit.</p>
       </div>
     </div>
   </div>
-
-  <!-- Review Preview Screen -->
-  <div class="screen" id="screen-review-preview">
-    <header class="app-header">
-      <div class="app-header-left">
-        <button class="logout-btn" onclick="App.backFromReview()">← Back</button>
-        <span class="app-header-title" id="rp-project-title">WCR Preview</span>
-      </div>
-      <div class="app-header-right">
-        <span class="rp-mode-badge" id="rp-mode-label" style="font-size:11px;color:var(--amber);padding:4px 10px;border:1px solid var(--amber);border-radius:6px"></span>
-        <!-- HOD action buttons in header -->
-        <div id="hod-controls" class="hidden" style="display:flex;gap:8px">
-          <button class="btn-save-wcr" style="background:#c8371a;color:#fff" onclick="App.hodSendBack()">↩ Send Back with Comments</button>
-          <button class="btn-save-wcr" style="background:#1a7a38;color:#fff" onclick="App.hodApprove()">✓ Approve WCR</button>
-        </div>
-        <!-- Engineer controls in header -->
-        <div id="engineer-controls" class="hidden">
-          <button class="logout-btn" onclick="App.backFromReview()">← Back to Dashboard</button>
-        </div>
-      </div>
-    </header>
-    <div class="rp-layout">
-      <!-- Main preview content -->
-      <div class="rp-main">
-        <div id="rp-content"></div>
-      </div>
-      <!-- Comments sidebar -->
-      <div class="rp-sidebar">
-        <div class="rp-sidebar-header">
-          <h3>💬 Comments</h3>
-          <span style="font-size:10px;color:var(--amber-dim)" id="rp-comment-hint">HOD feedback appears here</span>
-        </div>
-        <!-- HOD comment input box (hidden by default) -->
-        <div id="comment-input-box" class="comment-input-box hidden">
-          <div id="comment-input-header" class="comment-input-header">Comment on section</div>
-          <textarea id="comment-textarea" class="form-input" rows="4" placeholder="Type your comment..."></textarea>
-          <div class="comment-input-actions">
-            <button class="btn-primary" onclick="App.saveComment()">Add Comment</button>
-            <button class="btn-secondary" onclick="App.closeCommentBox()">Cancel</button>
-          </div>
-        </div>
-        <div id="rp-comments-sidebar"></div>
-        <div class="engineer-hint-box hidden" id="engineer-hint-box">
-          <p style="font-size:11px;color:var(--amber-dim);margin-bottom:8px">Address HOD comments above, go back and update your WCR, then resubmit.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
+</div>
 </body>
 </html>
