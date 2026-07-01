@@ -1,527 +1,330 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NPPS — Work Completion Report</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Neptunus — Niigata WCR</title>
+<style>
+:root{
+  --bg:#0f171b; --panel:#16232a; --panel2:#1b2b33; --ink:#e8eef0; --muted:#8fa6ae;
+  --line:#2a3d46; --line2:#38505b; --accent:#159aa8; --accent2:#0d7a86;
+  --amber:#E8A020; --red:#d9534f;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px}
+.hidden{display:none!important}
+header{background:#0b1418;border-bottom:2px solid var(--accent);padding:12px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:30}
+.brand{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,var(--accent),var(--amber));display:flex;align-items:center;justify-content:center;font-weight:800;color:#0b1418}
+header h1{font-size:14px;letter-spacing:.14em;text-transform:uppercase;margin:0;font-weight:700}
+header .sub{font-size:11px;color:var(--muted);font-family:monospace}
+.wrap{max-width:1000px;margin:0 auto;padding:22px 20px 90px}
+h2.sec{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:26px 0 12px;display:flex;align-items:center;gap:8px}
+h2.sec::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:720px){.grid2{grid-template-columns:1fr}}
+label.f{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line2);border-radius:7px;color:var(--ink);padding:9px 10px;font-family:var(--sans);font-size:13px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+.fg{margin-bottom:12px}
+button{cursor:pointer;border:none;border-radius:8px;font-weight:600;font-size:13px;padding:9px 15px;font-family:var(--sans)}
+.btn{background:var(--accent);color:#fff}.btn:hover{background:var(--accent2)}
+.btn-amber{background:var(--amber);color:#151a10}.btn-amber:hover{filter:brightness(.94)}
+.btn-ghost{background:transparent;border:1px solid var(--line2);color:var(--ink)}.btn-ghost:hover{border-color:var(--accent)}
+.btn-sm{padding:6px 11px;font-size:12px}
+.btn-danger{background:transparent;color:var(--red);border:none;padding:4px 8px}
+.dd{background:#20323b!important;border-color:#3a5560!important}
+.subblock{border-left:2px solid var(--line2);padding-left:12px;margin:4px 0 12px}
+.subblock .ttl{font-size:12px;font-weight:700;color:var(--amber);margin-bottom:8px}
+.empty{padding:26px;text-align:center;border:1px dashed var(--line2);border-radius:10px;color:var(--muted)}
+.mtbl{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:14px}
+.mtbl-h{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.mtbl-h input.name{font-weight:700;font-size:14px;background:transparent;border:none;border-bottom:1px solid var(--line2);border-radius:0;flex:1}
+.mscroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table.mg{border-collapse:collapse;width:100%;font-size:12.5px;min-width:720px}
+table.mg th{background:#16262e;color:var(--ink);font-weight:700;font-size:11px;padding:8px;text-align:left;border:1px solid var(--line)}
+table.mg td{border:1px solid var(--line);padding:0}
+table.mg td input,table.mg td select{border:none;border-radius:0;background:transparent;font-size:12.5px;padding:8px}
+.notes .nr{margin-top:8px}
+.notes label{font-size:11px;color:var(--muted);display:block;margin-bottom:3px}
+.notes .crit label{color:var(--red)}
+textarea{resize:vertical;min-height:38px}
+.modal-bg{position:fixed;inset:0;background:rgba(6,12,15,.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal{background:var(--panel);border:1px solid var(--line2);border-radius:12px;max-width:640px;width:100%;max-height:82vh;display:flex;flex-direction:column}
+.modal .mh{padding:15px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.modal .mb{padding:10px 18px;overflow:auto;flex:1}
+.modal .mf{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+.pick-sec{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);margin:14px 0 6px}
+.pick-row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:6px;cursor:pointer}
+.pick-row:hover{background:var(--panel2)}
+.pick-row.disabled{opacity:.45;cursor:default}
+.pick-row input{width:16px;height:16px}
+.gen{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.gen.exec{border-color:rgba(232,160,32,.4);background:rgba(232,160,32,.05)}
+.gen h3{margin:0 0 10px;font-size:13px}
+.gen.exec h3{color:var(--amber)}
+.gen ul{margin:0 0 0 18px;padding:0}
+.gen li{margin-bottom:6px}
+.gen .item{margin-bottom:12px}
+.cover-drop{border:2px dashed var(--line2);border-radius:10px;min-height:150px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);text-align:center;background:var(--panel2)}
+.cover-drop:hover{border-color:var(--accent)}
+.cover-img{max-width:100%;border-radius:10px;border:1px solid var(--line2)}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#0b1418;border:1px solid var(--accent);color:#fff;padding:11px 20px;border-radius:9px;font-size:13px;opacity:0;transition:.25s;z-index:200;pointer-events:none}
+.toast.show{opacity:1}
+.row-flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--panel2);color:var(--muted)}
+.spacer{flex:1}
+</style>
 </head>
 <body>
-<!-- ═══ SCREEN 1 — HOME ═══ -->
-<div id="screen-home" class="screen active">
-  <div class="home-bg"></div>
-  <div class="home-wrap">
-    <div class="home-brand">
-      <div class="brand-mark">N</div>
-      <div class="brand-text">
-        <span class="brand-name">Neptunus Power Plant Services</span>
-        <span class="brand-tagline">The Machine Reliability Expert</span>
-      </div>
-    </div>
-    <div class="home-hero">
-      <h1 class="hero-title">Work Completion<br /><em>Report Builder</em></h1>
-      <p class="hero-sub">Making WCRs just got easier</p>
-    </div>
-    <div class="home-actions">
-      <button class="btn-primary" onclick="App.goToLogin('wcr')">
-        <span class="btn-icon">＋</span>
-        <span class="btn-label"><strong>Create WCR</strong><small>Start or resume a report</small></span>
-        <span class="btn-arrow">→</span>
-      </button>
-      <button class="btn-secondary" onclick="App.goToLogin('basedata')">
-        <span class="btn-icon">⚙</span>
-        <span class="btn-label"><strong>Add Base Data</strong><small>Service Manager only</small></span>
-        <span class="btn-arrow">→</span>
-      </button>
-      <button class="btn-secondary" onclick="App.goToLogin('hod')" style="border-color:var(--amber);color:var(--amber)">
-        <span class="btn-icon">🔍</span>
-        <span class="btn-label"><strong>HOD Review</strong><small>Ashish only</small></span>
-        <span class="btn-arrow">→</span>
-      </button>
-    </div>
-    <div class="home-hist-btn-wrap">
-      <button class="btn-hist" onclick="App.goToLogin('history')">📋 See Historical Drafts</button>
-    </div>
-    <div class="home-footer">Neptunus Power Plant Services Pvt. Ltd. &nbsp;·&nbsp; A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai – 400 710</div>
-  </div>
-</div>
-<!-- ═══ SCREEN 2 — LOGIN ═══ -->
-<div id="screen-login" class="screen">
-  <div class="modal-wrap">
-    <button class="back-btn" onclick="App.goHome()">← Back</button>
-    <div class="modal-card">
-      <div class="modal-brand"><div class="brand-mark sm">N</div><span>NPPS</span></div>
-      <h2 class="modal-title" id="login-title">Sign In</h2>
-      <p class="modal-sub">Select your name and enter your employee number</p>
-      <div class="form-group">
-        <label class="form-label">Your Name</label>
-        <select id="emp-name-select" class="form-input" onchange="App.onNameSelect()"><option value="">— Select your name —</option></select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Employee Number</label>
-        <input type="text" id="emp-input" class="form-input" placeholder="Enter your employee number" autocomplete="off" oninput="App.onEmpInput()" />
-        <div class="form-error" id="emp-error"></div>
-      </div>
-      <button class="btn-full" id="continue-btn" onclick="App.verifyEmployee()" disabled style="opacity:0.5;cursor:not-allowed;">Continue</button>
-      <div class="oauth-divider"><span>then</span></div>
-      <button class="btn-google btn-google-required" id="connect-google-btn" onclick="App.connectGoogle()">
-        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.5 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19.1 13 24 13c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.5 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.1 35.5 26.7 36.3 24 36.3c-5.2 0-9.6-3.3-11.2-8H6.3C9.7 37 18.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.2 5.2C37.2 36.2 44 31 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
-        🔴 Connect Google Drive — Required to Continue
-      </button>
-      <p class="oauth-note">⚠ You must connect Google Drive before proceeding. This is a one-time permission per session.</p>
-    </div>
-  </div>
-</div>
-<!-- ═══ SCREEN 3 — DASHBOARD ═══ -->
-<div id="screen-dashboard" class="screen">
-  <header class="app-header">
-    <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">WCR Builder</span></div>
-    <div class="app-header-right"><span class="user-pill" id="user-pill"></span><button class="logout-btn" onclick="App.logout()">Sign Out</button></div>
-  </header>
-  <div class="dashboard-body">
-    <div class="dash-section">
-      <h2 class="dash-heading">Start a New Report</h2>
-      <div class="project-start-card">
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Project Code</label><input type="text" id="project-code-input" class="form-input" placeholder="e.g. ABC1000" autocomplete="off" onkeydown="if(event.key==='Enter') App.lookupProject()" /></div>
-          <button class="btn-lookup" onclick="App.lookupProject()">Look Up →</button>
-        </div>
-        <div id="project-details" class="project-details hidden">
-          <div class="project-info-grid" id="project-info-grid"></div>
-          <button class="btn-full mt" onclick="App.startWCR()">Create WCR for This Project →</button>
-        </div>
-        <div id="project-not-found" class="project-not-found hidden">
-          <p>No project found with that code. Ask your Service Manager to add it via <strong>Add Base Data</strong>.</p>
-        </div>
-      </div>
-    </div>
-    <div class="dash-section">
-      <h2 class="dash-heading">Your Drafts <span class="draft-count" id="draft-count">0 / 10</span></h2>
-      <div id="drafts-list" class="drafts-list"><div class="empty-state">No drafts yet.</div></div>
-    </div>
-    <div class="dash-section">
-      <h2 class="dash-heading" style="color:var(--amber-dim)">Sent to HOD</h2>
-      <div id="submitted-list" class="drafts-list"><div class="empty-state">No submissions yet.</div></div>
-    </div>
-    <div class="dash-section">
-      <h2 class="dash-heading" style="color:#7ab3ff">⬇ PDF Downloads</h2>
-      <p class="dash-sub" style="margin-top:-8px;margin-bottom:10px;font-size:11px;color:var(--white-dim)">WCRs you have downloaded as PDF. Click any to open, make changes, and re-download.</p>
-      <div id="downloaded-list" class="drafts-list"><div class="empty-state">No PDF downloads yet. Use the ⬇ Download PDF button inside any WCR.</div></div>
-    </div>
-    <div class="dash-section">
-      <h2 class="dash-heading" style="color:#6fcf6f">✓ HOD Approved</h2>
-      <div id="approved-list" class="drafts-list"><div class="empty-state">No approved WCRs yet.</div></div>
-    </div>
-  </div>
-</div>
-<!-- ═══ SCREEN 4 — BASE DATA ═══ -->
-<div id="screen-basedata" class="screen">
-  <header class="app-header">
-    <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">Base Data Manager</span></div>
-    <div class="app-header-right"><span class="user-pill" id="user-pill-bd"></span><button class="logout-btn" onclick="App.logout()">Sign Out</button></div>
-  </header>
-  <div class="dashboard-body">
-    <div class="dash-section">
-      <div class="dash-heading-row">
-        <h2 class="dash-heading">Add / Edit Project Base Data</h2>
-        <div style="display:flex;gap:8px">
-          <button class="btn-home" id="cancel-edit-btn" onclick="App.cancelEdit()" style="display:none">✕ Cancel Edit</button>
-          <button class="btn-home" onclick="App.goHome()">← Home</button>
-        </div>
-      </div>
-      <p class="dash-sub">This data auto-fills when an engineer enters the project code. Project Code is mandatory.</p>
-      <div class="basedata-card">
-        <div class="form-grid">
-          <div class="form-group">
-            <label class="form-label" style="color:var(--amber)">Engine Type *</label>
-            <select id="bd-engine-type" class="form-input" onchange="App.onEngineTypeChange()">
-              <option value="niigata">Niigata</option>
-              <option value="cat">CAT</option>
-              <option value="emd">EMD</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div class="form-group hidden" id="bd-other-engine-row">
-            <label class="form-label">Specify Engine Make and Model <span style="color:var(--amber)">*</span></label>
-            <input type="text" id="bd-other-engine-name" class="form-input" placeholder="e.g. MAN B&W 6S50ME-C" />
-          </div>
-          <div class="form-group"><label class="form-label">Project Code *</label><input type="text" id="bd-project-code" class="form-input" placeholder="e.g. ABC1000" oninput="if(State._engineType==='cat'||State._engineType==='emd'){const c=document.getElementById('bd-contract-no');if(c)c.value=this.value;}" /></div>
-          <div class="form-group"><label class="form-label">Customer Name</label><input type="text" id="bd-customer" class="form-input" placeholder="e.g. TOPAZ-BELEUZI" /></div>
-          <div class="form-group" id="bd-contract-no-row"><label id="lbl-contract-no" class="form-label">Project / Contract Number</label><input type="text" id="bd-contract-no" class="form-input" /></div>
-          <div class="form-group"><label class="form-label">Start Date of Job</label><input type="date" id="bd-start-date" class="form-input" /></div>
-          <div class="form-group"><label id="lbl-end-date" class="form-label">Handing Over Date</label><input type="date" id="bd-end-date" class="form-input" /></div>
-          <div class="form-group">
-            <label id="lbl-overhaul-type" class="form-label">Type of Overhaul</label>
-            <select id="bd-overhaul-type" class="form-input" onchange="App.onOverhaulTypeChange()">
-              <option value="">Select...</option>
-              <option value="TOH">TOH — Top Overhaul</option>
-              <option value="MOH">MOH — Major Overhaul</option>
-              <option value="Minor">Minor Overhaul</option>
-              <option value="HealthCheck">Health Check</option>
-              <option value="Other">Other (specify)</option>
-            </select>
-          </div>
-          <div class="form-group hidden" id="bd-overhaul-custom-row">
-            <label class="form-label">Specify Type</label>
-            <input type="text" id="bd-overhaul-custom" class="form-input" placeholder="Describe..." />
-          </div>
-          <div class="form-group"><label class="form-label">Engine Make and Model</label><input type="text" id="bd-engine-model" class="form-input" placeholder="e.g. NIIGATA 8L28HX" /></div>
-          <div class="form-group"><label class="form-label">Engine Serial Number</label><input type="text" id="bd-engine-serial" class="form-input" /></div>
-          <div class="form-group"><label id="lbl-arrangement" class="form-label">Engine Arrangement</label><input type="text" id="bd-engine-arrangement" class="form-input" placeholder="e.g. PORT & STBD" /></div>
-          <div class="form-group"><label class="form-label">RPM and Capacity</label><input type="text" id="bd-rpm" class="form-input" /></div>
-          <div class="form-group"><label class="form-label">Current Running Hours</label><input type="text" id="bd-running-hours" class="form-input" /></div>
-          <div class="form-group"><label class="form-label">Customer In-Charge</label><input type="text" id="bd-customer-incharge" class="form-input" /></div>
-          <div class="form-group"><label class="form-label">Neptunus Team Leader</label><input type="text" id="bd-team-leader" class="form-input" /></div>
-          <div class="form-group"><label class="form-label">Vessel / Rig Name</label><input type="text" id="bd-vessel" class="form-input" /></div>
-          <div class="form-group"><label class="form-label">Location</label><input type="text" id="bd-location" class="form-input" /></div>
-          <div class="form-group form-group-full">
-            <label class="form-label">Neptunus Team Members</label>
-            <div id="members-container"></div>
-            <button class="add-member-btn" onclick="App.addMember()">+ Add Member</button>
-          </div>
-        </div>
-        <div class="form-actions">
-          <button class="btn-full" id="save-base-btn" onclick="App.saveBaseData()">Save to Database →</button>
-        </div>
-        <div id="bd-success" class="success-msg hidden">✓ Project data saved. <button class="btn-home-inline" onclick="App.goHome()">← Back to Home</button></div>
-        <div id="bd-error" class="error-msg hidden"></div>
-      </div>
-    </div>
-    <div class="dash-section">
-      <h2 class="dash-heading">All Projects <span class="draft-count" id="project-count">0</span></h2>
-      <div id="projects-table-wrap" class="table-scroll"><div class="empty-state">No projects yet.</div></div>
-    </div>
-  </div>
-</div>
-<!-- ═══ SCREEN 5 — WCR BUILDER ═══ -->
-<div id="screen-wcr-builder" class="screen">
-  <header class="app-header">
-    <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">WCR — <span id="wcr-project-code"></span></span></div>
-    <div class="app-header-right">
-      <span class="wcr-customer-pill" id="wcr-customer"></span>
-      <button class="btn-undo-wcr" onclick="Undo.last()" title="Undo last action">↩ Undo</button>
-      <span id="autosave-indicator" style="font-size:11px;color:#7ef59a;margin-right:4px"></span>
-      <button class="btn-save-wcr" onclick="App.saveWCRSection()">💾 Save Draft</button>
-      <button class="btn-save-wcr" style="background:#1a5c8a;color:#fff;font-weight:700" onclick="App.downloadCurrentDraftPDF()" title="Download this WCR as PDF">⬇ Download PDF</button>
-      <button class="logout-btn" onclick="App.backToDashboard()">← Dashboard</button>
-    </div>
-  </header>
-  <div class="wcr-body">
-    <!-- Cover -->
-    <div class="wcr-section">
-      <div class="wcr-section-label">Cover Page (auto-filled from Base Data)</div>
-      <div class="wcr-cover-preview">
-        <img id="wcr-cover-image" class="wcr-cover-img hidden" />
-        <div style="margin:8px 0 12px">
-          <label for="cover-image-input" class="cover-img-upload-btn">📷 Upload Vessel / Customer Image</label>
-          <input type="file" id="cover-image-input" accept="image/*" style="display:none" onchange="App.onCoverImageSelect(event)" />
-          <button class="cover-img-clear hidden" id="cover-image-clear" onclick="App.clearCoverImage()">✕ Remove</button>
-          <button class="btn-save-history" style="margin-top:6px;font-size:11px" onclick="App.saveCoverSection()">💾 Save Cover Photo</button>
-        </div>
-        <div class="wcr-cover-grid">
-          <div class="cover-item"><label>Customer Name</label><span id="wcr-cover-customer"></span></div>
-          <div class="cover-item"><label id="wcr-lbl-contract">Project / Contract Number</label><span id="wcr-cover-contract"></span></div>
-          <div class="cover-item"><label>Start Date of Job</label><span id="wcr-cover-start"></span></div>
-          <div class="cover-item"><label id="wcr-lbl-enddate">Handing Over Date</label><span id="wcr-cover-end"></span></div>
-          <div class="cover-item"><label id="wcr-lbl-overhaul">Type of Overhaul</label><span id="wcr-cover-overhaul"></span></div>
-          <div class="cover-item"><label>Engine Make and Model</label><span id="wcr-cover-engine"></span></div>
-          <div class="cover-item"><label>Engine Serial Number</label><span id="wcr-cover-serial"></span></div>
-          <div class="cover-item"><label id="wcr-lbl-arrangement">Engine Arrangement</label><span id="wcr-cover-arrangement"></span></div>
-          <div class="cover-item"><label>RPM and Capacity</label><span id="wcr-cover-rpm"></span></div>
-          <div class="cover-item"><label>Current Running Hours</label><span id="wcr-cover-hours"></span></div>
-          <div class="cover-item"><label>Customer In-Charge</label><span id="wcr-cover-custincharge"></span></div>
-          <div class="cover-item"><label>Neptunus Team Leader</label><span id="wcr-cover-leader"></span></div>
-          <div class="cover-item cover-item-full"><label>Neptunus Members</label><span id="wcr-cover-members"></span></div>
-        </div>
-        <p class="cover-note">↑ To update, go to Add Base Data screen.</p>
-      </div>
-    </div>
-    <!-- DWR Upload Section -->
-    <div class="wcr-section" style="padding:0">
-      <div id="dwr-upload-section" class="dwr-section">
-        <div class="dwr-header">
-          <span class="dwr-label">📄 Upload DWRs (Optional)</span>
-          <small>Upload Daily Work Report PDFs to auto-populate Maintenance Summary, Recommendations and Photos</small>
-        </div>
-        <div class="dwr-controls">
-          <input type="file" id="dwr-file-input" accept="application/pdf" multiple style="display:none" onchange="App.onDWRFilesSelected(this)" />
-          <button class="btn-dwr-pick" onclick="document.getElementById('dwr-file-input').click()">📂 Choose DWR PDFs</button>
-          <button class="btn-dwr-load" id="load-dwr-btn" onclick="App.loadDWRData()" disabled style="opacity:0.4;cursor:not-allowed" title="Select PDF files first">Parse DWRs →</button>
-        </div>
-        <div id="dwr-file-names" style="font-size:10px;color:var(--white-dim);margin-top:4px"></div>
-        <div id="dwr-status" class="dwr-status"></div>
-      </div>
-    </div>
+<header>
+  <div class="brand">N</div>
+  <div><h1>Niigata WCR</h1><div class="sub">Work Completion Report · Neptunus Power</div></div>
+  <div class="spacer"></div>
+  <span class="pill" id="hdr-project"></span>
+  <button class="btn-ghost btn-sm" onclick="App.newReport()">New Report</button>
+</header>
 
-    <!-- ══ EXECUTIVE SUMMARY (auto-generated, hidden until critical findings exist) ══ -->
-    <div class="wcr-section hidden" id="exec-summary-section">
-      <div class="wcr-section-label" style="color:var(--amber)">⚡ Executive Summary <span style="font-size:10px;font-weight:400;color:var(--amber-dim);margin-left:8px">Auto-generated · Editable · Appears above History in final report</span></div>
-      <div id="exec-summary-body"></div>
+<div class="wrap" id="screen-base">
+  <h2 class="sec">Base Data — Niigata Project</h2>
+  <div class="card">
+    <div class="grid2">
+      <div class="fg"><label class="f">Project Code *</label><input id="bd-code" placeholder="e.g. HALUL-83"/></div>
+      <div class="fg"><label class="f">Customer Name</label><input id="bd-customer" placeholder="e.g. TOPAZ / MILAHA"/></div>
+      <div class="fg"><label class="f">Project / Contract Number</label><input id="bd-contract"/></div>
+      <div class="fg"><label class="f">Vessel / Rig Name</label><input id="bd-vessel"/></div>
+      <div class="fg"><label class="f">Start Date of Job</label><input id="bd-start" type="date"/></div>
+      <div class="fg"><label class="f">Handing Over Date</label><input id="bd-end" type="date"/></div>
+      <div class="fg"><label class="f">Type of Overhaul</label>
+        <select id="bd-overhaul"><option>Top Overhaul (TOH)</option><option>Major Overhaul (MOH)</option><option>Calibration Job</option><option>Health Check-up</option><option>Troubleshooting</option><option>Other</option></select></div>
+      <div class="fg"><label class="f">Engine Make &amp; Model</label><input id="bd-engine" value="NIIGATA "/></div>
+      <div class="fg"><label class="f">Engine Serial Number</label><input id="bd-serial"/></div>
+      <div class="fg"><label class="f">Engine Arrangement</label><input id="bd-arr" placeholder="e.g. PORT &amp; STBD"/></div>
+      <div class="fg"><label class="f">RPM &amp; Capacity</label><input id="bd-rpm"/></div>
+      <div class="fg"><label class="f">Current Running Hours</label><input id="bd-hours"/></div>
+      <div class="fg"><label class="f">Customer In-Charge</label><input id="bd-custic"/></div>
+      <div class="fg"><label class="f">Neptunus Team Leader</label><input id="bd-leader"/></div>
+      <div class="fg" style="grid-column:1/-1"><label class="f">Neptunus Members</label><input id="bd-members"/></div>
     </div>
+    <button class="btn" style="margin-top:6px" onclick="App.startWCR()">Start WCR →</button>
+  </div>
+</div>
 
-    <!-- History (collapsible) -->
-    <div class="wcr-section">
-      <div class="wcr-section-toggle-row">
-        <div class="wcr-section-label">History</div>
-        <button class="toggle-section-btn" id="history-toggle-btn" onclick="App.toggleHistory()">+ Add History Section</button>
-      </div>
-      <div id="history-body" class="hidden">
-        <div class="wcr-field-grid">
-          <div class="wcr-field"><label>Last Overhauling Type</label><input id="h-lastType" class="form-input" placeholder="e.g. TOH / Not done" /></div>
-          <div class="wcr-field"><label>Last Overhaul Carried By</label><input id="h-lastBy" class="form-input" placeholder="e.g. Neptunus / Not done" /></div>
-          <div class="wcr-field"><label>Running Hours at Last Maintenance</label><input id="h-runHours" class="form-input" /></div>
-          <div class="wcr-field wcr-field-full"><label>Observations (Prior Dismantling)</label><textarea id="h-obs" class="form-input" rows="2"></textarea></div>
-          <div class="wcr-field wcr-field-full"><label>Log Leakages / Abnormalities (Prior Job Start)</label><textarea id="h-leaks" class="form-input" rows="2"></textarea></div>
-          <div class="wcr-field"><label>Bearing Size – Con Rod Journal (Part No.)</label><input id="h-bearingCon" class="form-input" /></div>
-          <div class="wcr-field"><label>Bearing Size – Main Journal (Part No.)</label><input id="h-bearingMain" class="form-input" /></div>
-          <div class="wcr-field"><label>Turbo Details</label><input id="h-turbo" class="form-input" /></div>
-          <div class="wcr-field"><label>Geislinger Coupling Details</label><input id="h-geislinger" class="form-input" /></div>
-          <div class="wcr-field"><label>Governor Details</label><input id="h-governor" class="form-input" /></div>
-          <div class="wcr-field"><label>Gauge Conditions</label><input id="h-gauges" class="form-input" /></div>
-        </div>
-      </div>
+<div class="wrap hidden" id="screen-wcr">
+  <h2 class="sec">Cover Photo</h2>
+  <div class="card">
+    <div id="cover-slot"></div>
+    <input type="file" id="cover-input" accept="image/*" class="hidden" onchange="App.onCover(event)"/>
+  </div>
+  <div id="exec-slot"></div>
+  <h2 class="sec">History</h2>
+  <div class="card" id="history-card"></div>
+  <div id="scope-slot"></div>
+  <h2 class="sec">Maintenance Summary</h2>
+  <div class="card">
+    <div class="row-flex" style="margin-bottom:12px">
+      <button class="btn" onclick="App.openPicker()">☑ Select items worked on</button>
+      <button class="btn-ghost btn-sm" onclick="App.addCustom()">+ Add custom table</button>
+      <span class="spacer"></span>
+      <button class="btn-amber" onclick="App.process()">⚙ Process Maintenance Summary →</button>
     </div>
-    <!-- Scope of Work (collapsible) -->
-    <div class="wcr-section">
-      <div class="wcr-section-toggle-row">
-        <div class="wcr-section-label">Scope of Work</div>
-        <button class="toggle-section-btn" id="scope-toggle-btn" onclick="App.toggleScope()">+ Add Scope of Work</button>
-      </div>
-      <div id="scope-body" class="hidden">
-        <div class="scope-header-row"><span class="scope-col-label">Original Scope of Work</span><span class="scope-col-label">What Was Done (additions / omissions)</span><span></span></div>
-        <div id="scope-rows"></div>
-      </div>
-    </div>
-    <!-- Mandays (CAT/EMD only, collapsible) -->
-    <div class="wcr-section hidden" id="mandays-section">
-      <div class="wcr-section-toggle-row">
-        <div class="wcr-section-label">Mandays</div>
-        <button class="toggle-section-btn" id="mandays-toggle-btn" onclick="App.toggleMandays()">+ Add Mandays Section</button>
-      </div>
-      <div id="mandays-body" class="hidden"></div>
-    </div>
-    <!-- Maintenance Summary -->
-    <div class="wcr-section">
-      <div class="wcr-section-label">Maintenance Summary</div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
-        <p class="wcr-section-hint" style="margin:0;flex:1">Add one table per component or activity. Fill in critical findings to auto-generate the Executive Summary above.</p>
-        <button class="btn-dwr-insights" onclick="App.showDWRInsights()" title="View activities extracted from your DWR PDFs">💡 DWR Insights</button>
-      </div>
-      <div id="maint-items"></div>
-      <div class="maint-add-bar" style="display:none"></div>
-    </div>
-    <!-- Deviations (collapsible) -->
-    <div class="wcr-section">
-      <div class="wcr-section-toggle-row">
-        <div class="wcr-section-label">Deviations & Reference Notes for Next Overhaul</div>
-        <button class="toggle-section-btn" id="dev-toggle-btn" onclick="App.toggleDeviations()">+ Add Deviations Section</button>
-      </div>
-      <div id="dev-body" class="hidden">
-        <div class="wcr-field-grid">
-          <div class="wcr-field"><label>Next Maintenance Type</label><input id="dev-nextType" class="form-input" placeholder="e.g. MOH" /></div>
-          <div class="wcr-field"><label>Tentative Due Date</label><input id="dev-nextDate" class="form-input" placeholder="e.g. Oct 2026" /></div>
-          <div class="wcr-field wcr-field-full"><label>Notes on Parts Renewal for Next Maintenance</label><textarea id="dev-parts" class="form-input" rows="2"></textarea></div>
-        </div>
-        <div id="dev-save-footer" style="margin-top:10px;text-align:right"></div>
-      </div>
-    </div>
-    <!-- Scope for Improvement -->
-    <div class="wcr-section">
-      <div class="wcr-section-label">Scope for Improvement</div>
-      <div class="sfi-header-row"><span>No.</span><span>Area of Improvement</span><span>Observations</span><span>Recommendations</span><span></span></div>
-      <div id="sfi-rows"></div>
-      <button class="add-row-btn" onclick="App.addSFI()">+ Add Row</button>
-    </div>
-    <!-- Recommendations -->
-    <div class="wcr-section">
-      <div class="wcr-section-label">Recommendations</div>
-      <p class="wcr-section-hint">Standard recommendations pre-loaded. Edit, delete or add as needed.</p>
-      <div id="rec-rows"></div>
-      <button class="add-row-btn" onclick="App.addRec()">+ Add Recommendation</button>
-    </div>
-    <!-- Calibration Tables -->
-    <div class="wcr-section">
-      <div class="wcr-section-label">Annexure — Calibration Tables</div>
-      <p class="wcr-section-hint">Pick templates from the palette. Each table supports image upload, editable notes, add/delete rows and columns, and undo.</p>
-      <button class="btn-palette" onclick="App.showTablePalette()">📋 Add Table from Palette</button>
-      <div id="table-palette" class="table-palette hidden">
-        <div class="palette-title">Select a table template:</div>
-        <div class="palette-grid">
-          <button class="palette-item" onclick="CAL.add('crankshaftDeflection')"><span>📐</span><strong>Crankshaft Deflections</strong></button>
-          <button class="palette-item" onclick="CAL.add('mainJournalB')"><span>📐</span><strong>Main Journal Pin Dia (B)</strong></button>
-          <button class="palette-item" onclick="CAL.add('mainJournalA')"><span>📐</span><strong>Main Journal Pin Dia (A)</strong></button>
-          <button class="palette-item" onclick="CAL.add('linerCalibration')"><span>🔩</span><strong>Liner Calibration</strong></button>
-          <button class="palette-item" onclick="CAL.add('portConRodSmallEnd')"><span>🔩</span><strong>PORT Con Rod Small End Bore</strong></button>
-          <button class="palette-item" onclick="CAL.add('stbdConRodSmallEnd')"><span>🔩</span><strong>STBD Con Rod Small End Bore</strong></button>
-          <button class="palette-item" onclick="CAL.add('gudgeonPin')"><span>📏</span><strong>Gudgeon Pin Dia</strong></button>
-          <button class="palette-item" onclick="CAL.add('conRodBigEnd')"><span>🔩</span><strong>Con Rod Big End (Bearing Shells)</strong></button>
-          <button class="palette-item" onclick="CAL.add('valveStemGuide')"><span>🔧</span><strong>Valve Stem &amp; Valve Guide Dia</strong></button>
-          <button class="palette-item" onclick="CAL.add('rockerArm')"><span>🔧</span><strong>Rocker Arm Bushing / Shaft Dia</strong></button>
-          <button class="palette-item" onclick="CAL.add('buttClearance')"><span>⭕</span><strong>Butt Clearance</strong></button>
-          <button class="palette-item" onclick="CAL.add('pistonGroove')"><span>⭕</span><strong>Piston Groove Clearance</strong></button>
-          <button class="palette-item" onclick="CAL.add('camshaftBushPort')"><span>⚙️</span><strong>Cam Shaft Bush Clearance PORT</strong></button>
-          <button class="palette-item" onclick="CAL.add('camshaftBushStbd')"><span>⚙️</span><strong>Cam Shaft Bush Clearance STBD</strong></button>
-        </div>
-      </div>
-      <div id="cal-tables"></div>
-    </div>
-    <!-- Parts Consumed -->
-    <div class="wcr-section">
-      <div class="wcr-section-label">Parts Consumed List</div>
-      <p class="wcr-section-hint">Paste each column from your spreadsheet into the boxes, finalise each column, then preview as a table. Click Save after previewing.</p>
-      <div id="parts-container"></div>
-    </div>
-    <!-- Photos -->
-    <div class="wcr-section">
-      <div class="wcr-section-label">Photo Gallery</div>
-      <p class="wcr-section-hint">DWR photos (if uploaded) appear here. Add new photos. Title is compulsory for each photo.</p>
-      <button class="add-row-btn" onclick="document.getElementById('photo-input').click()">📷 Add Photos</button>
-      <input type="file" id="photo-input" accept="image/*" multiple style="display:none" onchange="App.onPhotoSelect(event)" />
-      <div id="photos-grid" class="photos-grid"></div>
-    </div>
-    <!-- Sign-off -->
-    <div class="wcr-section">
-      <div class="wcr-section-label">Sign-off</div>
-      <div class="signoff-grid">
-        <div class="signoff-block">
-          <div class="signoff-title">On behalf of Neptunus</div>
-          <div class="wcr-field"><label>Maker Name</label><input id="so-maker" class="form-input" /></div>
-          <div class="wcr-field"><label>Checker Name</label><input id="so-checker" class="form-input" /></div>
-          <div class="wcr-field"><label>Approver Name</label><input id="so-approver" class="form-input" /></div>
-          <div class="wcr-field"><label>Date</label><input id="so-makerdate" type="date" class="form-input" /></div>
-        </div>
-        <div class="signoff-block">
-          <div class="signoff-title">On behalf of Customer</div>
-          <div class="wcr-field"><label>Customer Name</label><input id="so-custname" class="form-input" /></div>
-          <div class="wcr-field"><label>Date</label><input id="so-custdate" type="date" class="form-input" /></div>
-        </div>
-      </div>
-    </div>
-    <div id="signoff-save-footer" style="padding:0 20px 16px;text-align:right"></div>
-    <div class="wcr-bottom-actions">
-      <button class="btn-undo-wcr" onclick="Undo.last()" title="Undo">↩ Undo</button>
-      <button class="btn-save-wcr-large" onclick="App.saveWCRSection()">💾 Save Draft</button>
-      <button class="btn-save-wcr-large" style="background:#1a5c8a;font-weight:700" onclick="App.downloadCurrentDraftPDF()">⬇ Download PDF</button>
-      <button class="btn-back-dash" onclick="App.backToDashboard()">← Dashboard</button>
-    </div>
+    <div id="maint-slot"></div>
+  </div>
+  <div style="margin-top:24px;display:flex;gap:10px">
+    <button class="btn" onclick="App.downloadReport()">⬇ Download Report</button>
+    <button class="btn-ghost" onclick="App.showBase()">← Back to Base Data</button>
   </div>
 </div>
-<!-- ═══ SCREEN 6 — SEMI-FINAL PREVIEW ═══ -->
-<div id="screen-semi-final" class="screen">
-  <header class="app-header">
-    <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">Final Preview</span></div>
-    <div class="app-header-right">
-      <button class="btn-save-wcr" onclick="App.runGrammarCheck()">🔍 Grammar &amp; Spell Check</button>
-      <button class="btn-save-wcr" style="background:var(--green);color:#fff" onclick="App.submitToHOD()">Submit to HOD →</button>
-      <button class="logout-btn" onclick="Screen.show('wcr-builder')">← Back to Builder</button>
-    </div>
-  </header>
-  <div class="sf-body">
-    <div class="sf-main" id="sf-preview-content"></div>
-    <div class="sf-sidebar hidden" id="grammar-sidebar">
-      <div class="grammar-sidebar-header">
-        <span>✏️ Suggestions</span>
-        <button onclick="App.closeGrammarSidebar()">✕</button>
-      </div>
-      <div id="grammar-results"></div>
-    </div>
-  </div>
-</div>
-<!-- ═══ SCREEN 7 — HISTORICAL DRAFTS ═══ -->
-<div id="screen-historical-drafts" class="screen">
-  <header class="app-header">
-    <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">Historical Drafts</span></div>
-    <div class="app-header-right"><button class="logout-btn" onclick="App.goHome()">← Home</button></div>
-  </header>
-  <div class="dashboard-body">
-    <div class="dash-section">
-      <h2 class="dash-heading">Work In Progress (up to 10)</h2>
-      <div id="hist-wip-list"><div class="empty-state">No WIP drafts.</div></div>
-    </div>
-    <div class="dash-section">
-      <h2 class="dash-heading">Downloaded WCRs (up to 5)</h2>
-      <div id="hist-downloaded-list"><div class="empty-state">No downloaded drafts.</div></div>
-    </div>
-  </div>
-</div>
-<div id="toast" class="toast"></div>
-<!-- DWR Insights Modal -->
-<div id="dwr-insights-modal" class="dwr-modal-overlay hidden" onclick="if(event.target===this)App.closeDWRInsights()">
-  <div class="dwr-modal-box">
-    <div class="dwr-modal-header">
-      <span>💡 Insights from DWR</span>
-      <button class="dwr-modal-close" onclick="App.closeDWRInsights()">✕ Close</button>
-    </div>
-    <p class="dwr-modal-sub">Activities extracted from your DWR PDFs. Use these as reference while filling the Maintenance Summary.</p>
-    <div class="dwr-modal-body" id="dwr-insights-body"></div>
-    <div class="dwr-modal-footer">
-      <button class="btn-full" onclick="App.closeDWRInsights()" style="max-width:200px;margin:0 auto">OK — Close Insights</button>
-    </div>
-  </div>
-</div>
-<script src="https://apis.google.com/js/api.js"></script>
-<script src="https://accounts.google.com/gsi/client"></script>
-<script src="assets.js"></script>
-<script src="app.js"></script>
-<script src="niigata-items.js"></script>
-<script src="niigata-maint.js"></script>
-<!-- HOD Dashboard -->
-<div class="screen" id="screen-hod-dashboard">
-  <header class="app-header">
-    <div class="app-header-left"><div class="brand-mark sm">N</div><span class="app-header-title">HOD Review Queue</span></div>
-    <div class="app-header-right"><span class="user-pill" id="hod-user-pill"></span><button class="logout-btn" onclick="App.logout()">Sign Out</button></div>
-  </header>
-  <div class="dashboard-body">
-    <div class="dash-section">
-      <h2 class="dash-heading">WCRs Pending Review</h2>
-      <div id="hod-queue-list"><div class="empty-state">No WCRs pending review.</div></div>
-    </div>
-  </div>
-</div>
-<!-- Review Preview Screen -->
-<div class="screen" id="screen-review-preview">
-  <header class="app-header">
-    <div class="app-header-left">
-      <button class="logout-btn" onclick="App.backFromReview()">← Back</button>
-      <span class="app-header-title" id="rp-project-title">WCR Preview</span>
-    </div>
-    <div class="app-header-right">
-      <span class="rp-mode-badge" id="rp-mode-label" style="font-size:11px;color:var(--amber);padding:4px 10px;border:1px solid var(--amber);border-radius:6px"></span>
-      <div id="hod-controls" class="hidden" style="display:flex;gap:8px">
-        <button class="btn-save-wcr" style="background:#c8371a;color:#fff" onclick="App.hodSendBack()">↩ Send Back with Comments</button>
-        <button class="btn-save-wcr" style="background:#1a7a38;color:#fff" onclick="App.hodApprove()">✓ Approve WCR</button>
-      </div>
-      <div id="engineer-controls" class="hidden">
-        <button class="logout-btn" onclick="App.backFromReview()">← Back to Dashboard</button>
-      </div>
-    </div>
-  </header>
-  <div class="rp-layout">
-    <div class="rp-main">
-      <div id="rp-content"></div>
-    </div>
-    <div class="rp-sidebar">
-      <div class="rp-sidebar-header">
-        <h3>💬 Comments</h3>
-        <span style="font-size:10px;color:var(--amber-dim)" id="rp-comment-hint">HOD feedback appears here</span>
-      </div>
-      <div id="comment-input-box" class="comment-input-box hidden">
-        <div id="comment-input-header" class="comment-input-header">Comment on section</div>
-        <textarea id="comment-textarea" class="form-input" rows="4" placeholder="Type your comment..."></textarea>
-        <div class="comment-input-actions">
-          <button class="btn-primary" onclick="App.saveComment()">Add Comment</button>
-          <button class="btn-secondary" onclick="App.closeCommentBox()">Cancel</button>
-        </div>
-      </div>
-      <div id="rp-comments-sidebar"></div>
-      <div class="engineer-hint-box hidden" id="engineer-hint-box">
-        <p style="font-size:11px;color:var(--amber-dim);margin-bottom:8px">Address HOD comments above, go back and update your WCR, then resubmit.</p>
-      </div>
-    </div>
-  </div>
-</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const NIIGATA_SECTIONS=["Mechanical Overhaul","Electrical / Control System","Troubleshooting & Health Check"];
+const NIIGATA_ITEMS=[
+ {id:"cyl_dismantle",section:"Mechanical Overhaul",name:"Cylinder Heads — Dismounting, dismantling, inspection & cleaning",activities:["All cylinder heads were dismounted from the engine block.","All cylinder heads were further dismantled.","All cylinder heads were inspected.","All cylinder heads were cleaned.","Normal carbon residue was observed on the combustion surface."]},
+ {id:"cyl_dp_hydro",section:"Mechanical Overhaul",name:"Cylinder Heads — Dye penetrant & hydro pressure test",activities:["All cylinder heads' combustion surface area was dye penetrant tested and found ok.","All cylinder heads were hydro pressure tested and found normal."]},
+ {id:"cyl_valves",section:"Mechanical Overhaul",name:"Cylinder Heads — Valve seats, valves, guides & rotators",activities:["All exhaust valve seats were renewed.","All old intake valves were reused.","Intake valve stem diameter was checked.","All exhaust valves were renewed.","Exhaust valve stem diameter was checked.","Both exhaust valve guides of cylinder head No-5 and 1 exhaust valve guide of cylinder head No-2 were renewed on the STBD engine.","All valve guide O-rings were renewed.","All inlet and exhaust valves, retainers and the rotomat were renewed."]},
+ {id:"cyl_rocker",section:"Mechanical Overhaul",name:"Cylinder Heads — Rocker arm",activities:["All rocker arm bushings and shafting were cleaned.","All rocker arm bushings and shafting were checked and found within limits.","All rocker arms were mounted back."]},
+ {id:"cyl_injectors",section:"Mechanical Overhaul",name:"Cylinder Heads — Fuel injection valves",activities:["All fuel injectors were cleaned and inspected and found normal.","All injector body, spindle, spring and O-ring were renewed.","All fuel injectors were leak tested and calibrated at 33 MPa.","Spray and leak were tested.","All fuel injectors were mounted back into cylinder heads with new washer and O-rings and tightened as per OEM recommendations."]},
+ {id:"cyl_final",section:"Mechanical Overhaul",name:"Cylinder Heads — Final cleaning, assembling & mounting",activities:["All cylinder heads were assembled.","All cylinder heads were finally cleaned, assembled and mounted back on the engine block and tightened as per OEM recommendations with new gasket.","All auxiliary pipe lines were assembled and tightened with torque wherever necessary.","Tappet setting of 0.50 mm was carried out for both inlet and exhaust valves."]},
+ {id:"fuel_pumps",section:"Mechanical Overhaul",name:"Fuel Injection Pumps",activities:["All fuel pumps of both engines were dismounted from the engine.","All fuel injection pumps of both engines were overhauled with new plunger-barrel, O-ring, back-up ring, gasket, delivery valves, distributor barrel plunger and deflector.","All fuel injection pumps were mounted back and tightened as per OEM recommendations.","Both engine fuel pump timing was checked and found within limit."]},
+ {id:"air_start_valves",section:"Mechanical Overhaul",name:"Air Starting Valves",activities:["All air starting valves were dismounted.","All air starting valves were dismantled.","All air starting valves were cleaned.","Lapping was done with new valve set.","Valve-seat contact was checked.","Air starting valves were assembled.","Functionality was checked.","All air starting valves were mounted back with new O-ring.","Gaskets were renewed."]},
+ {id:"air_distributor",section:"Mechanical Overhaul",name:"Starting Air Distributor",activities:["Starting air distributor was dismantled.","Starting air distributor was cleaned.","Starting air distributor was visually inspected and found ok.","Starting air distributor was assembled and mounted back."]},
+ {id:"piston_conrod",section:"Mechanical Overhaul",name:"Piston & Connecting Rod Assembly",activities:["Piston con rod assemblies STBD and Port engines were dismounted.","Piston con rod assemblies STBD and Port engines were dismantled.","Piston con rod assemblies STBD and Port engines were cleaned.","Piston con rod assemblies STBD and Port engines were inspected.","Top surface of all remaining pistons were cleaned.","Piston pin diameter was measured, found within limits.","Connecting rod big end bore calibration carried as per procedure. All readings were within limits.","DP test performed on the piston crown of both engines and found ok.","DP test performed on connecting rods of both engines and found ok.","Connecting rod bearings for both STBD and PORT engines are renewed.","Piston rings of both STBD and PORT engines are renewed.","Clearance between piston ring - liner and groove clearances were checked, found within limits.","Connecting rod bolts of all units of both engines were renewed.","Connecting rod bolts were degree-marked and tightened as per OEM recommendation.","Connecting rod bolts were mounted back.","Connecting rod small end bush inner diameter was measured.","Piston pin to bushing clearance was checked.","Connecting rod small end bush was renewed where required."]},
+ {id:"liner",section:"Mechanical Overhaul",name:"Cylinder Liner",activities:["Cylinder liners of both STBD and PORT engines were cleaned.","Cylinder liners of both STBD and PORT engines were inspected.","Honing hatch marks were inspected (honing carried out only where required).","Honing was carried out where required.","Cylinder liner diameter calibration was done. Found within limits, as per OEM."]},
+ {id:"cyl_block",section:"Mechanical Overhaul",name:"Cylinder Block",activities:["Head mounting area was cleaned.","Cooling water port was cleaned.","Cooling water joint pipe and bush rod cover of seating area were cleaned.","O-ring and rubber seal were renewed."]},
+ {id:"camshaft",section:"Mechanical Overhaul",name:"Camshaft",activities:["Camshaft was cleaned.","Camshaft was visually inspected and found ok.","Camcase cover was cleaned.","Camcase cover gaskets were renewed.","Bearing clearance was checked and found ok."]},
+ {id:"valve_gear_roller",section:"Mechanical Overhaul",name:"Valve Gear Roller / Tappet Roller Assemblies",activities:["Valve gear / tappet roller assemblies of all units were dismounted.","Valve gear / tappet roller assemblies of all units were dismantled.","Valve gear / tappet roller assemblies of all units were cleaned.","Tappet roller bushes were replaced where required.","Valve gear / tappet roller assemblies were assembled with new roller and snap rings.","Valve gear / tappet roller assemblies were mounted and torqued as per OEM."]},
+ {id:"crankshaft",section:"Mechanical Overhaul",name:"Crankshaft, Main Bearings & Thrust Bearings",activities:["Main bearings were dismantled.","Main bearings were inspected.","Thrust bearings were removed and inspected.","Thrust bearings were renewed where required.","Main journals were inspected for pitting, scoring or abnormalities.","Crankpins were inspected for pitting, scoring or abnormalities.","Main bearing inner diameter was measured.","Main bearing clearance was checked.","Main journal diameter was calibrated (MJ1-MJ11).","Crankpin diameter was calibrated (CR1-CR9).","Crack test (MPI/DP) was carried out on main journals.","Crankshaft surface condition / fitting marks were inspected.","Crankshaft reconditioning / machining was carried out where required.","Main bearings were renewed (undersized where required).","Main bearing studs were tightened as per OEM (hydraulic 65.0 MPa).","Main bearing side bolts were torqued as per OEM (441 N.m).","Crankshaft was aligned and mounted back."]},
+ {id:"crank_web",section:"Mechanical Overhaul",name:"Crank Web Deflection",activities:["Crank web deflection was measured.","Crank web deflection readings were recorded. All readings were found within limits."]},
+ {id:"turbocharger",section:"Mechanical Overhaul",name:"Turbocharger",activities:["Turbocharger was dismounted from the engine.","Turbocharger was dismantled.","Turbocharger rotor / cartridge was inspected.","Turbocharger gas and air sides were cleaned.","Bearings were inspected.","Bearings were renewed.","Rotor shaft clearance was checked.","Nozzle ring and turbine blades were inspected.","Air filter / silencer was cleaned.","Gaskets and O-rings were renewed.","Turbocharger was assembled.","Turbocharger was mounted back and tightened as per OEM."]},
+ {id:"air_cooler",section:"Mechanical Overhaul",name:"Charge Air / Scavenging Air Cooler",activities:["Charge air cooler was removed.","Charge air cooler air side was cleaned.","Charge air cooler water side was cleaned / chemically cleaned.","Cooler tubes / element were inspected for fouling and leakage.","Cooler was pressure tested.","Gaskets and O-rings were renewed.","Charge air cooler was assembled and mounted back."]},
+ {id:"governor",section:"Mechanical Overhaul",name:"Governor",activities:["Governor was inspected.","Governor oil was checked.","Governor oil was renewed.","Governor linkage and fuel rack connection were checked.","Governor function was tested.","Governor was mounted back and set as per OEM."]},
+ {id:"coupling",section:"Mechanical Overhaul",name:"Flexible / Geislinger Coupling",activities:["Coupling was visually inspected.","Coupling damping element / condition was inspected.","Coupling bolts were checked for tightness.","Coupling alignment was checked.","Coupling was assembled and mounted back as per OEM."]},
+ {id:"gear_train",section:"Mechanical Overhaul",name:"Gear Train / Timing Gears",activities:["Timing gears were inspected for pitting and wear.","Gear teeth contact pattern was checked.","Gear train backlash was measured.","Gear bolts were torqued as per OEM."]},
+ {id:"exhaust_manifold",section:"Mechanical Overhaul",name:"Exhaust Manifold",activities:["Exhaust manifold expansion joints were visually inspected and found normal.","Exhaust manifold gasket area was cleaned.","Exhaust manifold gaskets were renewed."]},
+ {id:"inlet_manifold",section:"Mechanical Overhaul",name:"Inlet Manifold",activities:["Inlet manifold was cleaned.","Inlet manifold was inspected.","Inlet manifold gaskets were renewed."]},
+ {id:"fuel_union",section:"Mechanical Overhaul",name:"Fuel Injection Union",activities:["Fuel injection union and pipe were cleaned.","Fuel injection union and pipe inner surface was inspected and found ok.","O-ring was replaced."]},
+ {id:"crankcase_sump",section:"Mechanical Overhaul",name:"Crankcase & Sump",activities:["Crankcase and oil sump were cleaned.","Crankcase and oil sump were inspected and found ok."]},
+ {id:"holding_bolts",section:"Mechanical Overhaul",name:"Engine Holding-Down / Fixing Bolts",activities:["Engine holding-down / fixing bolts were cleaned.","Engine holding-down / fixing bolts were visually inspected and found ok.","Holding-down bolt tension was checked."]},
+ {id:"overspeed",section:"Mechanical Overhaul",name:"Overspeed Trip",activities:["Overspeed cylinder function was checked and found ok."]},
+ {id:"sea_water_pump",section:"Mechanical Overhaul",name:"Sea Water Pump",activities:["Both engine sea water lines were removed.","Sea water pump casing was removed.","Impeller was visually inspected and found normal.","Casing was visually inspected and found normal.","Water hosing and all pipe lines were fitted back."]},
+ {id:"fresh_water_pump",section:"Mechanical Overhaul",name:"Fresh Water / Jacket Cooling Water Pump",activities:["Fresh water (jacket) cooling pump was removed.","Pump was dismantled and cleaned.","Impeller and casing were inspected.","Mechanical seal / bearings were inspected.","Mechanical seal / bearings were renewed.","Pump was assembled.","Pump was mounted back and pipelines fitted."]},
+ {id:"lube_oil_pump",section:"Mechanical Overhaul",name:"Main Lube Oil Pump",activities:["Port engine oil lines were disconnected.","Gear was removed.","Gear was visually inspected and found normal.","Gear bush was visually inspected and found normal.","Gear and oil lines were fitted back."]},
+ {id:"sea_trial",section:"Mechanical Overhaul",name:"Pre-commissioning & Sea / Load Trial",activities:["Engine was manually turned 3-4 revolutions with indicator cocks open; checked for water/fuel leaks.","Water, fuel and lube oil circulation were checked; no leakages found.","Lube oil priming pump was run and oil flow verified at bearings and rocker arms.","Sea trial was carried out and engine gradually loaded up to 100%.","Load trial parameters were recorded (see Load Trial sheet): RPM, pressures, temperatures, max pressure per cylinder, exhaust temps, fuel rack index.","All parameters were found normal and within limits.","No leakages were observed."]},
+ {id:"ecms",section:"Electrical / Control System",name:"Control System / ECMS Health Check",activities:["ECMS control system was inspected.","PLC modules were checked.","Control cards were inspected.","I/O signals were verified.","Communication status was checked.","Alarm history was reviewed.","Power supply integrity was verified.","Interlocks and protection logic were reviewed.","ECMS software was updated.","Remote access to Neptunus office was established and verified."]},
+ {id:"sensors",section:"Electrical / Control System",name:"Sensors & Instrumentation",activities:["Peak pressure sensor was installed / verified.","Charge air temperature sensor was checked and integrated.","Sea water pressure sensor was checked and integrated.","Speed sensor air gap was set and verified.","TDC sensor wiring was checked / reconfigured.","Sensor signal verification was carried out.","Sensor parameters were confirmed."]},
+ {id:"junction_boxes",section:"Electrical / Control System",name:"Junction Boxes & Wiring",activities:["ZP junction box (Port & Starboard) was inspected.","Clutch junction box (Port & Starboard) was inspected.","CPP junction box (Port & Starboard) was inspected.","Hydraulic system junction box (Port & Starboard) was inspected.","Steering junction box (Port & Starboard) was inspected.","ZP lube oil junction box (Port & Starboard) was inspected.","Engine junction boxes (Port & Starboard) were inspected.","Oil mist detector panels (Port & Starboard) were inspected.","All terminations and power supplies were checked and re-tightened."]},
+ {id:"card_scaling",section:"Electrical / Control System",name:"Control Card Scaling / Parameter Configuration",activities:["Control card parameters were reviewed.","Control card scaling was carried out.","ECMS wiring was corrected as per OEM specification.","Parameter confirmation was carried out.","System integration was verified."]},
+ {id:"fault_log",section:"Troubleshooting & Health Check",name:"Fault Diagnosis / Troubleshooting Log",activities:["Reported symptom was recorded.","Fault was analysed and diagnosed.","Root cause was identified.","Corrective action was carried out.","Result was verified after correction."]},
+ {id:"health_check",section:"Troubleshooting & Health Check",name:"Engine Health Check / Parameter Record",activities:["Compression / peak pressure was recorded for all power packs.","Running parameters were recorded.","Visual condition of components was checked.","Leakages were inspected and recorded.","Gauges and instrument panel condition were checked.","Observations and abnormalities were recorded."]}
+];
+
+const HISTORY=[
+ {sec:"Common — fill for every Niigata job",fields:[
+   {k:"lastOverhaul",label:"Last overhauling type and carried out by",type:"text"},
+   {k:"runHours",label:"Running hours at the time of above maintenance",type:"text"},
+   {k:"observations",label:"Observations recorded prior dismantling",type:"text"},
+   {k:"logLeakages",label:"Log leakages noted / any abnormalities recorded (prior job start)",type:"dd",opts:["","None","Observed (see notes)"]},
+   {k:"bearingConRod",label:"Bearing size — connecting rod journal (Size + Part No.)",type:"text"},
+   {k:"bearingMain",label:"Bearing size — main journal (Size + Part No.)",type:"text"},
+   {k:"turbo",label:"Turbocharger details",type:"sub",subs:[{k:"turboMake",label:"Make & model"},{k:"turboSr",label:"Sr. no."},{k:"turboMaint",label:"Last maintenance details"}]},
+   {k:"gauge",label:"Safety checks & conditions of the gauges on the instrument panel",type:"dd",opts:["","Normal","Abnormal (see notes)","Not checked"]},
+ ]},
+ {sec:"Niigata-specific",fields:[
+   {k:"gov",label:"Governor details",type:"sub",subs:[{k:"govMake",label:"Make & model"},{k:"govSr",label:"Sr. no."}]},
+   {k:"coup",label:"Flexible / Geislinger coupling details",type:"sub",subs:[{k:"coupSr",label:"Sr. no."},{k:"coupDr",label:"Drawing (Dr.) no."}]},
+ ]},
+];
+
+function buildTable(item){return {id:"t_"+item.id+"_"+Date.now()+Math.floor(Math.random()*999),itemId:item.id,name:item.name,rows:item.activities.map(a=>({activity:a,inScope:"",status:"",calibration:"",replaced:"",comment:""})),note:"",critical:"",action:""};}
+function buildCustom(){return {id:"t_custom_"+Date.now(),itemId:null,custom:true,name:"",rows:[{activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:""}],note:"",critical:"",action:""};}
+const E=s=>(s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+let State={base:{},cover:null,history:{},tables:[],processed:false};
+function save(){try{localStorage.setItem("npps_niigata_wcr",JSON.stringify(State));}catch(e){}}
+function load(){try{const s=localStorage.getItem("npps_niigata_wcr");if(s)State=JSON.parse(s);}catch(e){}}
+
+const App={
+  init(){load();
+    if(State.base&&State.base.code){["code","customer","contract","vessel","start","end","overhaul","engine","serial","arr","rpm","hours","custic","leader","members"].forEach(k=>{const el=document.getElementById("bd-"+k);if(el&&State.base[k]!=null)el.value=State.base[k];});}
+    App.renderHistory();App.renderCover();
+  },
+  newReport(){if(!confirm("Start a new report? Current data will be cleared."))return;State={base:{},cover:null,history:{},tables:[],processed:false};save();location.reload();},
+  showBase(){document.getElementById("screen-wcr").classList.add("hidden");document.getElementById("screen-base").classList.remove("hidden");},
+  startWCR(){
+    const code=document.getElementById("bd-code").value.trim();
+    if(!code){toast("Enter a project code");return;}
+    State.base={};["code","customer","contract","vessel","start","end","overhaul","engine","serial","arr","rpm","hours","custic","leader","members"].forEach(k=>{const el=document.getElementById("bd-"+k);State.base[k]=el?el.value:"";});
+    save();
+    document.getElementById("hdr-project").textContent=code+(State.base.customer?" · "+State.base.customer:"");
+    document.getElementById("screen-base").classList.add("hidden");
+    document.getElementById("screen-wcr").classList.remove("hidden");
+    App.renderHistory();App.renderCover();App.renderMaint();App.renderGenerated();
+    window.scrollTo(0,0);
+  },
+  onCover(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{State.cover=r.result;save();App.renderCover();};r.readAsDataURL(f);},
+  renderCover(){const s=document.getElementById("cover-slot");if(!s)return;
+    s.innerHTML=State.cover?`<img src="${State.cover}" class="cover-img"/><div style="margin-top:8px"><button class="btn-ghost btn-sm" onclick="App.clearCover()">✕ Remove</button></div>`:`<div class="cover-drop" onclick="document.getElementById('cover-input').click()"><div><strong>Upload site / engine photo</strong><br><span style="font-size:12px">click to choose</span></div></div>`;
+  },
+  clearCover(){State.cover=null;save();App.renderCover();},
+  renderHistory(){
+    const c=document.getElementById("history-card");if(!c)return;let h="";
+    HISTORY.forEach(block=>{h+=`<div class="pick-sec">${E(block.sec)}</div>`;
+      block.fields.forEach(f=>{
+        if(f.type==="sub"){h+=`<div class="subblock"><div class="ttl">${E(f.label)}</div><div class="grid2">`;
+          f.subs.forEach(su=>{h+=`<div class="fg"><label class="f">${E(su.label)}</label><input value="${E(State.history[su.k]||'')}" oninput="App.hset('${su.k}',this.value)"/></div>`;});
+          h+=`</div></div>`;}
+        else if(f.type==="dd"){h+=`<div class="fg"><label class="f">${E(f.label)}</label><select class="dd" onchange="App.hset('${f.k}',this.value)">${f.opts.map(o=>`<option${State.history[f.k]===o?' selected':''}>${E(o)}</option>`).join("")}</select></div>`;}
+        else{h+=`<div class="fg"><label class="f">${E(f.label)}</label><input value="${E(State.history[f.k]||'')}" oninput="App.hset('${f.k}',this.value)"/></div>`;}
+      });});
+    c.innerHTML=h;
+  },
+  hset(k,v){State.history[k]=v;save();},
+  renderMaint(){
+    const s=document.getElementById("maint-slot");if(!s)return;
+    if(!State.tables.length){s.innerHTML=`<div class="empty">No items selected yet. Click <strong>“Select items worked on”</strong> above and tick the components — only those tables appear here.</div>`;return;}
+    s.innerHTML=State.tables.map((t,ti)=>App.tableHTML(t,ti)).join("");
+  },
+  tableHTML(t,ti){
+    const scopeO=["","Yes","No"],statO=["","Done","Partially Done","Not Done"],calO=["","Yes","No"],replO=["","Replaced","Reused","Reused, Good condition","N/A"];
+    const sel=(o,v,h)=>`<select onchange="${h}">${o.map(x=>`<option value="${E(x)}"${x===v?' selected':''}>${E(x||'—')}</option>`).join("")}</select>`;
+    const rows=t.rows.map((r,ri)=>`<tr>
+      <td><input value="${E(r.activity)}" placeholder="Activity…" oninput="App.rset(${ti},${ri},'activity',this.value)"/></td>
+      <td>${sel(scopeO,r.inScope,`App.rset(${ti},${ri},'inScope',this.value)`)}</td>
+      <td>${sel(statO,r.status,`App.rset(${ti},${ri},'status',this.value)`)}</td>
+      <td>${sel(calO,r.calibration,`App.rset(${ti},${ri},'calibration',this.value)`)}</td>
+      <td>${sel(replO,r.replaced,`App.rset(${ti},${ri},'replaced',this.value)`)}</td>
+      <td><input value="${E(r.comment)}" placeholder="Comment…" oninput="App.rset(${ti},${ri},'comment',this.value)"/></td>
+      <td style="text-align:center"><button class="btn-danger" onclick="App.delRow(${ti},${ri})">✕</button></td>
+    </tr>`).join("");
+    return `<div class="mtbl">
+      <div class="mtbl-h"><input class="name" value="${E(t.name)}" placeholder="Name of Item…" oninput="App.tset(${ti},'name',this.value)"/><button class="btn-danger" onclick="App.delTable(${ti})">🗑 Remove</button></div>
+      <div class="mscroll"><table class="mg"><thead><tr>
+        <th style="min-width:220px">List of Activities</th><th style="width:80px">In Scope</th><th style="width:120px">Status</th><th style="width:90px">Calibration</th><th style="width:150px">Replaced/Reused</th><th style="min-width:120px">Comment</th><th style="width:34px"></th>
+      </tr></thead><tbody>${rows}</tbody></table></div>
+      <button class="btn-ghost btn-sm" style="margin-top:8px" onclick="App.addRow(${ti})">+ Add Row</button>
+      <div class="notes">
+        <div class="nr"><label>Specific note or additional info about this item</label><textarea oninput="App.tset(${ti},'note',this.value)">${E(t.note)}</textarea></div>
+        <div class="nr crit"><label>⚠ Critical finding or non-conformity</label><textarea oninput="App.tset(${ti},'critical',this.value)">${E(t.critical)}</textarea></div>
+        <div class="nr"><label>Action step or recommendation for this item</label><textarea oninput="App.tset(${ti},'action',this.value)">${E(t.action)}</textarea></div>
+      </div></div>`;
+  },
+  rset(ti,ri,f,v){State.tables[ti].rows[ri][f]=v;save();},
+  tset(ti,f,v){State.tables[ti][f]=v;save();},
+  addRow(ti){State.tables[ti].rows.push({activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:""});save();App.renderMaint();},
+  delRow(ti,ri){if(State.tables[ti].rows.length<=1){toast("At least one row required");return;}State.tables[ti].rows.splice(ri,1);save();App.renderMaint();},
+  delTable(ti){if(!confirm("Remove this table?"))return;State.tables.splice(ti,1);save();App.renderMaint();if(State.processed)App.renderGenerated();},
+  addCustom(){State.tables.push(buildCustom());save();App.renderMaint();},
+  openPicker(){
+    const used=new Set(State.tables.map(t=>t.itemId).filter(Boolean));let body="";
+    NIIGATA_SECTIONS.forEach(sec=>{const items=NIIGATA_ITEMS.filter(i=>i.section===sec);if(!items.length)return;
+      body+=`<div class="pick-sec">${E(sec)}</div>`;
+      items.forEach(it=>{const a=used.has(it.id);
+        body+=`<label class="pick-row ${a?'disabled':''}"><input type="checkbox" data-id="${it.id}" ${a?'checked disabled':''}/><span>${E(it.name)}${a?' <em style="font-size:11px;color:#8aa">— added</em>':''}</span></label>`;});});
+    const m=document.createElement("div");m.className="modal-bg";m.id="picker";
+    m.innerHTML=`<div class="modal"><div class="mh"><strong>Select items worked on</strong><span class="spacer"></span><button class="btn-danger" onclick="App.closePicker()">✕</button></div><div class="mb">${body}</div><div class="mf"><button class="btn-ghost btn-sm" onclick="App.closePicker()">Cancel</button><button class="btn" onclick="App.confirmPicker()">Add selected tables</button></div></div>`;
+    document.body.appendChild(m);
+  },
+  closePicker(){const m=document.getElementById("picker");if(m)m.remove();},
+  confirmPicker(){
+    const m=document.getElementById("picker");if(!m)return;
+    const picks=[...m.querySelectorAll("input[type=checkbox]:checked:not(:disabled)")].map(c=>c.dataset.id);
+    picks.forEach(id=>{const it=NIIGATA_ITEMS.find(i=>i.id===id);if(it)State.tables.push(buildTable(it));});
+    save();App.closePicker();App.renderMaint();if(picks.length)toast(picks.length+" table(s) added");
+  },
+  process(){State.processed=true;save();App.renderGenerated();toast("Scope & Executive Summary updated");const es=document.getElementById("exec-slot");if(es&&es.innerHTML)es.scrollIntoView({behavior:"smooth",block:"center"});},
+  renderGenerated(){
+    const scope=[];State.tables.forEach(t=>{const rows=t.rows.filter(r=>(r.inScope||"").toLowerCase()==="yes"&&(r.activity||"").trim());if(rows.length)scope.push({name:t.name||"(unnamed)",acts:rows.map(r=>r.activity)});});
+    const exec=State.tables.filter(t=>(t.critical||"").trim()).map(t=>({name:t.name,crit:t.critical.trim(),act:(t.action||"").trim()}));
+    const es=document.getElementById("exec-slot");
+    if(State.processed&&exec.length){es.innerHTML=`<h2 class="sec" style="color:var(--amber)">⚡ Executive Summary</h2><div class="gen exec"><h3>Critical findings &amp; actions</h3><ul>${exec.map(f=>{let l=`<strong>${E(f.name)}:</strong> ${E(f.crit)}`;if(f.act)l+=` <em style="color:#cfd">— Action: ${E(f.act)}</em>`;return`<li>${l}</li>`;}).join("")}</ul></div>`;}
+    else if(State.processed){es.innerHTML=`<h2 class="sec" style="color:var(--amber)">⚡ Executive Summary</h2><div class="gen"><span style="color:var(--muted)">No critical findings recorded. Add a “Critical finding” to any item and press Process.</span></div>`;}
+    else es.innerHTML="";
+    const ss=document.getElementById("scope-slot");
+    if(State.processed&&scope.length){ss.innerHTML=`<h2 class="sec">Scope of Work</h2><div class="gen"><h3>Auto-generated from “In Scope = Yes”</h3>${scope.map(s=>`<div class="item"><strong>${E(s.name)}</strong><ul>${s.acts.map(a=>`<li>${E(a)}</li>`).join("")}</ul></div>`).join("")}</div>`;}
+    else if(State.processed){ss.innerHTML=`<h2 class="sec">Scope of Work</h2><div class="gen"><span style="color:var(--muted)">Mark activities as “In Scope = Yes”, then press Process.</span></div>`;}
+    else ss.innerHTML="";
+  },
+  downloadReport(){
+    App.process();const b=State.base;
+    const scope=[];State.tables.forEach(t=>{const rows=t.rows.filter(r=>(r.inScope||"").toLowerCase()==="yes"&&(r.activity||"").trim());if(rows.length)scope.push({name:t.name,acts:rows.map(r=>r.activity)});});
+    const exec=State.tables.filter(t=>(t.critical||"").trim()).map(t=>({name:t.name,crit:t.critical.trim(),act:(t.action||"").trim()}));
+    let html=`<html><head><title>WCR ${E(b.code)}</title><style>body{font-family:Arial,sans-serif;color:#111;font-size:12px;margin:32px}h1{font-size:18px;text-align:center;border-bottom:2px solid #159aa8;padding-bottom:8px}h2{font-size:14px;color:#0d7a86;border-bottom:1px solid #ccc;margin-top:22px}table{border-collapse:collapse;width:100%;font-size:11px;margin:6px 0}th,td{border:1px solid #999;padding:5px;text-align:left}th{background:#eef4f5}.kv{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}.kv div{padding:3px 0;border-bottom:1px solid #eee}.exec{background:#fff7e8;border:1px solid #e8a020;border-radius:6px;padding:10px}ul{margin:4px 0 4px 18px}</style></head><body>
+    <h1>Work Completion Report</h1>
+    <h2>Project Details</h2><div class="kv">${[["Project Code",b.code],["Customer",b.customer],["Contract No.",b.contract],["Vessel/Rig",b.vessel],["Start Date",b.start],["Handing Over",b.end],["Overhaul Type",b.overhaul],["Engine",b.engine],["Serial",b.serial],["Arrangement",b.arr],["RPM & Capacity",b.rpm],["Running Hours",b.hours],["Customer In-Charge",b.custic],["Team Leader",b.leader],["Members",b.members]].map(([k,v])=>`<div><strong>${E(k)}:</strong> ${E(v||"—")}</div>`).join("")}</div>`;
+    if(exec.length)html+=`<h2>⚡ Executive Summary</h2><div class="exec"><ul>${exec.map(f=>`<li><strong>${E(f.name)}:</strong> ${E(f.crit)}${f.act?` — <em>Action: ${E(f.act)}</em>`:""}</li>`).join("")}</ul></div>`;
+    html+=`<h2>History</h2><table>`;HISTORY.forEach(bl=>bl.fields.forEach(f=>{if(f.type==="sub")f.subs.forEach(su=>{if(State.history[su.k])html+=`<tr><td>${E(f.label)} — ${E(su.label)}</td><td>${E(State.history[su.k])}</td></tr>`;});else if(State.history[f.k])html+=`<tr><td>${E(f.label)}</td><td>${E(State.history[f.k])}</td></tr>`;}));html+=`</table>`;
+    if(scope.length)html+=`<h2>Scope of Work</h2>${scope.map(s=>`<p><strong>${E(s.name)}</strong></p><ul>${s.acts.map(a=>`<li>${E(a)}</li>`).join("")}</ul>`).join("")}`;
+    html+=`<h2>Maintenance Summary</h2>`;
+    State.tables.forEach(t=>{html+=`<p><strong>${E(t.name||"—")}</strong></p><table><tr><th>Activity</th><th>In Scope</th><th>Status</th><th>Calibration</th><th>Replaced</th><th>Comment</th></tr>`;t.rows.forEach(r=>html+=`<tr><td>${E(r.activity)}</td><td>${E(r.inScope)}</td><td>${E(r.status)}</td><td>${E(r.calibration)}</td><td>${E(r.replaced)}</td><td>${E(r.comment)}</td></tr>`);html+=`</table>`;if(t.note)html+=`<p>📝 ${E(t.note)}</p>`;if(t.critical)html+=`<p style="color:#c00">⚠ Critical: ${E(t.critical)}</p>`;if(t.action)html+=`<p>→ Action: ${E(t.action)}</p>`;});
+    html+=`</body></html>`;
+    const w=window.open("","_blank");w.document.write(html);w.document.close();setTimeout(()=>w.print(),400);
+  }
+};
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove("show"),2400);}
+App.init();
+</script>
 </body>
 </html>
