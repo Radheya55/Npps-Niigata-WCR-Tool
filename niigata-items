@@ -1,0 +1,298 @@
+// ═══════════════════════════════════════════════════════════════
+// NPPS WCR — NIIGATA ITEM LIBRARY  (clean master, deduplicated)
+// Seeds: item-selection checklist, maintenance tables, scope, exec summary.
+// Row schema matches the existing tool: {activity, inScope, status, calibration, replaced, comment}
+// ═══════════════════════════════════════════════════════════════
+const NIIGATA_SECTIONS = ["Mechanical Overhaul", "Electrical / Control System", "Troubleshooting & Health Check"];
+
+const NIIGATA_ITEMS = [
+  // ── Mechanical Overhaul ──────────────────────────────────────
+  { id:"cyl_dismantle", section:"Mechanical Overhaul", name:"Cylinder Heads — Dismounting, dismantling, inspection & cleaning", activities:[
+    "All cylinder heads were dismounted from the engine block.",
+    "All cylinder heads were further dismantled.",
+    "All cylinder heads were inspected.",
+    "All cylinder heads were cleaned.",
+    "Normal carbon residue was observed on the combustion surface." ]},
+  { id:"cyl_dp_hydro", section:"Mechanical Overhaul", name:"Cylinder Heads — Dye penetrant & hydro pressure test", activities:[
+    "All cylinder heads' combustion surface area was dye penetrant tested and found ok.",
+    "All cylinder heads were hydro pressure tested and found normal." ]},
+  { id:"cyl_valves", section:"Mechanical Overhaul", name:"Cylinder Heads — Valve seats, valves, guides & rotators", activities:[
+    "All exhaust valve seats were renewed.",
+    "All old intake valves were reused.",
+    "Intake valve stem diameter was checked.",
+    "All exhaust valves were renewed.",
+    "Exhaust valve stem diameter was checked.",
+    "Both exhaust valve guides of cylinder head No-5 and 1 exhaust valve guide of cylinder head No-2 were renewed on the STBD engine.",
+    "All valve guide O-rings were renewed.",
+    "All inlet and exhaust valves, retainers and the rotomat were renewed." ]},
+  { id:"cyl_rocker", section:"Mechanical Overhaul", name:"Cylinder Heads — Rocker arm", activities:[
+    "All rocker arm bushings and shafting were cleaned.",
+    "All rocker arm bushings and shafting were checked and found within limits.",
+    "All rocker arms were mounted back." ]},
+  { id:"cyl_injectors", section:"Mechanical Overhaul", name:"Cylinder Heads — Fuel injection valves", activities:[
+    "All fuel injectors were cleaned and inspected and found normal.",
+    "All injector body, spindle, spring and O-ring were renewed.",
+    "All fuel injectors were leak tested and calibrated at 33 MPa.",
+    "Spray and leak were tested.",
+    "All fuel injectors were mounted back into cylinder heads with new washer and O-rings and tightened as per OEM recommendations." ]},
+  { id:"cyl_final", section:"Mechanical Overhaul", name:"Cylinder Heads — Final cleaning, assembling & mounting", activities:[
+    "All cylinder heads were assembled.",
+    "All cylinder heads were finally cleaned, assembled and mounted back on the engine block and tightened as per OEM recommendations with new gasket.",
+    "All auxiliary pipe lines were assembled and tightened with torque wherever necessary.",
+    "Tappet setting of 0.50 mm was carried out for both inlet and exhaust valves." ]},
+  { id:"fuel_pumps", section:"Mechanical Overhaul", name:"Fuel Injection Pumps", activities:[
+    "All fuel pumps of both engines were dismounted from the engine.",
+    "All fuel injection pumps of both engines were overhauled with new plunger-barrel, O-ring, back-up ring, gasket, delivery valves, distributor barrel plunger and deflector.",
+    "All fuel injection pumps were mounted back and tightened as per OEM recommendations.",
+    "Both engine fuel pump timing was checked and found within limit." ]},
+  { id:"air_start_valves", section:"Mechanical Overhaul", name:"Air Starting Valves", activities:[
+    "All air starting valves were dismounted.",
+    "All air starting valves were dismantled.",
+    "All air starting valves were cleaned.",
+    "Lapping was done with new valve set.",
+    "Valve-seat contact was checked.",
+    "Air starting valves were assembled.",
+    "Functionality was checked.",
+    "All air starting valves were mounted back with new O-ring.",
+    "Gaskets were renewed." ]},
+  { id:"air_distributor", section:"Mechanical Overhaul", name:"Starting Air Distributor", activities:[
+    "Starting air distributor was dismantled.",
+    "Starting air distributor was cleaned.",
+    "Starting air distributor was visually inspected and found ok.",
+    "Starting air distributor was assembled and mounted back." ]},
+  { id:"piston_conrod", section:"Mechanical Overhaul", name:"Piston & Connecting Rod Assembly", activities:[
+    "Piston con rod assemblies STBD and Port engines were dismounted.",
+    "Piston con rod assemblies STBD and Port engines were dismantled.",
+    "Piston con rod assemblies STBD and Port engines were cleaned.",
+    "Piston con rod assemblies STBD and Port engines were inspected.",
+    "Top surface of all remaining pistons were cleaned.",
+    "Piston pin diameter was measured, found within limits.",
+    "Connecting rod big end bore calibration carried as per procedure. All readings were within limits.",
+    "DP test performed on the piston crown of both engines and found ok.",
+    "DP test performed on connecting rods of both engines and found ok.",
+    "Connecting rod bearings for both STBD and PORT engines are renewed.",
+    "Piston rings of both STBD and PORT engines are renewed.",
+    "Clearance between piston ring - liner and groove clearances were checked, found within limits.",
+    "Connecting rod bolts of all units of both engines were renewed.",
+    "Connecting rod bolts were degree-marked and tightened as per OEM recommendation.",
+    "Connecting rod bolts were mounted back.",
+    "Connecting rod small end bush inner diameter was measured.",
+    "Piston pin to bushing clearance was checked.",
+    "Connecting rod small end bush was renewed where required." ]},
+  { id:"liner", section:"Mechanical Overhaul", name:"Cylinder Liner", activities:[
+    "Cylinder liners of both STBD and PORT engines were cleaned.",
+    "Cylinder liners of both STBD and PORT engines were inspected.",
+    "Honing hatch marks were inspected (honing carried out only where required).",
+    "Honing was carried out where required.",
+    "Cylinder liner diameter calibration was done. Found within limits, as per OEM." ]},
+  { id:"cyl_block", section:"Mechanical Overhaul", name:"Cylinder Block", activities:[
+    "Head mounting area was cleaned.",
+    "Cooling water port was cleaned.",
+    "Cooling water joint pipe and bush rod cover of seating area were cleaned.",
+    "O-ring and rubber seal were renewed." ]},
+  { id:"camshaft", section:"Mechanical Overhaul", name:"Camshaft", activities:[
+    "Camshaft was cleaned.",
+    "Camshaft was visually inspected and found ok.",
+    "Camcase cover was cleaned.",
+    "Camcase cover gaskets were renewed.",
+    "Bearing clearance was checked and found ok." ]},
+  { id:"valve_gear_roller", section:"Mechanical Overhaul", name:"Valve Gear Roller / Tappet Roller Assemblies", activities:[
+    "Valve gear / tappet roller assemblies of all units were dismounted.",
+    "Valve gear / tappet roller assemblies of all units were dismantled.",
+    "Valve gear / tappet roller assemblies of all units were cleaned.",
+    "Tappet roller bushes were replaced where required.",
+    "Valve gear / tappet roller assemblies were assembled with new roller and snap rings.",
+    "Valve gear / tappet roller assemblies were mounted and torqued as per OEM." ]},
+  { id:"crankshaft", section:"Mechanical Overhaul", name:"Crankshaft, Main Bearings & Thrust Bearings", activities:[
+    "Main bearings were dismantled.",
+    "Main bearings were inspected.",
+    "Thrust bearings were removed and inspected.",
+    "Thrust bearings were renewed where required.",
+    "Main journals were inspected for pitting, scoring or abnormalities.",
+    "Crankpins were inspected for pitting, scoring or abnormalities.",
+    "Main bearing inner diameter was measured.",
+    "Main bearing clearance was checked.",
+    "Main journal diameter was calibrated (MJ1-MJ11).",
+    "Crankpin diameter was calibrated (CR1-CR9).",
+    "Crack test (MPI/DP) was carried out on main journals.",
+    "Crankshaft surface condition / fitting marks were inspected.",
+    "Crankshaft reconditioning / machining was carried out where required.",
+    "Main bearings were renewed (undersized where required).",
+    "Main bearing studs were tightened as per OEM (hydraulic 65.0 MPa).",
+    "Main bearing side bolts were torqued as per OEM (441 N.m).",
+    "Crankshaft was aligned and mounted back." ]},
+  { id:"crank_web", section:"Mechanical Overhaul", name:"Crank Web Deflection", activities:[
+    "Crank web deflection was measured.",
+    "Crank web deflection readings were recorded. All readings were found within limits." ]},
+  { id:"turbocharger", section:"Mechanical Overhaul", name:"Turbocharger", activities:[
+    "Turbocharger was dismounted from the engine.",
+    "Turbocharger was dismantled.",
+    "Turbocharger rotor / cartridge was inspected.",
+    "Turbocharger gas and air sides were cleaned.",
+    "Bearings were inspected.",
+    "Bearings were renewed.",
+    "Rotor shaft clearance was checked.",
+    "Nozzle ring and turbine blades were inspected.",
+    "Air filter / silencer was cleaned.",
+    "Gaskets and O-rings were renewed.",
+    "Turbocharger was assembled.",
+    "Turbocharger was mounted back and tightened as per OEM." ]},
+  { id:"air_cooler", section:"Mechanical Overhaul", name:"Charge Air / Scavenging Air Cooler", activities:[
+    "Charge air cooler was removed.",
+    "Charge air cooler air side was cleaned.",
+    "Charge air cooler water side was cleaned / chemically cleaned.",
+    "Cooler tubes / element were inspected for fouling and leakage.",
+    "Cooler was pressure tested.",
+    "Gaskets and O-rings were renewed.",
+    "Charge air cooler was assembled and mounted back." ]},
+  { id:"governor", section:"Mechanical Overhaul", name:"Governor", activities:[
+    "Governor was inspected.",
+    "Governor oil was checked.",
+    "Governor oil was renewed.",
+    "Governor linkage and fuel rack connection were checked.",
+    "Governor function was tested.",
+    "Governor was mounted back and set as per OEM." ]},
+  { id:"coupling", section:"Mechanical Overhaul", name:"Flexible / Geislinger Coupling", activities:[
+    "Coupling was visually inspected.",
+    "Coupling damping element / condition was inspected.",
+    "Coupling bolts were checked for tightness.",
+    "Coupling alignment was checked.",
+    "Coupling was assembled and mounted back as per OEM." ]},
+  { id:"gear_train", section:"Mechanical Overhaul", name:"Gear Train / Timing Gears", activities:[
+    "Timing gears were inspected for pitting and wear.",
+    "Gear teeth contact pattern was checked.",
+    "Gear train backlash was measured.",
+    "Gear bolts were torqued as per OEM." ]},
+  { id:"exhaust_manifold", section:"Mechanical Overhaul", name:"Exhaust Manifold", activities:[
+    "Exhaust manifold expansion joints were visually inspected and found normal.",
+    "Exhaust manifold gasket area was cleaned.",
+    "Exhaust manifold gaskets were renewed." ]},
+  { id:"inlet_manifold", section:"Mechanical Overhaul", name:"Inlet Manifold", activities:[
+    "Inlet manifold was cleaned.",
+    "Inlet manifold was inspected.",
+    "Inlet manifold gaskets were renewed." ]},
+  { id:"fuel_union", section:"Mechanical Overhaul", name:"Fuel Injection Union", activities:[
+    "Fuel injection union and pipe were cleaned.",
+    "Fuel injection union and pipe inner surface was inspected and found ok.",
+    "O-ring was replaced." ]},
+  { id:"crankcase_sump", section:"Mechanical Overhaul", name:"Crankcase & Sump", activities:[
+    "Crankcase and oil sump were cleaned.",
+    "Crankcase and oil sump were inspected and found ok." ]},
+  { id:"holding_bolts", section:"Mechanical Overhaul", name:"Engine Holding-Down / Fixing Bolts", activities:[
+    "Engine holding-down / fixing bolts were cleaned.",
+    "Engine holding-down / fixing bolts were visually inspected and found ok.",
+    "Holding-down bolt tension was checked." ]},
+  { id:"overspeed", section:"Mechanical Overhaul", name:"Overspeed Trip", activities:[
+    "Overspeed cylinder function was checked and found ok." ]},
+  { id:"sea_water_pump", section:"Mechanical Overhaul", name:"Sea Water Pump", activities:[
+    "Both engine sea water lines were removed.",
+    "Sea water pump casing was removed.",
+    "Impeller was visually inspected and found normal.",
+    "Casing was visually inspected and found normal.",
+    "Water hosing and all pipe lines were fitted back." ]},
+  { id:"fresh_water_pump", section:"Mechanical Overhaul", name:"Fresh Water / Jacket Cooling Water Pump", activities:[
+    "Fresh water (jacket) cooling pump was removed.",
+    "Pump was dismantled and cleaned.",
+    "Impeller and casing were inspected.",
+    "Mechanical seal / bearings were inspected.",
+    "Mechanical seal / bearings were renewed.",
+    "Pump was assembled.",
+    "Pump was mounted back and pipelines fitted." ]},
+  { id:"lube_oil_pump", section:"Mechanical Overhaul", name:"Main Lube Oil Pump", activities:[
+    "Port engine oil lines were disconnected.",
+    "Gear was removed.",
+    "Gear was visually inspected and found normal.",
+    "Gear bush was visually inspected and found normal.",
+    "Gear and oil lines were fitted back." ]},
+  { id:"sea_trial", section:"Mechanical Overhaul", name:"Pre-commissioning & Sea / Load Trial", activities:[
+    "Engine was manually turned 3-4 revolutions with indicator cocks open; checked for water/fuel leaks.",
+    "Water, fuel and lube oil circulation were checked; no leakages found.",
+    "Lube oil priming pump was run and oil flow verified at bearings and rocker arms.",
+    "Sea trial was carried out and engine gradually loaded up to 100%.",
+    "Load trial parameters were recorded (see Load Trial sheet): RPM, pressures, temperatures, max pressure per cylinder, exhaust temps, fuel rack index.",
+    "All parameters were found normal and within limits.",
+    "No leakages were observed." ]},
+
+  // ── Electrical / Control System ──────────────────────────────
+  { id:"ecms", section:"Electrical / Control System", name:"Control System / ECMS Health Check", activities:[
+    "ECMS control system was inspected.",
+    "PLC modules were checked.",
+    "Control cards were inspected.",
+    "I/O signals were verified.",
+    "Communication status was checked.",
+    "Alarm history was reviewed.",
+    "Power supply integrity was verified.",
+    "Interlocks and protection logic were reviewed.",
+    "ECMS software was updated.",
+    "Remote access to Neptunus office was established and verified." ]},
+  { id:"sensors", section:"Electrical / Control System", name:"Sensors & Instrumentation", activities:[
+    "Peak pressure sensor was installed / verified.",
+    "Charge air temperature sensor was checked and integrated.",
+    "Sea water pressure sensor was checked and integrated.",
+    "Speed sensor air gap was set and verified.",
+    "TDC sensor wiring was checked / reconfigured.",
+    "Sensor signal verification was carried out.",
+    "Sensor parameters were confirmed." ]},
+  { id:"junction_boxes", section:"Electrical / Control System", name:"Junction Boxes & Wiring", activities:[
+    "ZP junction box (Port & Starboard) was inspected.",
+    "Clutch junction box (Port & Starboard) was inspected.",
+    "CPP junction box (Port & Starboard) was inspected.",
+    "Hydraulic system junction box (Port & Starboard) was inspected.",
+    "Steering junction box (Port & Starboard) was inspected.",
+    "ZP lube oil junction box (Port & Starboard) was inspected.",
+    "Engine junction boxes (Port & Starboard) were inspected.",
+    "Oil mist detector panels (Port & Starboard) were inspected.",
+    "All terminations and power supplies were checked and re-tightened." ]},
+  { id:"card_scaling", section:"Electrical / Control System", name:"Control Card Scaling / Parameter Configuration", activities:[
+    "Control card parameters were reviewed.",
+    "Control card scaling was carried out.",
+    "ECMS wiring was corrected as per OEM specification.",
+    "Parameter confirmation was carried out.",
+    "System integration was verified." ]},
+
+  // ── Troubleshooting & Health Check ───────────────────────────
+  { id:"fault_log", section:"Troubleshooting & Health Check", name:"Fault Diagnosis / Troubleshooting Log", activities:[
+    "Reported symptom was recorded.",
+    "Fault was analysed and diagnosed.",
+    "Root cause was identified.",
+    "Corrective action was carried out.",
+    "Result was verified after correction." ]},
+  { id:"health_check", section:"Troubleshooting & Health Check", name:"Engine Health Check / Parameter Record", activities:[
+    "Compression / peak pressure was recorded for all power packs.",
+    "Running parameters were recorded.",
+    "Visual condition of components was checked.",
+    "Leakages were inspected and recorded.",
+    "Gauges and instrument panel condition were checked.",
+    "Observations and abnormalities were recorded." ]}
+];
+
+// Build a blank maintenance table from a library item (matches existing tool row schema)
+function buildMaintTableFromItem(item) {
+  return {
+    id: "tbl_" + item.id + "_" + Date.now(),
+    itemId: item.id,
+    nameOfItem: item.name,
+    rows: item.activities.map(a => ({
+      activity: a, inScope: "", status: "", calibration: "", replaced: "", comment: ""
+    })),
+    specificNote: "",
+    criticalFinding: "",
+    actionStep: ""
+  };
+}
+
+// Blank CUSTOM table (the escape hatch — user types their own name + rows)
+function buildCustomMaintTable() {
+  return {
+    id: "tbl_custom_" + Date.now(),
+    itemId: null,
+    custom: true,
+    nameOfItem: "",
+    rows: [{ activity:"", inScope:"", status:"", calibration:"", replaced:"", comment:"" }],
+    specificNote: "",
+    criticalFinding: "",
+    actionStep: ""
+  };
+}
+
+if (typeof module !== "undefined") module.exports = { NIIGATA_ITEMS, NIIGATA_SECTIONS, buildMaintTableFromItem, buildCustomMaintTable };
