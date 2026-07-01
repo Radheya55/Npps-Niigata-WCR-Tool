@@ -1,0 +1,183 @@
+// ═══════════════════════════════════════════════════════════════
+// NPPS WCR — NIIGATA MAINTENANCE ENGINE  (drop-in patch)
+// Load AFTER niigata-items.js and AFTER app.js.
+// Turns the "blank table" maintenance summary into:
+//   select items worked on → only those tables appear (pre-filled)
+//   → add/delete rows (existing) → add custom table
+//   → Process → deterministic Scope + compressed Exec Summary
+// Reuses existing App._renderMaintTable / addMaintRow / deleteMaintRow /
+// updateMaintRow / updateMaintTableField / deleteMaintTable (schema matches).
+// ═══════════════════════════════════════════════════════════════
+(function () {
+  if (typeof App === "undefined") { console.error("[niigata-maint] App not found — load after app.js"); return; }
+  if (typeof NIIGATA_ITEMS === "undefined") { console.error("[niigata-maint] NIIGATA_ITEMS not found — load niigata-items.js first"); return; }
+
+  const E = (s) => (s == null ? "" : String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+  // ---- override: render maintenance summary (picker + selected tables + process) ----
+  App.renderMaintSummary = function () {
+    const w = State.currentDraft.wcr;
+    if (!w.maintTables) w.maintTables = [];
+    const container = document.getElementById("maint-items");
+    if (!container) return;
+
+    const usedIds = new Set(w.maintTables.map(t => t.itemId).filter(Boolean));
+    const remaining = NIIGATA_ITEMS.filter(it => !usedIds.has(it.id)).length;
+
+    let html = `<div class="maint-engine">
+      <div class="maint-toolbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <button class="btn-full" style="width:auto;padding:9px 16px" onclick="App.openItemPicker()">☑ Select items worked on${remaining ? ` (${remaining} available)` : ""}</button>
+        <button class="add-row-btn" onclick="App.addCustomMaintTable()">+ Add custom table</button>
+        <span style="flex:1"></span>
+        <button class="btn-full" style="width:auto;padding:9px 18px;background:var(--amber,#E8A020);color:#111" onclick="App.processMaintSummary()">⚙ Process Maintenance Summary →</button>
+      </div>`;
+
+    if (!w.maintTables.length) {
+      html += `<div class="empty-state" style="padding:28px;text-align:center;border:1px dashed var(--line,#3a4a52);border-radius:10px">
+        No items selected yet. Click <strong>“Select items worked on”</strong> and tick the components you worked on — only those tables will appear here.</div>`;
+    } else {
+      w.maintTables.forEach((tbl, ti) => { html += App._renderMaintTable(tbl, ti); });
+    }
+    html += `</div>`;
+    container.innerHTML = html;
+    App.renderExecSummary();
+  };
+
+  // ---- item picker modal ----
+  App.openItemPicker = function () {
+    const w = State.currentDraft.wcr;
+    const usedIds = new Set((w.maintTables || []).map(t => t.itemId).filter(Boolean));
+    let body = "";
+    NIIGATA_SECTIONS.forEach(sec => {
+      const items = NIIGATA_ITEMS.filter(i => i.section === sec);
+      if (!items.length) return;
+      body += `<div class="picker-sec-title" style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber,#E8A020);margin:14px 0 6px">${E(sec)}</div>`;
+      items.forEach(it => {
+        const already = usedIds.has(it.id);
+        body += `<label class="picker-row" style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:6px;cursor:${already?'default':'pointer'};opacity:${already?0.5:1}">
+          <input type="checkbox" data-itemid="${it.id}" ${already?'checked disabled':''} style="width:16px;height:16px"/>
+          <span>${E(it.name)}${already?' <em style="font-size:11px;color:#8aa">— already added</em>':''}</span>
+        </label>`;
+      });
+    });
+    const modal = document.createElement("div");
+    modal.id = "item-picker-modal";
+    modal.style.cssText = "position:fixed;inset:0;background:rgba(10,18,22,.6);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px";
+    modal.innerHTML = `<div style="background:var(--panel,#13202700);background:#152026;border:1px solid var(--line,#33454d);border-radius:12px;max-width:640px;width:100%;max-height:82vh;display:flex;flex-direction:column">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--line,#33454d);display:flex;align-items:center;gap:10px">
+        <strong style="font-size:15px">Select items worked on</strong>
+        <span style="flex:1"></span>
+        <button class="row-del-btn" onclick="App.closeItemPicker()">✕</button>
+      </div>
+      <div style="padding:8px 16px;overflow:auto;flex:1">${body}</div>
+      <div style="padding:14px 20px;border-top:1px solid var(--line,#33454d);display:flex;gap:10px;justify-content:flex-end">
+        <button class="add-row-btn" onclick="App.closeItemPicker()">Cancel</button>
+        <button class="btn-full" style="width:auto;padding:9px 20px" onclick="App.confirmItemPicks()">Add selected tables</button>
+      </div></div>`;
+    document.body.appendChild(modal);
+  };
+  App.closeItemPicker = function () { const m = document.getElementById("item-picker-modal"); if (m) m.remove(); };
+
+  App.confirmItemPicks = function () {
+    const w = State.currentDraft.wcr;
+    const modal = document.getElementById("item-picker-modal");
+    if (!modal) return;
+    const picks = [...modal.querySelectorAll('input[type=checkbox]:checked:not(:disabled)')].map(c => c.dataset.itemid);
+    if (picks.length) {
+      const prev = JSON.parse(JSON.stringify(w.maintTables));
+      if (typeof Undo !== "undefined") Undo.push(() => { w.maintTables = prev; App.renderMaintSummary(); }, "Add items");
+      picks.forEach(id => {
+        const item = NIIGATA_ITEMS.find(i => i.id === id);
+        if (item) w.maintTables.push(buildMaintTableFromItem(item));
+      });
+      if (typeof AutoSave !== "undefined") AutoSave.trigger();
+    }
+    App.closeItemPicker();
+    App.renderMaintSummary();
+  };
+
+  App.addCustomMaintTable = function () {
+    const w = State.currentDraft.wcr;
+    const prev = JSON.parse(JSON.stringify(w.maintTables));
+    if (typeof Undo !== "undefined") Undo.push(() => { w.maintTables = prev; App.renderMaintSummary(); }, "Add custom table");
+    w.maintTables.push(buildCustomMaintTable());
+    if (typeof AutoSave !== "undefined") AutoSave.trigger();
+    App.renderMaintSummary();
+  };
+
+  // ---- PROCESS: deterministic Scope + Exec Summary ----
+  App.processMaintSummary = function () {
+    const w = State.currentDraft.wcr;
+    App.generateScope();
+    App.renderExecSummary();
+    if (typeof AutoSave !== "undefined") AutoSave.trigger();
+    if (typeof Toast !== "undefined") Toast.show("Scope and Executive Summary updated.", "success");
+  };
+
+  // Scope = every item that has at least one in-scope=Yes row; lists those activities.
+  App.generateScope = function () {
+    const w = State.currentDraft.wcr;
+    const tables = w.maintTables || [];
+    const scope = [];
+    tables.forEach(t => {
+      const inScopeRows = t.rows.filter(r => (r.inScope || "").toLowerCase() === "yes" && (r.activity || "").trim());
+      if (inScopeRows.length) scope.push({ name: t.nameOfItem || "(unnamed item)", activities: inScopeRows.map(r => r.activity) });
+    });
+    w.autoScope = scope;
+
+    let slot = document.getElementById("scope-auto-section");
+    if (!slot) {
+      // insert a scope slot directly above the maintenance section
+      const maintSection = document.getElementById("maint-items");
+      if (maintSection) {
+        const wrap = maintSection.closest(".wcr-section") || maintSection.parentElement;
+        slot = document.createElement("div");
+        slot.id = "scope-auto-section";
+        slot.className = "wcr-section";
+        wrap.parentNode.insertBefore(slot, wrap);
+      }
+    }
+    if (!slot) return;
+    if (!scope.length) { slot.innerHTML = `<div class="wcr-section-label">Scope of Work <span style="font-size:10px;color:#8aa">Auto-generated from “In Scope = Yes”</span></div><div class="empty-state" style="padding:12px">Mark activities as “In Scope = Yes”, then press Process.</div>`; return; }
+    let html = `<div class="wcr-section-label">Scope of Work <span style="font-size:10px;font-weight:400;color:#8aa;margin-left:8px">Auto-generated · Editable · Appears above Maintenance Summary in the report</span></div>`;
+    html += `<div style="border:1px solid var(--line,#33454d);border-radius:8px;padding:12px 16px">`;
+    scope.forEach(s => {
+      html += `<div style="margin-bottom:10px"><strong>${E(s.name)}</strong><ul style="margin:4px 0 0 18px">${s.activities.map(a => `<li>${E(a)}</li>`).join("")}</ul></div>`;
+    });
+    html += `</div>`;
+    slot.innerHTML = html;
+  };
+
+  // ---- compressed, non-redundant Exec Summary (findings + action if present) ----
+  App.renderExecSummary = function () {
+    const w = State.currentDraft.wcr;
+    const el = document.getElementById("exec-summary-section");
+    if (!el) return;
+    const tables = w.maintTables || [];
+    // Only tables with an actual critical finding go up top (action step optional).
+    const findings = tables.filter(t => (t.criticalFinding || "").trim());
+    if (!findings.length) { el.classList.add("hidden"); w.execSummary = null; return; }
+    el.classList.remove("hidden");
+    w.execSummary = findings.map(t => ({ name: t.nameOfItem, criticalFinding: t.criticalFinding.trim(), actionStep: (t.actionStep || "").trim() }));
+
+    let html = `<div class="wcr-section-label" style="color:var(--amber,#E8A020)">⚡ Executive Summary <span style="font-size:10px;font-weight:400;color:#8aa;margin-left:8px">Critical findings & actions · Auto-generated · Editable · Above History in the report</span></div>`;
+    html += `<div style="background:rgba(232,160,32,0.06);border:1px solid rgba(232,160,32,0.3);border-radius:8px;padding:12px 16px"><ul style="margin:0 0 0 18px">`;
+    w.execSummary.forEach(f => {
+      let line = "";
+      if (f.name) line += `<strong>${E(f.name)}:</strong> `;
+      line += E(f.criticalFinding);
+      if (f.actionStep) line += ` <em style="color:#cfd">— Action: ${E(f.actionStep)}</em>`;
+      html += `<li style="margin-bottom:6px">${line}</li>`;
+    });
+    html += `</ul></div>`;
+    // render into the existing exec-summary-section container's body if it has one, else the section itself
+    const body = el.querySelector("#exec-summary-body") || el.querySelector(".exec-summary-body");
+    if (body) body.innerHTML = html; else el.innerHTML = html;
+  };
+
+  // Start drafts with an EMPTY maintenance summary (was: one blank table)
+  const _origBlank = App._blankMaintTable;
+  App._blankMaintTable = function () { return buildCustomMaintTable(); }; // custom = blank named table
+
+  console.log("[niigata-maint] engine loaded — item selection + process active");
+})();
