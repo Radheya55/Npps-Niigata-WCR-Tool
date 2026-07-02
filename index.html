@@ -307,6 +307,7 @@ function scopeInstruction(act){
   return s.charAt(0).toUpperCase()+s.slice(1)+confirm+".";
 }
 
+function buildTable(item){return {id:"t_"+item.id+"_"+Date.now()+Math.floor(Math.random()*999),itemId:item.id,name:item.name,rows:item.activities.map(a=>({activity:a,inScope:"",status:"",calibration:"",replaced:"",comment:""})),note:"",critical:"",action:""};}
 function buildCustom(){return {id:"t_custom_"+Date.now(),itemId:null,custom:true,name:"",rows:[{activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:""}],note:"",critical:"",action:""};}
 const E=s=>(s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
