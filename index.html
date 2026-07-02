@@ -651,8 +651,8 @@ const App={
     const np=()=>{doc.addPage();y=M.top;};
     const ensure=hh=>{if(y+hh>bottomY)np();};
     const setF=(st,sz,c)=>{doc.setFont("helvetica",st);doc.setFontSize(sz);doc.setTextColor(c[0],c[1],c[2]);};
-    const h2=t=>{ensure(12);setF("bold",12.5,TEAL);doc.text(t,M.l,y);y+=1.5;doc.setDrawColor(200);doc.setLineWidth(0.3);doc.line(M.l,y,pageW-M.r,y);y+=5;};
-    const wrap=(t,size,color,style,indent,hang)=>{setF(style||"normal",size,color||DARK);const ind=indent||0;const lines=doc.splitTextToSize(t,contentW-ind);lines.forEach((ln,i)=>{ensure(size*0.5+0.9);doc.text(ln,M.l+ind+((i&&hang)?hang:0),y);y+=size*0.5+0.9;});};
+    const h2=t=>{ensure(16);y+=3;setF("bold",12.5,TEAL);doc.text(t,M.l,y);y+=2.5;doc.setDrawColor(200);doc.setLineWidth(0.3);doc.line(M.l,y,pageW-M.r,y);y+=6.5;};
+    const wrap=(t,size,color,style,indent,hang)=>{setF(style||"normal",size,color||DARK);const ind=indent||0;const lines=doc.splitTextToSize(t,contentW-ind);lines.forEach((ln,i)=>{ensure(size*0.5+1.7);doc.text(ln,M.l+ind+((i&&hang)?hang:0),y);y+=size*0.5+1.7;});};
     const tocPages={};
     const mark=k=>{tocPages[k]=doc.internal.getNumberOfPages();};
 
@@ -675,11 +675,11 @@ const App={
     if(exec.length){ h2("Executive Summary"); mark("Executive Summary");
       exec.forEach(f=>{
         ensure(15);
-        wrap(f.name,9.5,NAVY,"bold",3);
+        wrap(f.name,9.5,NAVY,"bold",3);y+=1.2;
         setF("bold",9,RED);const clbl="Critical finding or technical anomaly: ";doc.text(clbl,M.l+3,y);const clw=doc.getTextWidth(clbl);
-        setF("normal",9,DARK);const ct=doc.splitTextToSize(f.crit,contentW-3-clw);doc.text(ct[0]||"",M.l+3+clw,y);y+=4.4;for(let i=1;i<ct.length;i++){ensure(4.4);doc.text(ct[i],M.l+3,y);y+=4.4;}
-        if(f.act){setF("bold",9,OLIVE);const albl="Suggested action: ";doc.text(albl,M.l+3,y);const alw=doc.getTextWidth(albl);setF("normal",9,OLIVE);const at=doc.splitTextToSize(f.act,contentW-3-alw);doc.text(at[0]||"",M.l+3+alw,y);y+=4.4;for(let i=1;i<at.length;i++){ensure(4.4);doc.text(at[i],M.l+3,y);y+=4.4;}}
-        y+=2.5;
+        setF("normal",9,DARK);const ct=doc.splitTextToSize(f.crit,contentW-3-clw);doc.text(ct[0]||"",M.l+3+clw,y);y+=5;for(let i=1;i<ct.length;i++){ensure(5);doc.text(ct[i],M.l+3,y);y+=5;}
+        if(f.act){setF("bold",9,OLIVE);const albl="Suggested action: ";doc.text(albl,M.l+3,y);const alw=doc.getTextWidth(albl);setF("normal",9,OLIVE);const at=doc.splitTextToSize(f.act,contentW-3-alw);doc.text(at[0]||"",M.l+3+alw,y);y+=5;for(let i=1;i<at.length;i++){ensure(5);doc.text(at[i],M.l+3,y);y+=5;}}
+        y+=5;
       });
     }
     // History
@@ -689,7 +689,7 @@ const App={
     else{wrap("No history recorded.",9,GREY);y+=2;}
     // Scope
     if(scope.length){ h2("Scope of Work"); mark("Scope of Work");
-      scope.forEach(sc=>{ensure(8);wrap(sc.name,9.5,DARK,"bold");sc.acts.forEach(a=>{wrap("- "+a,9,DARK,"normal",3,2);});y+=2;});
+      scope.forEach(sc=>{ensure(10);wrap(sc.name,9.5,DARK,"bold");y+=0.8;sc.acts.forEach(a=>{wrap("- "+a,9,DARK,"normal",3,2);});y+=4;});
     }
     // Maintenance Summary
     h2("Maintenance Summary"); mark("Maintenance Summary");
@@ -701,21 +701,21 @@ const App={
         body,theme:"grid",styles:{fontSize:8,cellPadding:1.5,overflow:"linebreak",valign:"top"},
         headStyles:{fillColor:[238,244,245],textColor:DARK},
         columnStyles:{0:{cellWidth:64},1:{cellWidth:16},2:{cellWidth:22},3:{cellWidth:22},4:{cellWidth:24}}});
-      y=doc.lastAutoTable.finalY+1.5;
+      y=doc.lastAutoTable.finalY+3.5;
       if(t.critical){wrap("Critical finding: "+t.critical,8.5,RED,"bold");}
       if(t.action){wrap("Suggested action: "+t.action,8.5,OLIVE,"normal");}
-      y+=3;
+      y+=7;
     });
     // Photo Gallery
     if((State.photos||[]).length){ h2("Photo Gallery"); mark("Photo Gallery");
       State.photos.forEach((p,i)=>{
         const im=photoImgs[i];let iw=0,ih=0;if(im){iw=118;ih=iw*im.h/im.w;if(ih>84){ih=84;iw=ih*im.w/im.h;}}
         ensure((ih||0)+16);
-        if(im){doc.addImage(im.src,fmt(im.src),M.l,y,iw,ih);y+=ih+2;}
-        wrap((i+1)+". "+(p.title||"Untitled"),9.5,NAVY,"bold");
-        if(p.desc)wrap(p.desc,9,DARK,"normal");
+        if(im){doc.addImage(im.src,fmt(im.src),M.l,y,iw,ih);y+=ih+4;}
+        wrap((i+1)+". "+(p.title||"Untitled"),9.5,NAVY,"bold");y+=1.5;
+        if(p.desc){wrap(p.desc,9,DARK,"normal");y+=1;}
         if(p.refItem&&p.refAct)wrap("Reference to "+p.refItem+". Activity - "+p.refAct,8.5,OLIVE,"italic");
-        y+=4;
+        y+=9;
       });
     }
     // Sign-off
