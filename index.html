@@ -630,136 +630,139 @@ const App={
   },
   renderSignoff(){const s=State.signoff||{};["npName","cuName","npDate","cuDate"].forEach(k=>{const el=document.getElementById("so-"+k);if(el)el.value=s[k]||"";});},
 
-  downloadReport(){
-    App.process();const b=State.base;
+  async downloadReport(){
+    const b=State.base;
+    const s2=State.signoff||{};
+    if(!(s2.npName&&s2.npDate&&s2.cuName&&s2.cuDate)){toast("Complete all 4 sign-off fields before downloading");const el=document.getElementById("signoff-card");if(el)el.scrollIntoView({behavior:"smooth",block:"center"});return;}
+    App.process();
+    toast("Building PDF...");
+    try{ await App._ensurePdfLibs(); }catch(e){ alert("Could not load the PDF engine. Please check your internet connection and try again."); return; }
+    const { jsPDF }=window.jspdf;
+    const doc=new jsPDF({unit:"mm",format:"a4"});
+    const pageW=210,pageH=297,M={l:12,r:12,top:26,bottom:22},bottomY=pageH-22,contentW=pageW-24;
+    const ATM={left:12,right:12,top:26,bottom:22};
+    let y=M.top;
+    const NAVY=[31,56,100],TEAL=[13,122,134],RED=[192,57,43],OLIVE=[107,142,35],GREY=[90,90,90],DARK=[20,20,20];
+    const fmt=src=>(src&&src.indexOf("image/png")>-1)?"PNG":"JPEG";
+    const loadImg=src=>new Promise(res=>{if(!src)return res(null);const im=new Image();im.onload=()=>res({src,w:im.naturalWidth,h:im.naturalHeight});im.onerror=()=>res(null);im.src=src;});
+    const logo=await loadImg(LOGO_B64);
+    const cover=State.cover?await loadImg(State.cover):null;
+    const photoImgs=[];for(const p of (State.photos||[]))photoImgs.push(await loadImg(p.img));
+    const np=()=>{doc.addPage();y=M.top;};
+    const ensure=hh=>{if(y+hh>bottomY)np();};
+    const setF=(st,sz,c)=>{doc.setFont("helvetica",st);doc.setFontSize(sz);doc.setTextColor(c[0],c[1],c[2]);};
+    const h2=t=>{ensure(12);setF("bold",12.5,TEAL);doc.text(t,M.l,y);y+=1.5;doc.setDrawColor(200);doc.setLineWidth(0.3);doc.line(M.l,y,pageW-M.r,y);y+=5;};
+    const wrap=(t,size,color,style,indent,hang)=>{setF(style||"normal",size,color||DARK);const ind=indent||0;const lines=doc.splitTextToSize(t,contentW-ind);lines.forEach((ln,i)=>{ensure(size*0.5+0.9);doc.text(ln,M.l+ind+((i&&hang)?hang:0),y);y+=size*0.5+0.9;});};
+    const tocPages={};
+    const mark=k=>{tocPages[k]=doc.internal.getNumberOfPages();};
+
+    // ---------- PAGE 1: cover + base data ----------
+    setF("bold",17,NAVY);doc.text("Work Completion Report",pageW/2,y+2,{align:"center"});y+=11;
+    if(cover){let w=110,hh=w*cover.h/cover.w;if(hh>72){hh=72;w=hh*cover.w/cover.h;}ensure(hh+4);doc.addImage(cover.src,fmt(cover.src),(pageW-w)/2,y,w,hh);y+=hh+6;}
+    h2("Project Details");
+    const kv=[["Project Code",b.code],["Customer",b.customer],["Contract No.",b.contract],["Vessel/Rig",b.vessel],["Start Date",b.start],["Handing Over",b.end],["Overhaul Type",b.overhaul],["Engine",b.engine],["Serial",b.serial],["Arrangement",b.arr],["RPM & Capacity",b.rpm],["Running Hours",b.hours],["Customer In-Charge",b.custic],["Team Leader",b.leader],["Members",(b.membersList&&b.membersList.length)?b.membersList.join(", "):(b.members||"")]];
+    doc.autoTable({startY:y,margin:ATM,body:kv.map(r=>[r[0],r[1]||"-"]),theme:"grid",styles:{fontSize:9,cellPadding:2},columnStyles:{0:{fontStyle:"bold",fillColor:[238,244,245],cellWidth:55}}});
+
+    // ---------- PAGE 2 reserved for TOC ----------
+    doc.addPage();const TOC_PAGE=doc.internal.getNumberOfPages();
+    // ---------- sections from page 3 ----------
+    doc.addPage();y=M.top;
+
     const scope=[];State.tables.forEach(t=>{const rows=t.rows.filter(r=>(r.inScope||"").toLowerCase()==="yes"&&(r.activity||"").trim());if(rows.length)scope.push({name:t.name,acts:rows.map(r=>scopeInstruction(r.activity))});});
     const exec=State.tables.filter(t=>(t.critical||"").trim()).map(t=>({name:t.name,crit:t.critical.trim(),act:(t.action||"").trim()}));
-    const kv=[["Project Code",b.code],["Customer",b.customer],["Contract No.",b.contract],["Vessel/Rig",b.vessel],["Start Date",b.start],["Handing Over",b.end],["Overhaul Type",b.overhaul],["Engine",b.engine],["Serial",b.serial],["Arrangement",b.arr],["RPM & Capacity",b.rpm],["Running Hours",b.hours],["Customer In-Charge",b.custic],["Team Leader",b.leader]];
-    const members=(b.membersList&&b.membersList.length)?b.membersList.join(", "):(b.members||"");
-    const foot=`Neptunus Power Plant Services Pvt. Ltd.<br>A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai - 400 710, India<br>Tel: +91 95944 10707 | Email: info@neptunus-power.com | Website: www.neptunus-power.com<br>CIN Number: U74210MH1996PTC100435 | An ISO 9001:2015 Company, Certified by LRQA since 1999`;
-    const toc=[];
-    if(exec.length)toc.push(["sec-exec","Executive Summary"]);
-    toc.push(["sec-history","History"]);
-    if(scope.length)toc.push(["sec-scope","Scope of Work"]);
-    toc.push(["sec-maint","Maintenance Summary"]);
-    if(State.photos&&State.photos.length)toc.push(["sec-photos","Photo Gallery"]);
-    toc.push(["sec-signoff","Sign-off"]);
-    let content="";
-    if(State.cover)content+=`<div style="text-align:center;margin:6px 0 14px"><img src="${State.cover}" style="max-width:340px;max-height:220px;width:auto;height:auto;border:1px solid #bbb;border-radius:6px"/></div>`;
-    content+=`<h2>Project Details</h2><table class="kv">${kv.map(([k,v])=>`<tr><td class="k">${E(k)}</td><td>${E(v||"-")}</td></tr>`).join("")}<tr><td class="k">Members</td><td>${E(members||"-")}</td></tr></table>`;
-    content+=`<h2 id="toc-start" class="brk">Table of Contents</h2><table class="toc">${toc.map(([id,label])=>`<tr><td>${E(label)}</td><td class="pg" data-for="${id}">-</td></tr>`).join("")}</table>`;
-    if(exec.length)content+=`<h2 id="sec-exec">Executive Summary</h2><div class="exec"><ul class="execlist">${exec.map(f=>{let l=`<div class="ex-name">${E(f.name)}</div><div class="ex-crit"><span class="ex-lbl">Critical finding or technical anomaly:</span> ${E(f.crit)}</div>`;if(f.act)l+=`<div class="ex-act"><span class="ex-lbl2">Suggested action:</span> ${E(f.act)}</div>`;return`<li>${l}</li>`;}).join("")}</ul></div>`;
-    let hist="";HISTORY.forEach(bl=>bl.fields.forEach(f=>{if(f.type==="sub")f.subs.forEach(su=>{if(State.history[su.k])hist+=`<tr><td class="k">${E(f.label)} - ${E(su.label)}</td><td>${E(State.history[su.k])}</td></tr>`;});else if(State.history[f.k])hist+=`<tr><td class="k">${E(f.label)}</td><td>${E(State.history[f.k])}</td></tr>`;}));
-    content+=`<h2 id="sec-history">History</h2><table class="kv">${hist||'<tr><td colspan=2 style="color:#888">No history recorded.</td></tr>'}</table>`;
-    if(scope.length)content+=`<h2 id="sec-scope">Scope of Work</h2>${scope.map(s=>`<p class="sname">${E(s.name)}</p><ul>${s.acts.map(a=>`<li>${E(a)}</li>`).join("")}</ul>`).join("")}`;
-    content+=`<h2 id="sec-maint">Maintenance Summary</h2>`;
+
+    // Executive Summary
+    if(exec.length){ h2("Executive Summary"); mark("Executive Summary");
+      exec.forEach(f=>{
+        ensure(15);
+        wrap(f.name,9.5,NAVY,"bold",3);
+        setF("bold",9,RED);const clbl="Critical finding or technical anomaly: ";doc.text(clbl,M.l+3,y);const clw=doc.getTextWidth(clbl);
+        setF("normal",9,DARK);const ct=doc.splitTextToSize(f.crit,contentW-3-clw);doc.text(ct[0]||"",M.l+3+clw,y);y+=4.4;for(let i=1;i<ct.length;i++){ensure(4.4);doc.text(ct[i],M.l+3,y);y+=4.4;}
+        if(f.act){setF("bold",9,OLIVE);const albl="Suggested action: ";doc.text(albl,M.l+3,y);const alw=doc.getTextWidth(albl);setF("normal",9,OLIVE);const at=doc.splitTextToSize(f.act,contentW-3-alw);doc.text(at[0]||"",M.l+3+alw,y);y+=4.4;for(let i=1;i<at.length;i++){ensure(4.4);doc.text(at[i],M.l+3,y);y+=4.4;}}
+        y+=2.5;
+      });
+    }
+    // History
+    h2("History"); mark("History");
+    const hist=[];HISTORY.forEach(bl=>bl.fields.forEach(f=>{if(f.type==="sub")f.subs.forEach(su=>{if(State.history[su.k])hist.push([f.label+" - "+su.label,State.history[su.k]]);});else if(State.history[f.k])hist.push([f.label,State.history[f.k]]);}));
+    if(hist.length){doc.autoTable({startY:y,margin:ATM,body:hist,theme:"grid",styles:{fontSize:9,cellPadding:2},columnStyles:{0:{fontStyle:"bold",fillColor:[238,244,245],cellWidth:72}}});y=doc.lastAutoTable.finalY+4;}
+    else{wrap("No history recorded.",9,GREY);y+=2;}
+    // Scope
+    if(scope.length){ h2("Scope of Work"); mark("Scope of Work");
+      scope.forEach(sc=>{ensure(8);wrap(sc.name,9.5,DARK,"bold");sc.acts.forEach(a=>{wrap("- "+a,9,DARK,"normal",3,2);});y+=2;});
+    }
+    // Maintenance Summary
+    h2("Maintenance Summary"); mark("Maintenance Summary");
     State.tables.forEach(t=>{
-      content+=`<table class="mitem"><thead><tr><th colspan="6" class="iname">${E(t.name||"-")}</th></tr><tr><th>Activity</th><th>In Scope</th><th>Status</th><th>Calibration</th><th>Replaced</th><th>Comment</th></tr></thead><tbody>`;
-      t.rows.forEach(r=>content+=`<tr><td>${E(r.activity)}</td><td>${E(r.inScope)}</td><td>${E(r.status)}</td><td>${E(r.calibration)}</td><td>${E(r.replaced)}</td><td>${E(r.comment)}</td></tr>`);
-      content+=`</tbody></table>`;
-      if(t.note)content+=`<p class="nn">Note: ${E(t.note)}</p>`;
-      if(t.critical)content+=`<p class="cc">Critical finding: ${E(t.critical)}</p>`;
-      if(t.action)content+=`<p class="aa">Suggested action: ${E(t.action)}</p>`;
+      const body=t.rows.map(r=>[r.activity,r.inScope,r.status,r.calibration,r.replaced,r.comment]);
+      ensure(22);
+      doc.autoTable({startY:y,margin:ATM,showHead:"everyPage",
+        head:[[{content:t.name||"-",colSpan:6,styles:{fillColor:TEAL,textColor:255,halign:"left",fontStyle:"bold",fontSize:9.5}}],["Activity","In Scope","Status","Calibration","Replaced","Comment"]],
+        body,theme:"grid",styles:{fontSize:8,cellPadding:1.5,overflow:"linebreak",valign:"top"},
+        headStyles:{fillColor:[238,244,245],textColor:DARK},
+        columnStyles:{0:{cellWidth:64},1:{cellWidth:16},2:{cellWidth:22},3:{cellWidth:22},4:{cellWidth:24}}});
+      y=doc.lastAutoTable.finalY+1.5;
+      if(t.critical){wrap("Critical finding: "+t.critical,8.5,RED,"bold");}
+      if(t.action){wrap("Suggested action: "+t.action,8.5,OLIVE,"normal");}
+      y+=3;
     });
-    // Photo gallery
-    if(State.photos&&State.photos.length){
-      content+=`<h2 id="sec-photos">Photo Gallery</h2>`;
+    // Photo Gallery
+    if((State.photos||[]).length){ h2("Photo Gallery"); mark("Photo Gallery");
       State.photos.forEach((p,i)=>{
-        content+=`<div class="pg-photo">`;
-        if(p.img)content+=`<img src="${p.img}"/>`;
-        content+=`<div class="pt">${i+1}. ${E(p.title||"Untitled")}</div>`;
-        if(p.desc)content+=`<div class="pd">${E(p.desc)}</div>`;
-        if(p.refItem&&p.refAct)content+=`<div class="pr">Reference to ${E(p.refItem)}. Activity - ${E(p.refAct)}</div>`;
-        content+=`</div>`;
+        const im=photoImgs[i];let iw=0,ih=0;if(im){iw=118;ih=iw*im.h/im.w;if(ih>84){ih=84;iw=ih*im.w/im.h;}}
+        ensure((ih||0)+16);
+        if(im){doc.addImage(im.src,fmt(im.src),M.l,y,iw,ih);y+=ih+2;}
+        wrap((i+1)+". "+(p.title||"Untitled"),9.5,NAVY,"bold");
+        if(p.desc)wrap(p.desc,9,DARK,"normal");
+        if(p.refItem&&p.refAct)wrap("Reference to "+p.refItem+". Activity - "+p.refAct,8.5,OLIVE,"italic");
+        y+=4;
       });
     }
     // Sign-off
-    const so=State.signoff||{};
-    content+=`<h2 id="sec-signoff">Sign-off</h2><table class="signoff"><tr><th>On behalf of Neptunus</th><th>On behalf of Customer</th></tr>`+
-      `<tr><td><table style="width:100%;border:none"><tr><td class="lbl" style="border:none">Name</td><td style="border:none">${E(so.npName||"")}</td></tr><tr><td class="lbl" style="border:none">Date</td><td style="border:none">${E(so.npDate||"")}</td></tr></table></td>`+
-      `<td><table style="width:100%;border:none"><tr><td class="lbl" style="border:none">Name</td><td style="border:none">${E(so.cuName||"")}</td></tr><tr><td class="lbl" style="border:none">Date</td><td style="border:none">${E(so.cuDate||"")}</td></tr></table></td></tr></table>`;
+    h2("Sign-off"); mark("Sign-off");
+    doc.autoTable({startY:y,margin:ATM,theme:"grid",styles:{fontSize:9,cellPadding:2.5},
+      head:[[{content:"On behalf of Neptunus",colSpan:2,styles:{fillColor:NAVY,textColor:255}},{content:"On behalf of Customer",colSpan:2,styles:{fillColor:NAVY,textColor:255}}]],
+      body:[[{content:"Name",styles:{fontStyle:"bold",fillColor:[238,241,247]}},s2.npName||"",{content:"Name",styles:{fontStyle:"bold",fillColor:[238,241,247]}},s2.cuName||""],
+            [{content:"Date",styles:{fontStyle:"bold",fillColor:[238,241,247]}},s2.npDate||"",{content:"Date",styles:{fontStyle:"bold",fillColor:[238,241,247]}},s2.cuDate||""]]});
 
-    const _n=new Date();const _p=x=>String(x).padStart(2,"0");
-    const fname=`${(b.code||"WCR")}_${_p(_n.getDate())}-${_p(_n.getMonth()+1)}-${_n.getFullYear()}-${_p(_n.getHours())}-${_p(_n.getMinutes())}-${_p(_n.getSeconds())}`;
-    const doc=`<!doctype html><html><head><meta charset="utf-8"><title>${fname}</title><style>
-      @page{size:A4;margin:26mm 12mm 22mm 12mm}
-      *{box-sizing:border-box}
-      body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:11px;margin:0}
-      .ph{position:fixed;top:5mm;left:12mm;right:12mm;height:16mm;display:flex;align-items:center;justify-content:space-between;border-bottom:2.5px solid #E8801C;padding-bottom:3px}
-      .ph .htitle{font-size:13px;font-weight:bold;color:#1F3864}
-      .ph .hsub{font-size:8.5px;color:#555}
-      .ph img{height:34px;width:auto}
-      .pf{position:fixed;left:12mm;right:12mm;bottom:5mm;border-top:2px solid #E8801C;padding-top:4px;text-align:center;font-size:7.5px;color:#1F3864;line-height:1.5}
-      .content{padding:2px}
-      .brk{page-break-before:always}
-      h1{font-size:18px;text-align:center;margin:4px 0 10px}
-      h2{font-size:13px;color:#0d7a86;border-bottom:1px solid #ccc;margin:18px 0 8px;padding-bottom:3px}
-      table.kv{border-collapse:collapse;width:100%;font-size:11px;margin:4px 0}
-      table.kv td{border:1px solid #bbb;padding:5px 8px;vertical-align:top}
-      table.kv td.k{background:#eef4f5;font-weight:bold;width:34%}
-      table.toc{border-collapse:collapse;width:60%;font-size:12px}
-      table.toc td{padding:5px 6px;border-bottom:1px dotted #bbb}
-      table.toc td.pg{text-align:right;font-weight:bold;width:60px}
-      .exec{background:#fff7e8;border:1px solid #e8a020;border-radius:6px;padding:8px 10px}
-      .exec ul{margin:0 0 0 18px}
-      ul{margin:4px 0 8px 18px}
-      .sname{font-weight:bold;margin:8px 0 2px}
-      table.mitem{border-collapse:collapse;width:100%;font-size:10.5px;margin:6px 0}
-      table.mitem th,table.mitem td{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top}
-      table.mitem thead th{background:#eef4f5}
-      table.mitem thead .iname{background:#0d7a86;color:#fff;font-size:12px;text-align:left}
-      table.mitem tr{page-break-inside:avoid}
-      .nn{margin:2px 0;color:#333}.cc{margin:2px 0;color:#c00;font-weight:bold}.aa{margin:2px 0 10px;color:#0d7a86}
-      .execlist{margin:0 0 0 18px}
-      .execlist li{margin-bottom:9px}
-      .ex-name{color:#1F3864;font-weight:bold}
-      .ex-crit .ex-lbl{color:#C0392B;font-weight:bold}
-      .ex-act{color:#6B8E23}
-      .ex-act .ex-lbl2{color:#6B8E23;font-weight:bold}
-      table.signoff{border-collapse:collapse;width:100%;margin:8px 0;font-size:11px}
-      table.signoff th{background:#1F3864;color:#fff;padding:6px;border:1px solid #999}
-      table.signoff td{border:1px solid #999;padding:6px 8px}
-      table.signoff td.lbl{background:#eef1f7;font-weight:bold;width:70px}
-      .pg-photo{margin:8px 0 14px;page-break-inside:avoid}
-      .pg-photo img{max-width:340px;max-height:240px;width:auto;height:auto;border:1px solid #bbb;border-radius:5px}
-      .pg-photo .pt{font-weight:bold;color:#1F3864;margin-top:4px}
-      .pg-photo .pd{font-size:10.5px;color:#333}
-      .pg-photo .pr{font-size:10px;color:#6B8E23;font-style:italic;margin-top:2px}
-    </style></head><body>
-    <div class="ph"><div><div class="htitle">Work Completion Report${b.customer?(" - "+E(b.customer)):""}</div><div class="hsub">Project: ${E(b.code||"")}</div></div><img src="${LOGO_B64}" alt="Neptunus"/></div>
-    <div class="pf">${foot}</div>
-    <div class="content" id="content"><h1>Work Completion Report</h1>${content}</div>
-    <script>
-      (function(){
-        function num(){
-          var usable=935;
-          var tocEl=document.getElementById('toc-start');
-          if(!tocEl)return;
-          var base=tocEl.getBoundingClientRect().top+window.scrollY;
-          document.querySelectorAll('.toc .pg').forEach(function(cell){
-            var el=document.getElementById(cell.getAttribute('data-for'));
-            if(!el){cell.textContent='-';return;}
-            var top=(el.getBoundingClientRect().top+window.scrollY)-base;
-            cell.textContent=2+Math.floor(top/usable);
-          });
-        }
-        function ready(){ num(); setTimeout(function(){ window.focus(); window.print(); },400); }
-        if(document.readyState==='complete') ready(); else window.addEventListener('load',ready);
-      })();
-    <\/script>
-    </body></html>`;
-    // require all 4 sign-off fields
-    const s2=State.signoff||{};
-    if(!(s2.npName&&s2.npDate&&s2.cuName&&s2.cuDate)){
-      toast("Complete all 4 sign-off fields before downloading");
-      const el=document.getElementById("signoff-card");if(el)el.scrollIntoView({behavior:"smooth",block:"center"});
-      return;
+    // ---------- TOC on reserved page ----------
+    doc.setPage(TOC_PAGE);y=M.top;
+    h2("Table of Contents");
+    Object.keys(tocPages).forEach(k=>{
+      ensure(7.5);setF("normal",10.5,DARK);
+      doc.text(k,M.l,y);
+      const pg=String(tocPages[k]);const pgW=doc.getTextWidth(pg);
+      doc.text(pg,pageW-M.r-pgW,y);
+      const sx=M.l+doc.getTextWidth(k)+2,ex=pageW-M.r-pgW-2;
+      if(ex>sx){doc.setLineDashPattern([0.5,0.9],0);doc.setDrawColor(170);doc.setLineWidth(0.2);doc.line(sx,y-1,ex,y-1);doc.setLineDashPattern([],0);}
+      y+=7.5;
+    });
+
+    // ---------- header + footer on EVERY page (reserved margins => no overlap) ----------
+    const total=doc.internal.getNumberOfPages();
+    const addr=["Neptunus Power Plant Services Pvt. Ltd.","A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai - 400 710, India","Tel: +91 95944 10707 | Email: info@neptunus-power.com | Website: www.neptunus-power.com","CIN Number: U74210MH1996PTC100435 | An ISO 9001:2015 Company, Certified by LRQA since 1999"];
+    for(let i=1;i<=total;i++){doc.setPage(i);
+      setF("bold",11,NAVY);doc.text("Work Completion Report"+(b.customer?(" - "+b.customer):""),M.l,15);
+      setF("normal",7.5,GREY);doc.text("Project: "+(b.code||""),M.l,19);
+      if(logo){const lw=30,lh=lw*logo.h/logo.w;doc.addImage(logo.src,"PNG",pageW-M.r-lw,8,lw,lh);}
+      doc.setDrawColor(232,128,28);doc.setLineWidth(0.7);doc.line(M.l,21,pageW-M.r,21);
+      doc.setDrawColor(232,128,28);doc.setLineWidth(0.7);doc.line(M.l,281,pageW-M.r,281);
+      setF("normal",6.5,NAVY);let fy=284;addr.forEach(l=>{doc.text(l,pageW/2,fy,{align:"center"});fy+=2.6;});
+      setF("normal",7,GREY);doc.text("Page "+i+" of "+total,pageW-M.r,295,{align:"right"});
     }
-    const old=document.getElementById("print-frame");if(old)old.remove();
-    const f=document.createElement("iframe");f.id="print-frame";
-    f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0";
-    document.body.appendChild(f);
-    const d=f.contentWindow.document;d.open();d.write(doc);d.close();
+
+    const _n=new Date(),_p=x=>String(x).padStart(2,"0");
+    const fname=(b.code||"WCR")+"_"+_p(_n.getDate())+"-"+_p(_n.getMonth()+1)+"-"+_n.getFullYear()+"-"+_p(_n.getHours())+"-"+_p(_n.getMinutes())+"-"+_p(_n.getSeconds());
+    doc.save(fname+".pdf");
+    toast("PDF downloaded");
+  },
+  _ensurePdfLibs(){
+    const load=src=>new Promise((res,rej)=>{if([...document.scripts].some(s=>s.src===src))return res();const s=document.createElement("script");s.src=src;s.onload=()=>res();s.onerror=()=>rej(new Error("fail "+src));document.head.appendChild(s);});
+    return (async()=>{
+      if(!(window.jspdf&&window.jspdf.jsPDF))await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+      const AT=window.jspdf&&window.jspdf.jsPDF&&window.jspdf.jsPDF.API&&window.jspdf.jsPDF.API.autoTable;
+      if(!AT)await load("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js");
+    })();
   }
 };
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove("show"),2400);}
