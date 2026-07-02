@@ -75,6 +75,18 @@ textarea{resize:vertical;min-height:38px}
 .row-flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .pill{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--panel2);color:var(--muted)}
 .spacer{flex:1}
+.home-tiles{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px}
+@media(max-width:640px){.home-tiles{grid-template-columns:1fr}}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:30px 24px;cursor:pointer;text-align:center;transition:.15s}
+.tile:hover{border-color:var(--accent);transform:translateY(-2px)}
+.tile .ico{font-size:32px;margin-bottom:12px}
+.tile h3{margin:0 0 6px;font-size:16px}
+.tile p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.fetch-row{display:flex;gap:10px;align-items:flex-end}
+.fetch-btn{background:#2a3d46;color:#7d939b;transition:.2s;cursor:not-allowed}
+.fetch-btn.ready{background:var(--accent);color:#fff;cursor:pointer;box-shadow:0 0 0 3px rgba(21,154,168,.3)}
+.who{font-size:12px;color:var(--muted);margin-bottom:12px}
+.who b{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -83,12 +95,43 @@ textarea{resize:vertical;min-height:38px}
   <div><h1>Niigata WCR</h1><div class="sub">Work Completion Report · Neptunus Power</div></div>
   <div class="spacer"></div>
   <span class="pill" id="hdr-project"></span>
+  <button class="btn-ghost btn-sm" onclick="App.showHome()">⌂ Home</button>
   <button class="btn-ghost btn-sm" onclick="App.newReport()">New Report</button>
 </header>
 
-<div class="wrap" id="screen-base">
-  <h2 class="sec">Base Data — Niigata Project</h2>
+<div class="wrap" id="screen-home">
+  <h2 class="sec">Niigata WCR Tool</h2>
+  <div class="home-tiles">
+    <div class="tile" onclick="App.goAddBaseData()">
+      <div class="ico">🗄️</div>
+      <h3>Add Base Data</h3>
+      <p>For the Service Manager.<br>Sign in, enter a project code and its details, save.</p>
+    </div>
+    <div class="tile" onclick="App.goCreateWCR()">
+      <div class="ico">📝</div>
+      <h3>Create Niigata WCR</h3>
+      <p>Enter a project code, fetch its base data,<br>and start building the report.</p>
+    </div>
+  </div>
+</div>
+
+<div class="wrap hidden" id="screen-sm-gate">
+  <h2 class="sec">Add Base Data — Sign in</h2>
+  <div class="card" style="max-width:460px">
+    <div class="fg"><label class="f">Your Name</label>
+      <select id="sm-name" onchange="App.smSelect()"><option value="">— select —</option></select></div>
+    <div class="fg"><label class="f">Employee ID</label><input id="sm-emp" readonly placeholder="auto-filled"/></div>
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <button class="btn" onclick="App.smContinue()">Continue →</button>
+      <button class="btn-ghost" onclick="App.showHome()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap hidden" id="screen-base">
+  <h2 class="sec">Add Base Data — Niigata Project</h2>
   <div class="card">
+    <div class="who" id="sm-who"></div>
     <div class="grid2">
       <div class="fg"><label class="f">Project Code *</label><input id="bd-code" placeholder="e.g. HALUL-83"/></div>
       <div class="fg"><label class="f">Customer Name</label><input id="bd-customer" placeholder="e.g. TOPAZ / MILAHA"/></div>
@@ -107,7 +150,24 @@ textarea{resize:vertical;min-height:38px}
       <div class="fg"><label class="f">Neptunus Team Leader</label><input id="bd-leader"/></div>
       <div class="fg" style="grid-column:1/-1"><label class="f">Neptunus Members</label><input id="bd-members"/></div>
     </div>
-    <button class="btn" style="margin-top:6px" onclick="App.startWCR()">Start WCR →</button>
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <button class="btn" onclick="App.addBaseDataSave()">💾 Save &amp; Done</button>
+      <button class="btn-ghost" onclick="App.showHome()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap hidden" id="screen-fetch">
+  <h2 class="sec">Create Niigata WCR</h2>
+  <div class="card" style="max-width:520px">
+    <div class="fg"><label class="f">Project Code</label>
+      <div class="fetch-row">
+        <input id="fetch-code" placeholder="Enter project code…" oninput="App.onFetchCode(this.value)" style="flex:1"/>
+        <button class="fetch-btn" id="fetch-btn" onclick="App.fetchProject()">⚡ Fetch</button>
+      </div>
+      <div id="fetch-msg" style="font-size:12px;color:var(--muted);margin-top:8px">Enter a saved project code — Fetch lights up when it matches.</div>
+    </div>
+    <button class="btn-ghost" onclick="App.showHome()">← Back</button>
   </div>
 </div>
 
@@ -133,7 +193,7 @@ textarea{resize:vertical;min-height:38px}
   </div>
   <div style="margin-top:24px;display:flex;gap:10px">
     <button class="btn" onclick="App.downloadReport()">⬇ Download Report</button>
-    <button class="btn-ghost" onclick="App.showBase()">← Back to Base Data</button>
+    <button class="btn-ghost" onclick="App.showHome()">⌂ Home</button>
   </div>
 </div>
 
@@ -202,28 +262,91 @@ function buildTable(item){return {id:"t_"+item.id+"_"+Date.now()+Math.floor(Math
 function buildCustom(){return {id:"t_custom_"+Date.now(),itemId:null,custom:true,name:"",rows:[{activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:""}],note:"",critical:"",action:""};}
 const E=s=>(s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
+const EMPLOYEES=[
+ {name:"Radheya Supnekar",empNo:"660"},{name:"Sameer Mhatre",empNo:"596"},{name:"Supriya Nair",empNo:"589"},
+ {name:"Tony Zacharia",empNo:"575"},{name:"Akshay Purohit",empNo:"C"},{name:"Ashish Sharma",empNo:"666"},
+ {name:"Kamrul Shabbir Hussain",empNo:"2"},{name:"Shakti Dev Naik",empNo:"157"},{name:"Sanjay Kumar",empNo:"201"},
+ {name:"Roshan Malunjkar",empNo:"235"},{name:"Gulab Singh",empNo:"277"},{name:"Lalta Prasad",empNo:"370"},
+ {name:"Balasubramanian",empNo:"400"},{name:"Rajendra Prasad Tiwari",empNo:"406"},{name:"Nitin Patil",empNo:"512"},
+ {name:"Dipesh Deepak Pawar",empNo:"567"},{name:"Gaurav Chavan",empNo:"568"},{name:"Akshay Sawant",empNo:"576"},
+ {name:"Roshan Shelke",empNo:"582"},{name:"Amit Mule",empNo:"588"},{name:"Subodh Fengadu",empNo:"599"},
+ {name:"Akshay Gunjal",empNo:"608"},{name:"Akshay Patil",empNo:"616"},{name:"Rushikesh Ghadge",empNo:"617"},
+ {name:"Vaibhav Jadhav",empNo:"630"},{name:"Vishal Chavalkar",empNo:"634"},{name:"Rakesh Kumar",empNo:"648"},
+ {name:"Machhinder Atmaram Patil",empNo:"652"},{name:"Baraiya Shaileshbhai Sukhbhai",empNo:"655"},
+ {name:"Manoj Suresh Nevage",empNo:"657"},{name:"Banty Kunvarpal Singh",empNo:"662"},{name:"Harshad Bhairu Khodade",empNo:"670"},
+ {name:"Thirumalairaja Kandhasamy",empNo:"671"},{name:"Sanjeev Kumar Gangasagar Singh",empNo:"673"},
+ {name:"Akshaj Biju",empNo:"676"},{name:"Pappu Ghosh",empNo:"677"},{name:"Samadhan Santosh Pimpalkar",empNo:"678"},
+ {name:"Abhijit Uttamrav Devkate",empNo:"679"},{name:"Hadi Gulam Hussain Kazi",empNo:"680"},{name:"Abhishek Chandrakant Thakur",empNo:"683"}
+];
+const BD_KEY="npps_basedata_v1";
+const BD_TTL=365*24*3600*1000; // 365 days
+function bdLoad(){try{return JSON.parse(localStorage.getItem(BD_KEY))||{};}catch(e){return {};}}
+function bdSaveStore(s){try{localStorage.setItem(BD_KEY,JSON.stringify(s));}catch(e){}}
+function bdPurge(){const s=bdLoad();const now=Date.now();let changed=false;Object.keys(s).forEach(k=>{if(now-(s[k].savedAt||0)>BD_TTL){delete s[k];changed=true;}});if(changed)bdSaveStore(s);}
+function bdNorm(c){return (c||"").trim().toUpperCase();}
+let SM_USER=null; // signed-in service manager for base data
+
 let State={base:{},cover:null,history:{},tables:[],processed:false};
 function save(){try{localStorage.setItem("npps_niigata_wcr",JSON.stringify(State));}catch(e){}}
 function load(){try{const s=localStorage.getItem("npps_niigata_wcr");if(s)State=JSON.parse(s);}catch(e){}}
 
 const App={
-  init(){load();
-    if(State.base&&State.base.code){["code","customer","contract","vessel","start","end","overhaul","engine","serial","arr","rpm","hours","custic","leader","members"].forEach(k=>{const el=document.getElementById("bd-"+k);if(el&&State.base[k]!=null)el.value=State.base[k];});}
-    App.renderHistory();App.renderCover();
+  init(){load();bdPurge();
+    // populate SM name dropdown
+    const sel=document.getElementById("sm-name");
+    if(sel)EMPLOYEES.forEach(e=>{const o=document.createElement("option");o.value=e.empNo;o.textContent=e.name+" ("+e.empNo+")";sel.appendChild(o);});
+    App.showHome();
   },
-  newReport(){if(!confirm("Start a new report? Current data will be cleared."))return;State={base:{},cover:null,history:{},tables:[],processed:false};save();location.reload();},
-  showBase(){document.getElementById("screen-wcr").classList.add("hidden");document.getElementById("screen-base").classList.remove("hidden");},
-  startWCR(){
-    const code=document.getElementById("bd-code").value.trim();
+  _hideAll(){["screen-home","screen-sm-gate","screen-base","screen-fetch","screen-wcr"].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add("hidden");});},
+  showHome(){App._hideAll();document.getElementById("screen-home").classList.remove("hidden");document.getElementById("hdr-project").textContent="";window.scrollTo(0,0);},
+
+  /* ---- Add Base Data (Service Manager) ---- */
+  goAddBaseData(){App._hideAll();document.getElementById("screen-sm-gate").classList.remove("hidden");window.scrollTo(0,0);},
+  smSelect(){const sel=document.getElementById("sm-name");const emp=sel.value;document.getElementById("sm-emp").value=emp||"";},
+  smContinue(){
+    const sel=document.getElementById("sm-name");const emp=sel.value;
+    if(!emp){toast("Select your name");return;}
+    SM_USER={name:sel.options[sel.selectedIndex].textContent.replace(/\s*\(.*\)$/,""),emp};
+    // clear the base form for a fresh entry
+    ["code","customer","contract","vessel","start","end","serial","arr","rpm","hours","custic","leader","members"].forEach(k=>{const el=document.getElementById("bd-"+k);if(el)el.value="";});
+    const eng=document.getElementById("bd-engine");if(eng)eng.value="NIIGATA ";
+    document.getElementById("sm-who").innerHTML="Signed in as <b>"+E(SM_USER.name)+"</b> (Emp "+E(SM_USER.emp)+")";
+    App._hideAll();document.getElementById("screen-base").classList.remove("hidden");window.scrollTo(0,0);
+  },
+  addBaseDataSave(){
+    const codeRaw=document.getElementById("bd-code").value;
+    const code=bdNorm(codeRaw);
     if(!code){toast("Enter a project code");return;}
-    State.base={};["code","customer","contract","vessel","start","end","overhaul","engine","serial","arr","rpm","hours","custic","leader","members"].forEach(k=>{const el=document.getElementById("bd-"+k);State.base[k]=el?el.value:"";});
+    const store=bdLoad();
+    if(store[code]){toast("Project code “"+code+"” already exists — not saved");return;}
+    const data={};["code","customer","contract","vessel","start","end","overhaul","engine","serial","arr","rpm","hours","custic","leader","members"].forEach(k=>{const el=document.getElementById("bd-"+k);data[k]=el?el.value:"";});
+    data.code=code; // store normalized code
+    store[code]={data,savedAt:Date.now(),savedBy:SM_USER||null};
+    bdSaveStore(store);
+    toast("Base data saved for “"+code+"” (retained 365 days)");
+    App.showHome();
+  },
+
+  /* ---- Create WCR (fetch base data) ---- */
+  goCreateWCR(){App._hideAll();document.getElementById("screen-fetch").classList.remove("hidden");document.getElementById("fetch-code").value="";App.onFetchCode("");window.scrollTo(0,0);},
+  onFetchCode(v){
+    const btn=document.getElementById("fetch-btn");const msg=document.getElementById("fetch-msg");
+    const store=bdLoad();const code=bdNorm(v);
+    if(code && store[code]){btn.classList.add("ready");btn.disabled=false;msg.innerHTML="✓ Match found for <b>"+E(code)+"</b>"+(store[code].data.customer?" · "+E(store[code].data.customer):"")+". Press Fetch.";}
+    else{btn.classList.remove("ready");btn.disabled=true;msg.textContent=code?("No base data found for “"+code+"”. Ask the Service Manager to add it."):"Enter a saved project code — Fetch lights up when it matches.";}
+  },
+  fetchProject(){
+    const store=bdLoad();const code=bdNorm(document.getElementById("fetch-code").value);
+    if(!store[code]){toast("No base data for this code");return;}
+    State={base:JSON.parse(JSON.stringify(store[code].data)),cover:null,history:{},tables:[],processed:false};
     save();
     document.getElementById("hdr-project").textContent=code+(State.base.customer?" · "+State.base.customer:"");
-    document.getElementById("screen-base").classList.add("hidden");
-    document.getElementById("screen-wcr").classList.remove("hidden");
-    App.renderHistory();App.renderCover();App.renderMaint();App.renderGenerated();
-    window.scrollTo(0,0);
+    App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");
+    App.renderHistory();App.renderCover();App.renderMaint();App.renderGenerated();window.scrollTo(0,0);
   },
+
+  newReport(){if(!confirm("Clear the current WCR draft and go Home?"))return;State={base:{},cover:null,history:{},tables:[],processed:false};save();App.showHome();},
+  showBase(){App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");},
   onCover(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{State.cover=r.result;save();App.renderCover();};r.readAsDataURL(f);},
   renderCover(){const s=document.getElementById("cover-slot");if(!s)return;
     s.innerHTML=State.cover?`<img src="${State.cover}" class="cover-img"/><div style="margin-top:8px"><button class="btn-ghost btn-sm" onclick="App.clearCover()">✕ Remove</button></div>`:`<div class="cover-drop" onclick="document.getElementById('cover-input').click()"><div><strong>Upload site / engine photo</strong><br><span style="font-size:12px">click to choose</span></div></div>`;
