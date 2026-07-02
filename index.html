@@ -502,15 +502,22 @@ const App={
       items.forEach(it=>{const a=used.has(it.id);
         body+=`<label class="pick-row ${a?'disabled':''}"><input type="checkbox" data-id="${it.id}" ${a?'checked disabled':''}/><span>${E(it.name)}${a?' <em style="font-size:11px;color:#8aa">- added</em>':''}</span></label>`;});});
     const m=document.createElement("div");m.className="modal-bg";m.id="picker";
-    m.innerHTML=`<div class="modal"><div class="mh"><strong>Select items worked on</strong><span class="spacer"></span><button class="btn-danger" onclick="App.closePicker()">✕</button></div><div class="mb">${body}</div><div class="mf"><button class="btn-ghost btn-sm" onclick="App.closePicker()">Cancel</button><button class="btn" onclick="App.confirmPicker()">Add selected tables</button></div></div>`;
+    m.innerHTML=`<div class="modal"><div class="mh"><strong>Select items worked on</strong><span class="spacer"></span><button type="button" class="btn-danger" id="pk-x">✕</button></div><div class="mb">${body}</div><div class="mf"><button type="button" class="btn-ghost btn-sm" id="pk-cancel">Cancel</button><button type="button" class="btn" id="pk-add">Add selected tables</button></div></div>`;
     document.body.appendChild(m);
+    // wire buttons directly (no reliance on inline handlers)
+    m.querySelector("#pk-x").addEventListener("click",App.closePicker);
+    m.querySelector("#pk-cancel").addEventListener("click",App.closePicker);
+    m.querySelector("#pk-add").addEventListener("click",App.confirmPicker);
   },
   closePicker(){const m=document.getElementById("picker");if(m)m.remove();},
   confirmPicker(){
-    const m=document.getElementById("picker");if(!m)return;
-    const picks=[...m.querySelectorAll("input[type=checkbox]:checked:not(:disabled)")].map(c=>c.dataset.id);
-    picks.forEach(id=>{const it=NIIGATA_ITEMS.find(i=>i.id===id);if(it)State.tables.push(buildTable(it));});
-    save();App.closePicker();App.renderMaint();if(picks.length)toast(picks.length+" table(s) added");
+    try{
+      const m=document.getElementById("picker");if(!m)return;
+      const picks=[...m.querySelectorAll("input[type=checkbox]:checked:not(:disabled)")].map(c=>c.getAttribute("data-id"));
+      picks.forEach(id=>{const it=NIIGATA_ITEMS.find(i=>i.id===id);if(it)State.tables.push(buildTable(it));});
+      save();App.closePicker();App.renderMaint();
+      if(picks.length)toast(picks.length+" table(s) added"); else toast("Nothing ticked");
+    }catch(err){alert("Could not add tables: "+err.message);}
   },
   process(){State.processed=true;save();App.renderGenerated();toast("Scope & Executive Summary updated");const es=document.getElementById("exec-slot");if(es&&es.innerHTML)es.scrollIntoView({behavior:"smooth",block:"center"});},
   renderGenerated(){
@@ -618,6 +625,7 @@ const App={
   }
 };
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove("show"),2400);}
+window.App=App;
 App.init();
 </script>
 </body>
