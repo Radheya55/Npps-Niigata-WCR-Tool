@@ -150,7 +150,6 @@ textarea{resize:vertical;min-height:38px}
 
 <div class="wrap hidden" id="screen-base">
   <h2 class="sec">Add Base Data - Niigata Project</h2>
-  <div id="saved-cards" style="margin-bottom:16px"></div>
   <div class="card">
     <div class="who" id="sm-who"></div>
     <div class="grid2">
@@ -179,6 +178,7 @@ textarea{resize:vertical;min-height:38px}
       <button class="btn-ghost" onclick="App.showHome()">Cancel</button>
     </div>
   </div>
+  <div id="saved-cards" style="margin-top:22px"></div>
 </div>
 
 <div class="wrap hidden" id="screen-fetch">
@@ -219,7 +219,7 @@ textarea{resize:vertical;min-height:38px}
   <h2 class="sec">Photo Gallery</h2>
   <div class="card">
     <div id="photo-slot"></div>
-    <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="App.onPhotoFile(event)"/>
+    <input type="file" id="photo-input" accept="image/*" multiple class="hidden" onchange="App.onPhotoFile(event)"/>
     <button class="btn-ghost btn-sm" style="margin-top:10px" onclick="document.getElementById('photo-input').click()">+ Add photo</button>
   </div>
 
@@ -317,29 +317,49 @@ const PP_TO_IMP={cleaned:"Clean",inspected:"Inspect",dismounted:"Dismount",disma
  assembled:"Assemble",tightened:"Tighten",recorded:"Record",lapped:"Lap",honed:"Hone",removed:"Remove",
  verified:"Verify",reviewed:"Review",updated:"Update",torqued:"Torque",fitted:"Fit",observed:"Inspect",
  disconnected:"Disconnect",reused:"Reuse","degree-marked":"Degree-mark",overhauled:"Overhaul",installed:"Install",
- configured:"Configure",integrated:"Integrate",analysed:"Analyse",diagnosed:"Diagnose",identified:"Identify"};
-function scopeInstruction(act){
-  let s=(act||"").trim();if(!s)return s;
-  s=s.replace(/\.$/,"");
-  const low=s.toLowerCase();
-  // capture a trailing "found ok / normal / within limits" confirmation clause
+ configured:"Configure",integrated:"Integrate",analysed:"Analyse",diagnosed:"Diagnose",identified:"Identify",
+ done:"Carry out",performed:"Perform",carried:"Carry out",noticed:"Note",set:"Set",established:"Establish",
+ renewed_where:"Renew",replaced_where:"Replace",corrected:"Correct",confirmed:"Confirm",serviced:"Service",
+ checked_and_found:"Check"};
+// Turn one past-tense activity sentence into an imperative scope instruction.
+function scopeOneSentence(s){
+  s=s.trim().replace(/\.$/,"");
+  if(!s)return "";
+  if(/^(all readings were (found\s+)?within limits?|found (ok|normal)|readings? (were )?within limits?)\b/i.test(s)) return "__CONFIRM__";
   let confirm="";
-  const foundRe=/(,?\s*(and\s+)?found\s+(ok|normal|within limits|within limit)\b.*)$|(\.\s*all readings were within limits.*)$|(,?\s*all readings were within limits.*)$/i;
+  const foundRe=/(,?\s*(and\s+)?found\s+(ok|normal|within limits?|to be ok|to be normal)\b.*)$|(,?\s*all readings were (found\s+)?within limits?.*)$/i;
   if(foundRe.test(s)){s=s.replace(foundRe,"").trim().replace(/[,;]$/,"");confirm=" and confirm the findings are OK";}
-  // pattern: "<subject> was|were|are|is|has been|have been <participle> <rest>"
-  const m=s.match(/^(.*?)\s+(?:was|were|are|is|has been|have been)\s+([a-z\-]+)\b(.*)$/i);
+  const lc=w=>/^[A-Z]{2,}/.test(w.split(" ")[0])?w:w.charAt(0).toLowerCase()+w.slice(1);
+  let m=s.match(/^(.*?)\s+(?:was|were|are|is|has been|have been)\s+(?:visually\s+|fully\s+|manually\s+)?([a-z\-]+)\b(.*)$/i);
   if(m){
-    let subj=m[1].trim(), pp=m[2].toLowerCase(), rest=m[3];
-    const imp=PP_TO_IMP[pp];
+    let subj=m[1].trim(), pp=m[2].toLowerCase(), rest=m[3]||"";
+    let imp=PP_TO_IMP[pp];
+    if(imp&&/^[A-Za-z]+ing$/.test(subj)&&(pp==="done"||pp==="carried"||pp==="performed")){
+      rest=rest.replace(/^\s+out\b/,"");
+      return ("Carry out "+subj.toLowerCase()+rest).replace(/\s+/g," ").trim()+confirm+".";
+    }
     if(imp){
-      subj=subj.replace(/^All\s+/i,"all ").replace(/^The\s+/i,"the ");
-      let out=imp+" "+subj+(rest?rest:"");
-      out=out.replace(/\s+/g," ").trim();
-      return out+confirm+".";
+      if(imp.toLowerCase().endsWith("out")) rest=rest.replace(/^\s+out\b/,"");
+      subj=subj.replace(/^All\s+/i,"all ").replace(/^The\s+/i,"the ").replace(/^Both\s+/i,"both ");
+      subj=lc(subj);
+      return (imp+" "+subj+rest).replace(/\s+/g," ").trim()+confirm+".";
     }
   }
-  // fallback: keep as an instruction-ish phrasing
-  return s.charAt(0).toUpperCase()+s.slice(1)+confirm+".";
+  m=s.match(/^([A-Za-z]+ing)\s+(?:of\s+)?(.*)$/);
+  if(m){const map={Cleaning:"Clean",Lapping:"Carry out lapping of",Honing:"Hone",Checking:"Check",Testing:"Test",Dismantling:"Dismantle",Mounting:"Mount"};
+    if(map[m[1]]) return (map[m[1]]+" "+m[2]).replace(/\s+/g," ").trim()+confirm+".";}
+  return ("Carry out: "+s.charAt(0).toLowerCase()+s.slice(1)).replace(/\s+/g," ").trim()+confirm+".";
+}
+function scopeInstruction(act){
+  const parts=(act||"").split(/(?<=\.)\s+/).map(x=>x.trim()).filter(Boolean);
+  if(!parts.length)return "";
+  const out=[];
+  parts.forEach(p=>{
+    const r=scopeOneSentence(p);
+    if(r==="__CONFIRM__"){ if(out.length) out[out.length-1]=out[out.length-1].replace(/\.$/,"")+" and confirm the findings are OK."; }
+    else out.push(r);
+  });
+  return out.join(" ");
 }
 
 function buildTable(item){return {id:"t_"+item.id+"_"+Date.now()+Math.floor(Math.random()*999),itemId:item.id,name:item.name,rows:item.activities.map(a=>({activity:a,inScope:"",status:"",calibration:"",replaced:"",comment:""})),note:"",critical:"",action:""};}
@@ -576,7 +596,7 @@ const App={
     else ss.innerHTML="";
   },
   /* ---- photo gallery ---- */
-  onPhotoFile(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{State.photos.push({img:r.result,title:"",desc:"",refItem:"",refAct:""});save();App.renderPhotos();};r.readAsDataURL(f);e.target.value="";},
+  onPhotoFile(e){const files=[...e.target.files];if(!files.length)return;let pending=files.length;files.forEach(f=>{const r=new FileReader();r.onload=()=>{State.photos.push({img:r.result,title:"",desc:"",refItem:"",refAct:""});pending--;if(pending===0){save();App.renderPhotos();}};r.readAsDataURL(f);});e.target.value="";},
   renderPhotos(){
     const s=document.getElementById("photo-slot");if(!s)return;
     if(!State.photos.length){s.innerHTML=`<div class="empty" style="padding:18px">No photos yet. Click "Add photo" below.</div>`;return;}
@@ -586,7 +606,7 @@ const App={
       if(p.refItem){const tbl=State.tables.find(t=>t.name===p.refItem);const acts=tbl?tbl.rows.map(r=>r.activity).filter(Boolean):[];
         refUI+=`<select style="margin-top:6px" onchange="App.photoRefAct(${i},this.value)"><option value="">- select activity -</option>${acts.map(a=>`<option${p.refAct===a?' selected':''}>${E(a)}</option>`).join("")}</select>`;}
       refUI+=`</div>`;
-      const refS=(p.refItem&&p.refAct)?`<div style="font-size:12px;color:#b5c94a;margin-top:2px">Referenced to "${E(p.refItem)}" and specifically "${E(p.refAct)}"</div>`:"";
+      const refS=(p.refItem&&p.refAct)?`<div style="font-size:12px;color:#b5c94a;margin-top:2px">Reference to ${E(p.refItem)}. Activity - ${E(p.refAct)}</div>`:"";
       return `<div class="mtbl" style="display:flex;gap:14px;flex-wrap:wrap">
         <div style="flex:0 0 200px">${p.img?`<img src="${p.img}" style="max-width:200px;border-radius:8px;border:1px solid var(--line2)"/>`:""}<button class="btn-danger" style="display:block;margin-top:6px" onclick="App.delPhoto(${i})">🗑 Remove</button></div>
         <div style="flex:1;min-width:220px">
@@ -627,7 +647,7 @@ const App={
     let content="";
     if(State.cover)content+=`<div style="text-align:center;margin:6px 0 14px"><img src="${State.cover}" style="max-width:340px;max-height:220px;width:auto;height:auto;border:1px solid #bbb;border-radius:6px"/></div>`;
     content+=`<h2>Project Details</h2><table class="kv">${kv.map(([k,v])=>`<tr><td class="k">${E(k)}</td><td>${E(v||"-")}</td></tr>`).join("")}<tr><td class="k">Members</td><td>${E(members||"-")}</td></tr></table>`;
-    content+=`<h2>Table of Contents</h2><table class="toc">${toc.map(([id,label])=>`<tr><td>${E(label)}</td><td class="pg" data-for="${id}">-</td></tr>`).join("")}</table>`;
+    content+=`<h2 id="toc-start" class="brk">Table of Contents</h2><table class="toc">${toc.map(([id,label])=>`<tr><td>${E(label)}</td><td class="pg" data-for="${id}">-</td></tr>`).join("")}</table>`;
     if(exec.length)content+=`<h2 id="sec-exec">Executive Summary</h2><div class="exec"><ul class="execlist">${exec.map(f=>{let l=`<div class="ex-name">${E(f.name)}</div><div class="ex-crit"><span class="ex-lbl">Critical finding or technical anomaly:</span> ${E(f.crit)}</div>`;if(f.act)l+=`<div class="ex-act"><span class="ex-lbl2">Suggested action:</span> ${E(f.act)}</div>`;return`<li>${l}</li>`;}).join("")}</ul></div>`;
     let hist="";HISTORY.forEach(bl=>bl.fields.forEach(f=>{if(f.type==="sub")f.subs.forEach(su=>{if(State.history[su.k])hist+=`<tr><td class="k">${E(f.label)} - ${E(su.label)}</td><td>${E(State.history[su.k])}</td></tr>`;});else if(State.history[f.k])hist+=`<tr><td class="k">${E(f.label)}</td><td>${E(State.history[f.k])}</td></tr>`;}));
     content+=`<h2 id="sec-history">History</h2><table class="kv">${hist||'<tr><td colspan=2 style="color:#888">No history recorded.</td></tr>'}</table>`;
@@ -649,7 +669,7 @@ const App={
         if(p.img)content+=`<img src="${p.img}"/>`;
         content+=`<div class="pt">${i+1}. ${E(p.title||"Untitled")}</div>`;
         if(p.desc)content+=`<div class="pd">${E(p.desc)}</div>`;
-        if(p.refItem&&p.refAct)content+=`<div class="pr">Referenced to "${E(p.refItem)}" and specifically "${E(p.refAct)}"</div>`;
+        if(p.refItem&&p.refAct)content+=`<div class="pr">Reference to ${E(p.refItem)}. Activity - ${E(p.refAct)}</div>`;
         content+=`</div>`;
       });
     }
@@ -659,19 +679,19 @@ const App={
       `<tr><td><table style="width:100%;border:none"><tr><td class="lbl" style="border:none">Name</td><td style="border:none">${E(so.npName||"")}</td></tr><tr><td class="lbl" style="border:none">Date</td><td style="border:none">${E(so.npDate||"")}</td></tr></table></td>`+
       `<td><table style="width:100%;border:none"><tr><td class="lbl" style="border:none">Name</td><td style="border:none">${E(so.cuName||"")}</td></tr><tr><td class="lbl" style="border:none">Date</td><td style="border:none">${E(so.cuDate||"")}</td></tr></table></td></tr></table>`;
 
-    const doc=`<!doctype html><html><head><meta charset="utf-8"><title>WCR ${E(b.code)}</title><style>
-      @page{size:A4;margin:14mm 12mm}
+    const _n=new Date();const _p=x=>String(x).padStart(2,"0");
+    const fname=`${(b.code||"WCR")}_${_p(_n.getDate())}-${_p(_n.getMonth()+1)}-${_n.getFullYear()}-${_p(_n.getHours())}-${_p(_n.getMinutes())}-${_p(_n.getSeconds())}`;
+    const doc=`<!doctype html><html><head><meta charset="utf-8"><title>${fname}</title><style>
+      @page{size:A4;margin:26mm 12mm 22mm 12mm}
       *{box-sizing:border-box}
       body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:11px;margin:0}
-      table.report-wrap{width:100%;border-collapse:collapse}
-      table.report-wrap>thead{display:table-header-group}
-      table.report-wrap>tfoot{display:table-footer-group}
-      .rh{border-bottom:3px solid #E8801C;padding:6px 8px;background:#1F3864}
-      .rh .htitle{font-size:15px;font-weight:bold;color:#fff}
-      .rh .hsub{font-size:9px;color:#cdd8ea}
-      .rh img{height:40px;width:auto;background:#fff;padding:3px 6px;border-radius:4px}
-      .rf{border-top:3px solid #E8801C;padding:6px 8px 0;text-align:center;font-size:8px;color:#1F3864;line-height:1.5;background:#f2f5fa}
-      .content{padding:10px 2px}
+      .ph{position:fixed;top:5mm;left:12mm;right:12mm;height:16mm;display:flex;align-items:center;justify-content:space-between;border-bottom:2.5px solid #E8801C;padding-bottom:3px}
+      .ph .htitle{font-size:13px;font-weight:bold;color:#1F3864}
+      .ph .hsub{font-size:8.5px;color:#555}
+      .ph img{height:34px;width:auto}
+      .pf{position:fixed;left:12mm;right:12mm;bottom:5mm;border-top:2px solid #E8801C;padding-top:4px;text-align:center;font-size:7.5px;color:#1F3864;line-height:1.5}
+      .content{padding:2px}
+      .brk{page-break-before:always}
       h1{font-size:18px;text-align:center;margin:4px 0 10px}
       h2{font-size:13px;color:#0d7a86;border-bottom:1px solid #ccc;margin:18px 0 8px;padding-bottom:3px}
       table.kv{border-collapse:collapse;width:100%;font-size:11px;margin:4px 0}
@@ -706,30 +726,24 @@ const App={
       .pg-photo .pd{font-size:10.5px;color:#333}
       .pg-photo .pr{font-size:10px;color:#6B8E23;font-style:italic;margin-top:2px}
     </style></head><body>
-    <table class="report-wrap">
-      <thead><tr><td>
-        <table style="width:100%;border:none"><tr>
-          <td style="border:none;text-align:left;vertical-align:middle" class="rh"><div class="htitle">Work Completion Report</div><div class="hsub">Project: ${E(b.code||"")}${b.customer?(" | "+E(b.customer)):""}</div></td>
-          <td style="border:none;text-align:right;vertical-align:middle;width:120px" class="rh"><img src="${LOGO_B64}" alt="Neptunus"/></td>
-        </tr></table>
-      </td></tr></thead>
-      <tfoot><tr><td><div class="rf">${foot}</div></td></tr></tfoot>
-      <tbody><tr><td><div class="content" id="content"><h1>Work Completion Report</h1>${content}</div></td></tr></tbody>
-    </table>
+    <div class="ph"><div><div class="htitle">Work Completion Report${b.customer?(" - "+E(b.customer)):""}</div><div class="hsub">Project: ${E(b.code||"")}</div></div><img src="${LOGO_B64}" alt="Neptunus"/></div>
+    <div class="pf">${foot}</div>
+    <div class="content" id="content"><h1>Work Completion Report</h1>${content}</div>
     <script>
       (function(){
         function num(){
-          var usable=890;
-          var content=document.getElementById('content');
-          var base=content.getBoundingClientRect().top+window.scrollY;
+          var usable=935;
+          var tocEl=document.getElementById('toc-start');
+          if(!tocEl)return;
+          var base=tocEl.getBoundingClientRect().top+window.scrollY;
           document.querySelectorAll('.toc .pg').forEach(function(cell){
             var el=document.getElementById(cell.getAttribute('data-for'));
             if(!el){cell.textContent='-';return;}
             var top=(el.getBoundingClientRect().top+window.scrollY)-base;
-            cell.textContent=Math.max(1,Math.floor(top/usable)+1);
+            cell.textContent=2+Math.floor(top/usable);
           });
         }
-        function ready(){ num(); setTimeout(function(){ window.focus(); window.print(); },350); }
+        function ready(){ num(); setTimeout(function(){ window.focus(); window.print(); },400); }
         if(document.readyState==='complete') ready(); else window.addEventListener('load',ready);
       })();
     <\/script>
