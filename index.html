@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Neptunus — Niigata WCR</title>
+<title>Neptunus - Niigata WCR</title>
 <style>
 :root{
   --bg:#0f171b; --panel:#16232a; --panel2:#1b2b33; --ink:#e8eef0; --muted:#8fa6ae;
@@ -45,7 +45,10 @@ button{cursor:pointer;border:none;border-radius:8px;font-weight:600;font-size:13
 table.mg{border-collapse:collapse;width:100%;font-size:12.5px;min-width:720px}
 table.mg th{background:#16262e;color:var(--ink);font-weight:700;font-size:11px;padding:8px;text-align:left;border:1px solid var(--line)}
 table.mg td{border:1px solid var(--line);padding:0}
-table.mg td input,table.mg td select{border:none;border-radius:0;background:transparent;font-size:12.5px;padding:8px}
+table.mg td input,table.mg td select{border:none;border-radius:0;background:#1b2b33;color:var(--ink);font-size:12.5px;padding:8px;width:100%}
+table.mg td select{background:#22343d;color:var(--ink)}
+select option{background:#1b2b33;color:#e8eef0}
+.dd option{background:#20323b;color:#e8eef0}
 .notes .nr{margin-top:8px}
 .notes label{font-size:11px;color:var(--muted);display:block;margin-bottom:3px}
 .notes .crit label{color:var(--red)}
@@ -87,6 +90,14 @@ textarea{resize:vertical;min-height:38px}
 .fetch-btn.ready{background:var(--accent);color:#fff;cursor:pointer;box-shadow:0 0 0 3px rgba(21,154,168,.3)}
 .who{font-size:12px;color:var(--muted);margin-bottom:12px}
 .who b{color:var(--ink)}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line2);border-radius:20px;padding:4px 6px 4px 12px;font-size:12px}
+.chip button{background:transparent;color:var(--red);border:none;padding:0 4px;font-size:14px;cursor:pointer}
+.saved-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:6px}
+.scard{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:12px 14px;cursor:pointer;transition:.15s}
+.scard:hover{border-color:var(--accent);transform:translateY(-2px)}
+.scard .sc-code{font-weight:700;color:var(--accent);font-size:14px}
+.scard .sc-cust{font-size:12px;color:var(--ink);margin-top:2px}
+.scard .sc-meta{font-size:11px;color:var(--muted);margin-top:4px}
 </style>
 </head>
 <body>
@@ -116,10 +127,10 @@ textarea{resize:vertical;min-height:38px}
 </div>
 
 <div class="wrap hidden" id="screen-sm-gate">
-  <h2 class="sec">Add Base Data — Sign in</h2>
+  <h2 class="sec">Add Base Data - Sign in</h2>
   <div class="card" style="max-width:460px">
     <div class="fg"><label class="f">Your Name</label>
-      <select id="sm-name"><option value="">— select —</option></select></div>
+      <select id="sm-name"><option value="">- select -</option></select></div>
     <div class="fg"><label class="f">Employee ID</label><input id="sm-emp" placeholder="Enter your employee ID"/></div>
     <div style="display:flex;gap:10px;margin-top:6px">
       <button class="btn" onclick="App.smContinue()">Continue →</button>
@@ -129,7 +140,8 @@ textarea{resize:vertical;min-height:38px}
 </div>
 
 <div class="wrap hidden" id="screen-base">
-  <h2 class="sec">Add Base Data — Niigata Project</h2>
+  <h2 class="sec">Add Base Data - Niigata Project</h2>
+  <div id="saved-cards" style="margin-bottom:16px"></div>
   <div class="card">
     <div class="who" id="sm-who"></div>
     <div class="grid2">
@@ -148,10 +160,13 @@ textarea{resize:vertical;min-height:38px}
       <div class="fg"><label class="f">Current Running Hours</label><input id="bd-hours"/></div>
       <div class="fg"><label class="f">Customer In-Charge</label><input id="bd-custic"/></div>
       <div class="fg"><label class="f">Neptunus Team Leader</label><input id="bd-leader"/></div>
-      <div class="fg" style="grid-column:1/-1"><label class="f">Neptunus Members</label><input id="bd-members"/></div>
+      <div class="fg" style="grid-column:1/-1"><label class="f">Neptunus Members</label>
+        <div class="row-flex"><input id="bd-member-input" placeholder="Type a member name" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();App.addMember();}"/><button class="btn-ghost btn-sm" type="button" onclick="App.addMember()">+ Add member</button></div>
+        <div id="bd-members-list" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
     </div>
     <div style="display:flex;gap:10px;margin-top:6px">
-      <button class="btn" onclick="App.addBaseDataSave()">💾 Save &amp; Done</button>
+      <button class="btn" id="bd-save-btn" onclick="App.addBaseDataSave()">💾 Save &amp; Done</button>
       <button class="btn-ghost" onclick="App.showHome()">Cancel</button>
     </div>
   </div>
@@ -165,7 +180,7 @@ textarea{resize:vertical;min-height:38px}
         <input id="fetch-code" placeholder="Enter project code…" oninput="App.onFetchCode(this.value)" style="flex:1"/>
         <button class="fetch-btn" id="fetch-btn" onclick="App.fetchProject()">⚡ Fetch</button>
       </div>
-      <div id="fetch-msg" style="font-size:12px;color:var(--muted);margin-top:8px">Enter a saved project code — Fetch lights up when it matches.</div>
+      <div id="fetch-msg" style="font-size:12px;color:var(--muted);margin-top:8px">Enter a saved project code - Fetch lights up when it matches.</div>
     </div>
     <button class="btn-ghost" onclick="App.showHome()">← Back</button>
   </div>
@@ -186,10 +201,11 @@ textarea{resize:vertical;min-height:38px}
     <div class="row-flex" style="margin-bottom:12px">
       <button class="btn" onclick="App.openPicker()">☑ Select items worked on</button>
       <button class="btn-ghost btn-sm" onclick="App.addCustom()">+ Add custom table</button>
-      <span class="spacer"></span>
-      <button class="btn-amber" onclick="App.process()">⚙ Process Maintenance Summary →</button>
     </div>
     <div id="maint-slot"></div>
+    <div style="margin-top:14px;display:flex;justify-content:flex-end">
+      <button class="btn-amber" onclick="App.process()">⚙ Process Maintenance Summary</button>
+    </div>
   </div>
   <div style="margin-top:24px;display:flex;gap:10px">
     <button class="btn" onclick="App.downloadReport()">⬇ Download Report</button>
@@ -202,12 +218,12 @@ textarea{resize:vertical;min-height:38px}
 <script>
 const NIIGATA_SECTIONS=["Mechanical Overhaul","Electrical / Control System","Troubleshooting & Health Check"];
 const NIIGATA_ITEMS=[
- {id:"cyl_dismantle",section:"Mechanical Overhaul",name:"Cylinder Heads — Dismounting, dismantling, inspection & cleaning",activities:["All cylinder heads were dismounted from the engine block.","All cylinder heads were further dismantled.","All cylinder heads were inspected.","All cylinder heads were cleaned.","Normal carbon residue was observed on the combustion surface."]},
- {id:"cyl_dp_hydro",section:"Mechanical Overhaul",name:"Cylinder Heads — Dye penetrant & hydro pressure test",activities:["All cylinder heads' combustion surface area was dye penetrant tested and found ok.","All cylinder heads were hydro pressure tested and found normal."]},
- {id:"cyl_valves",section:"Mechanical Overhaul",name:"Cylinder Heads — Valve seats, valves, guides & rotators",activities:["All exhaust valve seats were renewed.","All old intake valves were reused.","Intake valve stem diameter was checked.","All exhaust valves were renewed.","Exhaust valve stem diameter was checked.","Both exhaust valve guides of cylinder head No-5 and 1 exhaust valve guide of cylinder head No-2 were renewed on the STBD engine.","All valve guide O-rings were renewed.","All inlet and exhaust valves, retainers and the rotomat were renewed."]},
- {id:"cyl_rocker",section:"Mechanical Overhaul",name:"Cylinder Heads — Rocker arm",activities:["All rocker arm bushings and shafting were cleaned.","All rocker arm bushings and shafting were checked and found within limits.","All rocker arms were mounted back."]},
- {id:"cyl_injectors",section:"Mechanical Overhaul",name:"Cylinder Heads — Fuel injection valves",activities:["All fuel injectors were cleaned and inspected and found normal.","All injector body, spindle, spring and O-ring were renewed.","All fuel injectors were leak tested and calibrated at 33 MPa.","Spray and leak were tested.","All fuel injectors were mounted back into cylinder heads with new washer and O-rings and tightened as per OEM recommendations."]},
- {id:"cyl_final",section:"Mechanical Overhaul",name:"Cylinder Heads — Final cleaning, assembling & mounting",activities:["All cylinder heads were assembled.","All cylinder heads were finally cleaned, assembled and mounted back on the engine block and tightened as per OEM recommendations with new gasket.","All auxiliary pipe lines were assembled and tightened with torque wherever necessary.","Tappet setting of 0.50 mm was carried out for both inlet and exhaust valves."]},
+ {id:"cyl_dismantle",section:"Mechanical Overhaul",name:"Cylinder Heads - Dismounting, dismantling, inspection & cleaning",activities:["All cylinder heads were dismounted from the engine block.","All cylinder heads were further dismantled.","All cylinder heads were inspected.","All cylinder heads were cleaned.","Normal carbon residue was observed on the combustion surface."]},
+ {id:"cyl_dp_hydro",section:"Mechanical Overhaul",name:"Cylinder Heads - Dye penetrant & hydro pressure test",activities:["All cylinder heads' combustion surface area was dye penetrant tested and found ok.","All cylinder heads were hydro pressure tested and found normal."]},
+ {id:"cyl_valves",section:"Mechanical Overhaul",name:"Cylinder Heads - Valve seats, valves, guides & rotators",activities:["All exhaust valve seats were renewed.","All old intake valves were reused.","Intake valve stem diameter was checked.","All exhaust valves were renewed.","Exhaust valve stem diameter was checked.","Both exhaust valve guides of cylinder head No-5 and 1 exhaust valve guide of cylinder head No-2 were renewed on the STBD engine.","All valve guide O-rings were renewed.","All inlet and exhaust valves, retainers and the rotomat were renewed."]},
+ {id:"cyl_rocker",section:"Mechanical Overhaul",name:"Cylinder Heads - Rocker arm",activities:["All rocker arm bushings and shafting were cleaned.","All rocker arm bushings and shafting were checked and found within limits.","All rocker arms were mounted back."]},
+ {id:"cyl_injectors",section:"Mechanical Overhaul",name:"Cylinder Heads - Fuel injection valves",activities:["All fuel injectors were cleaned and inspected and found normal.","All injector body, spindle, spring and O-ring were renewed.","All fuel injectors were leak tested and calibrated at 33 MPa.","Spray and leak were tested.","All fuel injectors were mounted back into cylinder heads with new washer and O-rings and tightened as per OEM recommendations."]},
+ {id:"cyl_final",section:"Mechanical Overhaul",name:"Cylinder Heads - Final cleaning, assembling & mounting",activities:["All cylinder heads were assembled.","All cylinder heads were finally cleaned, assembled and mounted back on the engine block and tightened as per OEM recommendations with new gasket.","All auxiliary pipe lines were assembled and tightened with torque wherever necessary.","Tappet setting of 0.50 mm was carried out for both inlet and exhaust valves."]},
  {id:"fuel_pumps",section:"Mechanical Overhaul",name:"Fuel Injection Pumps",activities:["All fuel pumps of both engines were dismounted from the engine.","All fuel injection pumps of both engines were overhauled with new plunger-barrel, O-ring, back-up ring, gasket, delivery valves, distributor barrel plunger and deflector.","All fuel injection pumps were mounted back and tightened as per OEM recommendations.","Both engine fuel pump timing was checked and found within limit."]},
  {id:"air_start_valves",section:"Mechanical Overhaul",name:"Air Starting Valves",activities:["All air starting valves were dismounted.","All air starting valves were dismantled.","All air starting valves were cleaned.","Lapping was done with new valve set.","Valve-seat contact was checked.","Air starting valves were assembled.","Functionality was checked.","All air starting valves were mounted back with new O-ring.","Gaskets were renewed."]},
  {id:"air_distributor",section:"Mechanical Overhaul",name:"Starting Air Distributor",activities:["Starting air distributor was dismantled.","Starting air distributor was cleaned.","Starting air distributor was visually inspected and found ok.","Starting air distributor was assembled and mounted back."]},
@@ -242,13 +258,13 @@ const NIIGATA_ITEMS=[
 ];
 
 const HISTORY=[
- {sec:"Common — fill for every Niigata job",fields:[
+ {sec:"Common - fill for every Niigata job",fields:[
    {k:"lastOverhaul",label:"Last overhauling type and carried out by",type:"text"},
    {k:"runHours",label:"Running hours at the time of above maintenance",type:"text"},
    {k:"observations",label:"Observations recorded prior dismantling",type:"text"},
    {k:"logLeakages",label:"Log leakages noted / any abnormalities recorded (prior job start)",type:"dd",opts:["","None","Observed (see notes)"]},
-   {k:"bearingConRod",label:"Bearing size — connecting rod journal (Size + Part No.)",type:"text"},
-   {k:"bearingMain",label:"Bearing size — main journal (Size + Part No.)",type:"text"},
+   {k:"bearingConRod",label:"Bearing size - connecting rod journal (Size + Part No.)",type:"text"},
+   {k:"bearingMain",label:"Bearing size - main journal (Size + Part No.)",type:"text"},
    {k:"turbo",label:"Turbocharger details",type:"sub",subs:[{k:"turboMake",label:"Make & model"},{k:"turboSr",label:"Sr. no."},{k:"turboMaint",label:"Last maintenance details"}]},
    {k:"gauge",label:"Safety checks & conditions of the gauges on the instrument panel",type:"dd",opts:["","Normal","Abnormal (see notes)","Not checked"]},
  ]},
@@ -258,10 +274,43 @@ const HISTORY=[
  ]},
 ];
 
-function buildTable(item){return {id:"t_"+item.id+"_"+Date.now()+Math.floor(Math.random()*999),itemId:item.id,name:item.name,rows:item.activities.map(a=>({activity:a,inScope:"",status:"",calibration:"",replaced:"",comment:""})),note:"",critical:"",action:""};}
+/* Convert a past-tense maintenance activity into an instruction-mode scope line.
+   e.g. "All cylinder heads were cleaned." -> "Clean all cylinder heads."
+        "Camshaft was visually inspected and found ok." -> "Visually inspect camshaft and confirm the findings are OK." */
+const PP_TO_IMP={cleaned:"Clean",inspected:"Inspect",dismounted:"Dismount",dismantled:"Dismantle",renewed:"Renew",
+ measured:"Measure",checked:"Check",calibrated:"Calibrate",tested:"Test",mounted:"Mount",replaced:"Replace",
+ assembled:"Assemble",tightened:"Tighten",recorded:"Record",lapped:"Lap",honed:"Hone",removed:"Remove",
+ verified:"Verify",reviewed:"Review",updated:"Update",torqued:"Torque",fitted:"Fit",observed:"Inspect",
+ disconnected:"Disconnect",reused:"Reuse","degree-marked":"Degree-mark",overhauled:"Overhaul",installed:"Install",
+ configured:"Configure",integrated:"Integrate",analysed:"Analyse",diagnosed:"Diagnose",identified:"Identify"};
+function scopeInstruction(act){
+  let s=(act||"").trim();if(!s)return s;
+  s=s.replace(/\.$/,"");
+  const low=s.toLowerCase();
+  // capture a trailing "found ok / normal / within limits" confirmation clause
+  let confirm="";
+  const foundRe=/(,?\s*(and\s+)?found\s+(ok|normal|within limits|within limit)\b.*)$|(\.\s*all readings were within limits.*)$|(,?\s*all readings were within limits.*)$/i;
+  if(foundRe.test(s)){s=s.replace(foundRe,"").trim().replace(/[,;]$/,"");confirm=" and confirm the findings are OK";}
+  // pattern: "<subject> was|were|are|is|has been|have been <participle> <rest>"
+  const m=s.match(/^(.*?)\s+(?:was|were|are|is|has been|have been)\s+([a-z\-]+)\b(.*)$/i);
+  if(m){
+    let subj=m[1].trim(), pp=m[2].toLowerCase(), rest=m[3];
+    const imp=PP_TO_IMP[pp];
+    if(imp){
+      subj=subj.replace(/^All\s+/i,"all ").replace(/^The\s+/i,"the ");
+      let out=imp+" "+subj+(rest?rest:"");
+      out=out.replace(/\s+/g," ").trim();
+      return out+confirm+".";
+    }
+  }
+  // fallback: keep as an instruction-ish phrasing
+  return s.charAt(0).toUpperCase()+s.slice(1)+confirm+".";
+}
+
 function buildCustom(){return {id:"t_custom_"+Date.now(),itemId:null,custom:true,name:"",rows:[{activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:""}],note:"",critical:"",action:""};}
 const E=s=>(s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
+const LOGO_B64="data:image/png;base64,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";
 const EMPLOYEES=[
  {name:"Radheya Supnekar",empNo:"660"},{name:"Sameer Mhatre",empNo:"596"},{name:"Supriya Nair",empNo:"589"},
  {name:"Tony Zacharia",empNo:"575"},{name:"Akshay Purohit",empNo:"C"},{name:"Ashish Sharma",empNo:"666"},
@@ -285,6 +334,8 @@ function bdSaveStore(s){try{localStorage.setItem(BD_KEY,JSON.stringify(s));}catc
 function bdPurge(){const s=bdLoad();const now=Date.now();let changed=false;Object.keys(s).forEach(k=>{if(now-(s[k].savedAt||0)>BD_TTL){delete s[k];changed=true;}});if(changed)bdSaveStore(s);}
 function bdNorm(c){return (c||"").trim().toUpperCase();}
 let SM_USER=null; // signed-in service manager for base data
+let BD_MEMBERS=[]; // member list buffer for the base data form
+let BD_EDITING=null; // project code currently being edited (null = new)
 
 let State={base:{},cover:null,history:{},tables:[],processed:false};
 function save(){try{localStorage.setItem("npps_niigata_wcr",JSON.stringify(State));}catch(e){}}
@@ -311,23 +362,63 @@ const App={
     const rec=EMPLOYEES.find(e=>e.name===name);
     if(!rec||String(rec.empNo).toLowerCase()!==typed.toLowerCase()){toast("Employee ID does not match this name");return;}
     SM_USER={name,emp:rec.empNo};
-    // clear the base form for a fresh entry
-    ["code","customer","contract","vessel","start","end","serial","arr","rpm","hours","custic","leader","members"].forEach(k=>{const el=document.getElementById("bd-"+k);if(el)el.value="";});
-    const eng=document.getElementById("bd-engine");if(eng)eng.value="NIIGATA ";
+    App.newBaseEntry();
     document.getElementById("sm-who").innerHTML="Signed in as <b>"+E(SM_USER.name)+"</b> (Emp "+E(SM_USER.emp)+")";
-    App._hideAll();document.getElementById("screen-base").classList.remove("hidden");window.scrollTo(0,0);
+    App._hideAll();document.getElementById("screen-base").classList.remove("hidden");App.renderSavedCards();window.scrollTo(0,0);
+  },
+  newBaseEntry(){
+    BD_EDITING=null;BD_MEMBERS=[];
+    ["code","customer","contract","vessel","start","end","serial","arr","rpm","hours","custic","leader"].forEach(k=>{const el=document.getElementById("bd-"+k);if(el)el.value="";});
+    const eng=document.getElementById("bd-engine");if(eng)eng.value="NIIGATA ";
+    const ov=document.getElementById("bd-overhaul");if(ov)ov.selectedIndex=0;
+    const cd=document.getElementById("bd-code");if(cd)cd.readOnly=false;
+    App.renderMembers();
+    const bt=document.getElementById("bd-save-btn");if(bt)bt.textContent="💾 Save & Done";
+  },
+  renderSavedCards(){
+    const wrap=document.getElementById("saved-cards");if(!wrap)return;
+    const store=bdLoad();const codes=Object.keys(store);
+    if(!codes.length){wrap.innerHTML="";return;}
+    wrap.innerHTML=`<div class="pick-sec">Previously added projects - click to view / edit</div><div class="saved-grid">`+
+      codes.sort().map(c=>{const d=store[c].data;const dt=store[c].savedAt?new Date(store[c].savedAt).toLocaleDateString():"";
+        return `<div class="scard" onclick="App.editBase('${E(c).replace(/'/g,"\\'")}')"><div class="sc-code">${E(c)}</div><div class="sc-cust">${E(d.customer||"")}</div><div class="sc-meta">${E(d.overhaul||"")}${dt?" · "+dt:""}</div></div>`;
+      }).join("")+`</div>`;
+  },
+  editBase(code){
+    const store=bdLoad();const rec=store[code];if(!rec)return;const d=rec.data;
+    BD_EDITING=code;
+    ["code","customer","contract","vessel","start","end","engine","serial","arr","rpm","hours","custic","leader"].forEach(k=>{const el=document.getElementById("bd-"+k);if(el)el.value=d[k]||"";});
+    const ov=document.getElementById("bd-overhaul");if(ov&&d.overhaul)ov.value=d.overhaul;
+    const cd=document.getElementById("bd-code");if(cd)cd.readOnly=true; // don't rename the key
+    BD_MEMBERS=Array.isArray(d.membersList)?d.membersList.slice():(d.members?d.members.split(",").map(s=>s.trim()).filter(Boolean):[]);
+    App.renderMembers();
+    const bt=document.getElementById("bd-save-btn");if(bt)bt.textContent="💾 Update & Done";
+    document.getElementById("screen-base").scrollIntoView({behavior:"smooth"});
+    toast("Editing "+code);
+  },
+  addMember(){
+    const inp=document.getElementById("bd-member-input");const v=(inp.value||"").trim();
+    if(!v)return;BD_MEMBERS.push(v);inp.value="";App.renderMembers();inp.focus();
+  },
+  removeMember(i){BD_MEMBERS.splice(i,1);App.renderMembers();},
+  renderMembers(){
+    const el=document.getElementById("bd-members-list");if(!el)return;
+    el.innerHTML=BD_MEMBERS.map((m,i)=>`<span class="chip">${E(m)}<button type="button" onclick="App.removeMember(${i})">✕</button></span>`).join("");
   },
   addBaseDataSave(){
     const codeRaw=document.getElementById("bd-code").value;
     const code=bdNorm(codeRaw);
     if(!code){toast("Enter a project code");return;}
     const store=bdLoad();
-    if(store[code]){toast("Project code “"+code+"” already exists — not saved");return;}
-    const data={};["code","customer","contract","vessel","start","end","overhaul","engine","serial","arr","rpm","hours","custic","leader","members"].forEach(k=>{const el=document.getElementById("bd-"+k);data[k]=el?el.value:"";});
-    data.code=code; // store normalized code
-    store[code]={data,savedAt:Date.now(),savedBy:SM_USER||null};
+    if(store[code] && code!==BD_EDITING){toast("Project code \""+code+"\" already exists - not saved");return;}
+    const data={};["code","customer","contract","vessel","start","end","overhaul","engine","serial","arr","rpm","hours","custic","leader"].forEach(k=>{const el=document.getElementById("bd-"+k);data[k]=el?el.value:"";});
+    data.code=code;
+    data.membersList=BD_MEMBERS.slice();
+    data.members=BD_MEMBERS.join(", ");
+    const savedAt=(BD_EDITING&&store[BD_EDITING])?store[BD_EDITING].savedAt:Date.now();
+    store[code]={data,savedAt,savedBy:SM_USER||null};
     bdSaveStore(store);
-    toast("Base data saved for “"+code+"” (retained 365 days)");
+    toast(BD_EDITING?("Base data updated for \""+code+"\""):("Base data saved for \""+code+"\" (retained 365 days)"));
     App.showHome();
   },
 
@@ -337,7 +428,7 @@ const App={
     const btn=document.getElementById("fetch-btn");const msg=document.getElementById("fetch-msg");
     const store=bdLoad();const code=bdNorm(v);
     if(code && store[code]){btn.classList.add("ready");btn.disabled=false;msg.innerHTML="✓ Match found for <b>"+E(code)+"</b>"+(store[code].data.customer?" · "+E(store[code].data.customer):"")+". Press Fetch.";}
-    else{btn.classList.remove("ready");btn.disabled=true;msg.textContent=code?("No base data found for “"+code+"”. Ask the Service Manager to add it."):"Enter a saved project code — Fetch lights up when it matches.";}
+    else{btn.classList.remove("ready");btn.disabled=true;msg.textContent=code?("No base data found for “"+code+"”. Ask the Service Manager to add it."):"Enter a saved project code - Fetch lights up when it matches.";}
   },
   fetchProject(){
     const store=bdLoad();const code=bdNorm(document.getElementById("fetch-code").value);
@@ -371,12 +462,12 @@ const App={
   hset(k,v){State.history[k]=v;save();},
   renderMaint(){
     const s=document.getElementById("maint-slot");if(!s)return;
-    if(!State.tables.length){s.innerHTML=`<div class="empty">No items selected yet. Click <strong>“Select items worked on”</strong> above and tick the components — only those tables appear here.</div>`;return;}
+    if(!State.tables.length){s.innerHTML=`<div class="empty">No items selected yet. Click <strong>“Select items worked on”</strong> above and tick the components - only those tables appear here.</div>`;return;}
     s.innerHTML=State.tables.map((t,ti)=>App.tableHTML(t,ti)).join("");
   },
   tableHTML(t,ti){
     const scopeO=["","Yes","No"],statO=["","Done","Partially Done","Not Done"],calO=["","Yes","No"],replO=["","Replaced","Reused","Reused, Good condition","N/A"];
-    const sel=(o,v,h)=>`<select onchange="${h}">${o.map(x=>`<option value="${E(x)}"${x===v?' selected':''}>${E(x||'—')}</option>`).join("")}</select>`;
+    const sel=(o,v,h)=>`<select onchange="${h}">${o.map(x=>`<option value="${E(x)}"${x===v?' selected':''}>${E(x||'-')}</option>`).join("")}</select>`;
     const rows=t.rows.map((r,ri)=>`<tr>
       <td><input value="${E(r.activity)}" placeholder="Activity…" oninput="App.rset(${ti},${ri},'activity',this.value)"/></td>
       <td>${sel(scopeO,r.inScope,`App.rset(${ti},${ri},'inScope',this.value)`)}</td>
@@ -395,7 +486,7 @@ const App={
       <div class="notes">
         <div class="nr"><label>Specific note or additional info about this item</label><textarea oninput="App.tset(${ti},'note',this.value)">${E(t.note)}</textarea></div>
         <div class="nr crit"><label>⚠ Critical finding or non-conformity</label><textarea oninput="App.tset(${ti},'critical',this.value)">${E(t.critical)}</textarea></div>
-        <div class="nr"><label>Action step or recommendation for this item</label><textarea oninput="App.tset(${ti},'action',this.value)">${E(t.action)}</textarea></div>
+        <div class="nr"><label>Suggested action or recommendation for this item</label><textarea oninput="App.tset(${ti},'action',this.value)">${E(t.action)}</textarea></div>
       </div></div>`;
   },
   rset(ti,ri,f,v){State.tables[ti].rows[ri][f]=v;save();},
@@ -409,7 +500,7 @@ const App={
     NIIGATA_SECTIONS.forEach(sec=>{const items=NIIGATA_ITEMS.filter(i=>i.section===sec);if(!items.length)return;
       body+=`<div class="pick-sec">${E(sec)}</div>`;
       items.forEach(it=>{const a=used.has(it.id);
-        body+=`<label class="pick-row ${a?'disabled':''}"><input type="checkbox" data-id="${it.id}" ${a?'checked disabled':''}/><span>${E(it.name)}${a?' <em style="font-size:11px;color:#8aa">— added</em>':''}</span></label>`;});});
+        body+=`<label class="pick-row ${a?'disabled':''}"><input type="checkbox" data-id="${it.id}" ${a?'checked disabled':''}/><span>${E(it.name)}${a?' <em style="font-size:11px;color:#8aa">- added</em>':''}</span></label>`;});});
     const m=document.createElement("div");m.className="modal-bg";m.id="picker";
     m.innerHTML=`<div class="modal"><div class="mh"><strong>Select items worked on</strong><span class="spacer"></span><button class="btn-danger" onclick="App.closePicker()">✕</button></div><div class="mb">${body}</div><div class="mf"><button class="btn-ghost btn-sm" onclick="App.closePicker()">Cancel</button><button class="btn" onclick="App.confirmPicker()">Add selected tables</button></div></div>`;
     document.body.appendChild(m);
@@ -423,31 +514,107 @@ const App={
   },
   process(){State.processed=true;save();App.renderGenerated();toast("Scope & Executive Summary updated");const es=document.getElementById("exec-slot");if(es&&es.innerHTML)es.scrollIntoView({behavior:"smooth",block:"center"});},
   renderGenerated(){
-    const scope=[];State.tables.forEach(t=>{const rows=t.rows.filter(r=>(r.inScope||"").toLowerCase()==="yes"&&(r.activity||"").trim());if(rows.length)scope.push({name:t.name||"(unnamed)",acts:rows.map(r=>r.activity)});});
+    const scope=[];State.tables.forEach(t=>{const rows=t.rows.filter(r=>(r.inScope||"").toLowerCase()==="yes"&&(r.activity||"").trim());if(rows.length)scope.push({name:t.name||"(unnamed)",acts:rows.map(r=>scopeInstruction(r.activity))});});
     const exec=State.tables.filter(t=>(t.critical||"").trim()).map(t=>({name:t.name,crit:t.critical.trim(),act:(t.action||"").trim()}));
     const es=document.getElementById("exec-slot");
-    if(State.processed&&exec.length){es.innerHTML=`<h2 class="sec" style="color:var(--amber)">⚡ Executive Summary</h2><div class="gen exec"><h3>Critical findings &amp; actions</h3><ul>${exec.map(f=>{let l=`<strong>${E(f.name)}:</strong> ${E(f.crit)}`;if(f.act)l+=` <em style="color:#cfd">— Action: ${E(f.act)}</em>`;return`<li>${l}</li>`;}).join("")}</ul></div>`;}
+    if(State.processed&&exec.length){es.innerHTML=`<h2 class="sec" style="color:var(--amber)">⚡ Executive Summary</h2><div class="gen exec"><h3>Critical findings &amp; suggested actions</h3><ul>${exec.map(f=>{let l=`<strong>${E(f.name)}:</strong> ${E(f.crit)}`;if(f.act)l+=` <em style="color:#cfd">Suggested action: ${E(f.act)}</em>`;return`<li>${l}</li>`;}).join("")}</ul></div>`;}
     else if(State.processed){es.innerHTML=`<h2 class="sec" style="color:var(--amber)">⚡ Executive Summary</h2><div class="gen"><span style="color:var(--muted)">No critical findings recorded. Add a “Critical finding” to any item and press Process.</span></div>`;}
     else es.innerHTML="";
     const ss=document.getElementById("scope-slot");
-    if(State.processed&&scope.length){ss.innerHTML=`<h2 class="sec">Scope of Work</h2><div class="gen"><h3>Auto-generated from “In Scope = Yes”</h3>${scope.map(s=>`<div class="item"><strong>${E(s.name)}</strong><ul>${s.acts.map(a=>`<li>${E(a)}</li>`).join("")}</ul></div>`).join("")}</div>`;}
+    if(State.processed&&scope.length){ss.innerHTML=`<h2 class="sec">Scope of Work</h2><div class="gen"><h3>Work carried out under this scope</h3>${scope.map(s=>`<div class="item"><strong>${E(s.name)}</strong><ul>${s.acts.map(a=>`<li>${E(a)}</li>`).join("")}</ul></div>`).join("")}</div>`;}
     else if(State.processed){ss.innerHTML=`<h2 class="sec">Scope of Work</h2><div class="gen"><span style="color:var(--muted)">Mark activities as “In Scope = Yes”, then press Process.</span></div>`;}
     else ss.innerHTML="";
   },
   downloadReport(){
     App.process();const b=State.base;
-    const scope=[];State.tables.forEach(t=>{const rows=t.rows.filter(r=>(r.inScope||"").toLowerCase()==="yes"&&(r.activity||"").trim());if(rows.length)scope.push({name:t.name,acts:rows.map(r=>r.activity)});});
+    const scope=[];State.tables.forEach(t=>{const rows=t.rows.filter(r=>(r.inScope||"").toLowerCase()==="yes"&&(r.activity||"").trim());if(rows.length)scope.push({name:t.name,acts:rows.map(r=>scopeInstruction(r.activity))});});
     const exec=State.tables.filter(t=>(t.critical||"").trim()).map(t=>({name:t.name,crit:t.critical.trim(),act:(t.action||"").trim()}));
-    let html=`<html><head><title>WCR ${E(b.code)}</title><style>body{font-family:Arial,sans-serif;color:#111;font-size:12px;margin:32px}h1{font-size:18px;text-align:center;border-bottom:2px solid #159aa8;padding-bottom:8px}h2{font-size:14px;color:#0d7a86;border-bottom:1px solid #ccc;margin-top:22px}table{border-collapse:collapse;width:100%;font-size:11px;margin:6px 0}th,td{border:1px solid #999;padding:5px;text-align:left}th{background:#eef4f5}.kv{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}.kv div{padding:3px 0;border-bottom:1px solid #eee}.exec{background:#fff7e8;border:1px solid #e8a020;border-radius:6px;padding:10px}ul{margin:4px 0 4px 18px}</style></head><body>
-    <h1>Work Completion Report</h1>
-    <h2>Project Details</h2><div class="kv">${[["Project Code",b.code],["Customer",b.customer],["Contract No.",b.contract],["Vessel/Rig",b.vessel],["Start Date",b.start],["Handing Over",b.end],["Overhaul Type",b.overhaul],["Engine",b.engine],["Serial",b.serial],["Arrangement",b.arr],["RPM & Capacity",b.rpm],["Running Hours",b.hours],["Customer In-Charge",b.custic],["Team Leader",b.leader],["Members",b.members]].map(([k,v])=>`<div><strong>${E(k)}:</strong> ${E(v||"—")}</div>`).join("")}</div>`;
-    if(exec.length)html+=`<h2>⚡ Executive Summary</h2><div class="exec"><ul>${exec.map(f=>`<li><strong>${E(f.name)}:</strong> ${E(f.crit)}${f.act?` — <em>Action: ${E(f.act)}</em>`:""}</li>`).join("")}</ul></div>`;
-    html+=`<h2>History</h2><table>`;HISTORY.forEach(bl=>bl.fields.forEach(f=>{if(f.type==="sub")f.subs.forEach(su=>{if(State.history[su.k])html+=`<tr><td>${E(f.label)} — ${E(su.label)}</td><td>${E(State.history[su.k])}</td></tr>`;});else if(State.history[f.k])html+=`<tr><td>${E(f.label)}</td><td>${E(State.history[f.k])}</td></tr>`;}));html+=`</table>`;
-    if(scope.length)html+=`<h2>Scope of Work</h2>${scope.map(s=>`<p><strong>${E(s.name)}</strong></p><ul>${s.acts.map(a=>`<li>${E(a)}</li>`).join("")}</ul>`).join("")}`;
-    html+=`<h2>Maintenance Summary</h2>`;
-    State.tables.forEach(t=>{html+=`<p><strong>${E(t.name||"—")}</strong></p><table><tr><th>Activity</th><th>In Scope</th><th>Status</th><th>Calibration</th><th>Replaced</th><th>Comment</th></tr>`;t.rows.forEach(r=>html+=`<tr><td>${E(r.activity)}</td><td>${E(r.inScope)}</td><td>${E(r.status)}</td><td>${E(r.calibration)}</td><td>${E(r.replaced)}</td><td>${E(r.comment)}</td></tr>`);html+=`</table>`;if(t.note)html+=`<p>📝 ${E(t.note)}</p>`;if(t.critical)html+=`<p style="color:#c00">⚠ Critical: ${E(t.critical)}</p>`;if(t.action)html+=`<p>→ Action: ${E(t.action)}</p>`;});
-    html+=`</body></html>`;
-    const w=window.open("","_blank");w.document.write(html);w.document.close();setTimeout(()=>w.print(),400);
+    const kv=[["Project Code",b.code],["Customer",b.customer],["Contract No.",b.contract],["Vessel/Rig",b.vessel],["Start Date",b.start],["Handing Over",b.end],["Overhaul Type",b.overhaul],["Engine",b.engine],["Serial",b.serial],["Arrangement",b.arr],["RPM & Capacity",b.rpm],["Running Hours",b.hours],["Customer In-Charge",b.custic],["Team Leader",b.leader]];
+    const members=(b.membersList&&b.membersList.length)?b.membersList.join(", "):(b.members||"");
+    const foot=`Neptunus Power Plant Services Pvt. Ltd.<br>A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai - 400 710, India<br>Tel: +91 95944 10707 | Email: info@neptunus-power.com | Website: www.neptunus-power.com<br>CIN Number: U74210MH1996PTC100435 | An ISO 9001:2015 Company, Certified by LRQA since 1999`;
+    const toc=[];
+    if(exec.length)toc.push(["sec-exec","Executive Summary"]);
+    toc.push(["sec-history","History"]);
+    if(scope.length)toc.push(["sec-scope","Scope of Work"]);
+    toc.push(["sec-maint","Maintenance Summary"]);
+    let content="";
+    if(State.cover)content+=`<div style="text-align:center;margin:6px 0 14px"><img src="${State.cover}" style="max-width:340px;max-height:220px;width:auto;height:auto;border:1px solid #bbb;border-radius:6px"/></div>`;
+    content+=`<h2>Project Details</h2><table class="kv">${kv.map(([k,v])=>`<tr><td class="k">${E(k)}</td><td>${E(v||"-")}</td></tr>`).join("")}<tr><td class="k">Members</td><td>${E(members||"-")}</td></tr></table>`;
+    content+=`<h2>Table of Contents</h2><table class="toc">${toc.map(([id,label])=>`<tr><td>${E(label)}</td><td class="pg" data-for="${id}">-</td></tr>`).join("")}</table>`;
+    if(exec.length)content+=`<h2 id="sec-exec">Executive Summary</h2><div class="exec"><ul>${exec.map(f=>`<li><strong>${E(f.name)}:</strong> ${E(f.crit)}${f.act?` <em>Suggested action: ${E(f.act)}</em>`:""}</li>`).join("")}</ul></div>`;
+    let hist="";HISTORY.forEach(bl=>bl.fields.forEach(f=>{if(f.type==="sub")f.subs.forEach(su=>{if(State.history[su.k])hist+=`<tr><td class="k">${E(f.label)} - ${E(su.label)}</td><td>${E(State.history[su.k])}</td></tr>`;});else if(State.history[f.k])hist+=`<tr><td class="k">${E(f.label)}</td><td>${E(State.history[f.k])}</td></tr>`;}));
+    content+=`<h2 id="sec-history">History</h2><table class="kv">${hist||'<tr><td colspan=2 style="color:#888">No history recorded.</td></tr>'}</table>`;
+    if(scope.length)content+=`<h2 id="sec-scope">Scope of Work</h2>${scope.map(s=>`<p class="sname">${E(s.name)}</p><ul>${s.acts.map(a=>`<li>${E(a)}</li>`).join("")}</ul>`).join("")}`;
+    content+=`<h2 id="sec-maint">Maintenance Summary</h2>`;
+    State.tables.forEach(t=>{
+      content+=`<table class="mitem"><thead><tr><th colspan="6" class="iname">${E(t.name||"-")}</th></tr><tr><th>Activity</th><th>In Scope</th><th>Status</th><th>Calibration</th><th>Replaced</th><th>Comment</th></tr></thead><tbody>`;
+      t.rows.forEach(r=>content+=`<tr><td>${E(r.activity)}</td><td>${E(r.inScope)}</td><td>${E(r.status)}</td><td>${E(r.calibration)}</td><td>${E(r.replaced)}</td><td>${E(r.comment)}</td></tr>`);
+      content+=`</tbody></table>`;
+      if(t.note)content+=`<p class="nn">Note: ${E(t.note)}</p>`;
+      if(t.critical)content+=`<p class="cc">Critical finding: ${E(t.critical)}</p>`;
+      if(t.action)content+=`<p class="aa">Suggested action: ${E(t.action)}</p>`;
+    });
+    const doc=`<!doctype html><html><head><meta charset="utf-8"><title>WCR ${E(b.code)}</title><style>
+      @page{size:A4;margin:14mm 12mm}
+      *{box-sizing:border-box}
+      body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:11px;margin:0}
+      table.report-wrap{width:100%;border-collapse:collapse}
+      table.report-wrap>thead{display:table-header-group}
+      table.report-wrap>tfoot{display:table-footer-group}
+      .rh{border-bottom:2px solid #159aa8;padding:0 0 6px}
+      .rh .htitle{font-size:15px;font-weight:bold;color:#0d7a86}
+      .rh .hsub{font-size:9px;color:#666}
+      .rh img{height:42px;width:auto}
+      .rf{border-top:1px solid #bbb;padding:6px 0 0;text-align:center;font-size:8px;color:#555;line-height:1.5}
+      .content{padding:10px 2px}
+      h1{font-size:18px;text-align:center;margin:4px 0 10px}
+      h2{font-size:13px;color:#0d7a86;border-bottom:1px solid #ccc;margin:18px 0 8px;padding-bottom:3px}
+      table.kv{border-collapse:collapse;width:100%;font-size:11px;margin:4px 0}
+      table.kv td{border:1px solid #bbb;padding:5px 8px;vertical-align:top}
+      table.kv td.k{background:#eef4f5;font-weight:bold;width:34%}
+      table.toc{border-collapse:collapse;width:60%;font-size:12px}
+      table.toc td{padding:5px 6px;border-bottom:1px dotted #bbb}
+      table.toc td.pg{text-align:right;font-weight:bold;width:60px}
+      .exec{background:#fff7e8;border:1px solid #e8a020;border-radius:6px;padding:8px 10px}
+      .exec ul{margin:0 0 0 18px}
+      ul{margin:4px 0 8px 18px}
+      .sname{font-weight:bold;margin:8px 0 2px}
+      table.mitem{border-collapse:collapse;width:100%;font-size:10.5px;margin:6px 0}
+      table.mitem th,table.mitem td{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top}
+      table.mitem thead th{background:#eef4f5}
+      table.mitem thead .iname{background:#0d7a86;color:#fff;font-size:12px;text-align:left}
+      table.mitem tr{page-break-inside:avoid}
+      .nn{margin:2px 0;color:#333}.cc{margin:2px 0;color:#c00;font-weight:bold}.aa{margin:2px 0 10px;color:#0d7a86}
+    </style></head><body>
+    <table class="report-wrap">
+      <thead><tr><td>
+        <table style="width:100%;border:none"><tr>
+          <td style="border:none;text-align:left;vertical-align:middle" class="rh"><div class="htitle">Work Completion Report</div><div class="hsub">Project: ${E(b.code||"")}${b.customer?(" | "+E(b.customer)):""}</div></td>
+          <td style="border:none;text-align:right;vertical-align:middle;width:120px" class="rh"><img src="${LOGO_B64}" alt="Neptunus"/></td>
+        </tr></table>
+      </td></tr></thead>
+      <tfoot><tr><td><div class="rf">${foot}</div></td></tr></tfoot>
+      <tbody><tr><td><div class="content" id="content"><h1>Work Completion Report</h1>${content}</div></td></tr></tbody>
+    </table>
+    <script>
+      (function(){
+        function num(){
+          var usable=890;
+          var content=document.getElementById('content');
+          var base=content.getBoundingClientRect().top+window.scrollY;
+          document.querySelectorAll('.toc .pg').forEach(function(cell){
+            var el=document.getElementById(cell.getAttribute('data-for'));
+            if(!el){cell.textContent='-';return;}
+            var top=(el.getBoundingClientRect().top+window.scrollY)-base;
+            cell.textContent=Math.max(1,Math.floor(top/usable)+1);
+          });
+        }
+        function ready(){ num(); setTimeout(function(){ window.focus(); window.print(); },350); }
+        if(document.readyState==='complete') ready(); else window.addEventListener('load',ready);
+      })();
+    <\/script>
+    </body></html>`;
+    const w=window.open("","_blank");w.document.write(doc);w.document.close();
   }
 };
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove("show"),2400);}
