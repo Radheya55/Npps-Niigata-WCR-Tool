@@ -119,8 +119,8 @@ textarea{resize:vertical;min-height:38px}
   <h2 class="sec">Add Base Data — Sign in</h2>
   <div class="card" style="max-width:460px">
     <div class="fg"><label class="f">Your Name</label>
-      <select id="sm-name" onchange="App.smSelect()"><option value="">— select —</option></select></div>
-    <div class="fg"><label class="f">Employee ID</label><input id="sm-emp" readonly placeholder="auto-filled"/></div>
+      <select id="sm-name"><option value="">— select —</option></select></div>
+    <div class="fg"><label class="f">Employee ID</label><input id="sm-emp" placeholder="Enter your employee ID"/></div>
     <div style="display:flex;gap:10px;margin-top:6px">
       <button class="btn" onclick="App.smContinue()">Continue →</button>
       <button class="btn-ghost" onclick="App.showHome()">Cancel</button>
@@ -294,7 +294,7 @@ const App={
   init(){load();bdPurge();
     // populate SM name dropdown
     const sel=document.getElementById("sm-name");
-    if(sel)EMPLOYEES.forEach(e=>{const o=document.createElement("option");o.value=e.empNo;o.textContent=e.name+" ("+e.empNo+")";sel.appendChild(o);});
+    if(sel)EMPLOYEES.forEach(e=>{const o=document.createElement("option");o.value=e.name;o.textContent=e.name;sel.appendChild(o);});
     App.showHome();
   },
   _hideAll(){["screen-home","screen-sm-gate","screen-base","screen-fetch","screen-wcr"].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add("hidden");});},
@@ -302,11 +302,15 @@ const App={
 
   /* ---- Add Base Data (Service Manager) ---- */
   goAddBaseData(){App._hideAll();document.getElementById("screen-sm-gate").classList.remove("hidden");window.scrollTo(0,0);},
-  smSelect(){const sel=document.getElementById("sm-name");const emp=sel.value;document.getElementById("sm-emp").value=emp||"";},
+  smSelect(){},
   smContinue(){
-    const sel=document.getElementById("sm-name");const emp=sel.value;
-    if(!emp){toast("Select your name");return;}
-    SM_USER={name:sel.options[sel.selectedIndex].textContent.replace(/\s*\(.*\)$/,""),emp};
+    const sel=document.getElementById("sm-name");const name=sel.value;
+    const typed=(document.getElementById("sm-emp").value||"").trim();
+    if(!name){toast("Select your name");return;}
+    if(!typed){toast("Enter your employee ID");return;}
+    const rec=EMPLOYEES.find(e=>e.name===name);
+    if(!rec||String(rec.empNo).toLowerCase()!==typed.toLowerCase()){toast("Employee ID does not match this name");return;}
+    SM_USER={name,emp:rec.empNo};
     // clear the base form for a fresh entry
     ["code","customer","contract","vessel","start","end","serial","arr","rpm","hours","custic","leader","members"].forEach(k=>{const el=document.getElementById("bd-"+k);if(el)el.value="";});
     const eng=document.getElementById("bd-engine");if(eng)eng.value="NIIGATA ";
