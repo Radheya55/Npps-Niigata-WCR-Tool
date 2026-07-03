@@ -229,6 +229,7 @@ textarea{resize:vertical;min-height:38px}
         <button class="btn-ghost btn-sm" id="rec-record-btn" onclick="App.recRecordToggle()">⏺ Record audio</button>
         <button class="btn-ghost btn-sm" onclick="document.getElementById('rec-audio-input').click()">⬆ Upload audio file</button>
         <input type="file" id="rec-audio-input" accept="audio/*" class="hidden" onchange="App.recUpload(event)"/>
+        <div id="rec-viz" style="display:none;align-items:flex-end;gap:2px;height:26px;margin-left:2px"></div>
         <span id="rec-status" style="font-size:12px;color:var(--muted)"></span>
       </div>
       <div id="rec-clips" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
@@ -664,7 +665,15 @@ const App={
   },
   renderRecClips(){
     const el=document.getElementById("rec-clips");if(!el)return;const clips=(State.recs&&State.recs.clips)||[];
-    el.innerHTML=clips.map((c,i)=>`<div class="chip" style="max-width:100%"><span style="overflow:hidden;text-overflow:ellipsis">${c.type==="live"?"🎙 ":c.type==="record"?"⏺ ":"⬆ "}${E(c.name||"audio")}${c.transcript?" (dictated)":""}</span><button type="button" onclick="App.recDelClip(${i})">✕</button></div>`).join("");
+    el.innerHTML=clips.map((c,i)=>{
+      const icon=c.type==="live"?"🎙 ":c.type==="record"?"⏺ ":"⬆ ";
+      let tail="";
+      if(c.transcript)tail=' <span style="color:#3fae6a">✓ dictated</span>';
+      else if(c.detecting)tail=' <span style="color:var(--muted)">detecting language...</span>';
+      else if(c.language)tail=' <span style="color:#3fae6a">✓ added</span> <span style="color:#6ea8dc">('+E(c.language)+')</span>';
+      else tail=' <span style="color:#3fae6a">✓ added</span>';
+      return `<div class="chip" style="max-width:100%"><span style="overflow:hidden;text-overflow:ellipsis">${icon}${E(c.name||"audio")}${tail}</span><button type="button" onclick="App.recDelClip(${i})">✕</button></div>`;
+    }).join("");
   },
   recDelClip(i){State.recs.clips.splice(i,1);save();App.renderRecClips();App.refreshDownloadGate();},
   recStatus(m){const s=document.getElementById("rec-status");if(s)s.textContent=m||"";},
@@ -688,15 +697,40 @@ const App={
       const stream=await navigator.mediaDevices.getUserMedia({audio:true});
       const mr=new MediaRecorder(stream);const chunks=[];
       mr.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-      mr.onstop=()=>{stream.getTracks().forEach(t=>t.stop());App._mr=null;const bn=document.getElementById("rec-record-btn");if(bn)bn.textContent="⏺ Record audio";App.recStatus("");
+      mr.onstop=()=>{stream.getTracks().forEach(t=>t.stop());App._mr=null;App._vizStop();const bn=document.getElementById("rec-record-btn");if(bn)bn.textContent="⏺ Record audio";App.recStatus("");
         const blob=new Blob(chunks,{type:mr.mimeType||"audio/webm"});const r=new FileReader();
-        r.onload=()=>{State.recs.clips.push({type:"record",name:"Recording "+new Date().toLocaleTimeString(),dataUrl:r.result});save();App.renderRecClips();App.refreshDownloadGate();toast("Recording added");};
+        r.onload=()=>{const idx=State.recs.clips.push({type:"record",name:"Recording "+new Date().toLocaleTimeString(),dataUrl:r.result,detecting:true})-1;save();App.renderRecClips();App.refreshDownloadGate();toast("Recording added");App.detectClipLang(idx);};
         r.readAsDataURL(blob);};
-      App._mr=mr;mr.start();document.getElementById("rec-record-btn").textContent="⏹ Stop recording";App.recStatus("Recording...");
+      App._mr=mr;mr.start();App._vizStart(stream);document.getElementById("rec-record-btn").textContent="⏹ Stop recording";App.recStatus("Recording...");
     }catch(e){toast("Microphone not available");}
   },
+  _vizStart(stream){
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext;const ctx=new AC();
+      const src=ctx.createMediaStreamSource(stream);const an=ctx.createAnalyser();an.fftSize=64;src.connect(an);
+      const buf=new Uint8Array(an.frequencyBinCount);
+      const viz=document.getElementById("rec-viz");viz.style.display="flex";viz.innerHTML="";
+      const N=22,bars=[];for(let i=0;i<N;i++){const b=document.createElement("div");b.style.cssText="width:3px;height:3px;background:linear-gradient(to top,#159aa8,#E8A020);border-radius:1px;transition:height .05s";viz.appendChild(b);bars.push(b);}
+      const draw=()=>{App._viz.raf=requestAnimationFrame(draw);an.getByteFrequencyData(buf);for(let i=0;i<N;i++){const v=buf[Math.floor(i*buf.length/N)]/255;bars[i].style.height=Math.max(3,v*26)+"px";}};
+      App._viz={ctx,raf:null};draw();
+    }catch(e){}
+  },
+  _vizStop(){
+    if(App._viz){if(App._viz.raf)cancelAnimationFrame(App._viz.raf);try{App._viz.ctx.close();}catch(e){}App._viz=null;}
+    const viz=document.getElementById("rec-viz");if(viz){viz.style.display="none";viz.innerHTML="";}
+  },
+  async detectClipLang(idx){
+    const c=State.recs.clips[idx];if(!c||!c.dataUrl)return;
+    const m=(c.dataUrl||"").match(/^data:([^;]+);base64,(.*)$/);if(!m){c.detecting=false;save();App.renderRecClips();return;}
+    try{
+      const resp=await fetch(WORKER_URL+"/detect-language",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mimeType:m[1],data:m[2]})});
+      const data=await resp.json();
+      c.language=(data&&data.language)?data.language:"";
+    }catch(e){c.language="";}
+    c.detecting=false;save();App.renderRecClips();
+  },
 
-  recUpload(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{State.recs.clips.push({type:"upload",name:f.name,dataUrl:r.result});save();App.renderRecClips();App.refreshDownloadGate();toast("Audio file added");};r.readAsDataURL(f);e.target.value="";},
+  recUpload(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const idx=State.recs.clips.push({type:"upload",name:f.name,dataUrl:r.result,detecting:true})-1;save();App.renderRecClips();App.refreshDownloadGate();toast("Audio file added");App.detectClipLang(idx);};r.readAsDataURL(f);e.target.value="";},
 
   async generateRecs(){
     const r=State.recs||{};
@@ -834,9 +868,11 @@ const App={
         y+=9;
       });
     }
-    // Sign-off
+    // Sign-off (keep whole table on one page - never split across pages)
+    const SIGNOFF_H=52; // heading + header row + 2 rows, approx mm
+    if(y+SIGNOFF_H>bottomY)np();
     h2("Sign-off"); mark("Sign-off");
-    doc.autoTable({startY:y,margin:ATM,theme:"grid",styles:{fontSize:9,cellPadding:2.5},
+    doc.autoTable({startY:y,margin:ATM,theme:"grid",styles:{fontSize:9,cellPadding:2.5},rowPageBreak:"avoid",
       head:[[{content:"On behalf of Neptunus",colSpan:2,styles:{fillColor:NAVY,textColor:255}},{content:"On behalf of Customer",colSpan:2,styles:{fillColor:NAVY,textColor:255}}]],
       body:[[{content:"Name",styles:{fontStyle:"bold",fillColor:[238,241,247]}},s2.npName||"",{content:"Name",styles:{fontStyle:"bold",fillColor:[238,241,247]}},s2.cuName||""],
             [{content:"Date",styles:{fontStyle:"bold",fillColor:[238,241,247]}},s2.npDate||"",{content:"Date",styles:{fontStyle:"bold",fillColor:[238,241,247]}},s2.cuDate||""]]});
