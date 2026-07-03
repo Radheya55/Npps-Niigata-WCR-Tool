@@ -223,11 +223,11 @@ textarea{resize:vertical;min-height:38px}
       <textarea id="rec-text" rows="4" placeholder="Type your recommendations here..." oninput="App.recSet('text',this.value)"></textarea>
     </div>
     <div style="border-top:1px solid var(--line);margin:12px 0;padding-top:12px">
-      <label class="f">Or speak your recommendations (any language)</label>
+      <label class="f">Or record your recommendations (any language)</label>
       <div class="row-flex" style="margin-top:6px">
-        <button class="btn-ghost btn-sm" id="rec-live-btn" onclick="App.recLiveToggle()">🎙 Live dictation</button>
-        <button class="btn-ghost btn-sm" id="rec-record-btn" onclick="App.recRecordToggle()">⏺ Record audio</button>
-        <button class="btn-ghost btn-sm" onclick="document.getElementById('rec-audio-input').click()">⬆ Upload audio file</button>
+        <button class="btn-ghost btn-sm" id="rec-record-btn" onclick="App.recRecordToggle()">⏺ Start recording</button>
+        <button class="btn-ghost btn-sm" id="rec-add-btn" onclick="App.recRecordToggle()">＋ Add another recording</button>
+        <button class="btn-ghost btn-sm" id="rec-upload-btn" onclick="document.getElementById('rec-audio-input').click()">⬆ Upload audio file</button>
         <input type="file" id="rec-audio-input" accept="audio/*" class="hidden" onchange="App.recUpload(event)"/>
         <div id="rec-viz" style="display:none;align-items:flex-end;gap:2px;height:26px;margin-left:2px"></div>
         <span id="rec-status" style="font-size:12px;color:var(--muted)"></span>
@@ -236,7 +236,7 @@ textarea{resize:vertical;min-height:38px}
     </div>
     <div style="border-top:1px solid var(--line);margin:12px 0;padding-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <button class="btn-amber" onclick="App.generateRecs()">✨ Generate recommendations</button>
-      <span style="font-size:11px;color:var(--muted)">Combines everything written and spoken into clean English bullet points.</span>
+      <span id="rec-count" style="font-size:11px;color:var(--muted)"></span>
     </div>
     <div id="rec-output"></div>
   </div>
@@ -657,11 +657,20 @@ const App={
   renderSignoff(){const s=State.signoff||{};["npName","cuName","npDate","cuDate"].forEach(k=>{const el=document.getElementById("so-"+k);if(el)el.value=s[k]||"";});},
 
   /* ---- overall recommendations ---- */
-  recSet(f,v){State.recs[f]=v;save();App.refreshDownloadGate();},
+  recSet(f,v){State.recs[f]=v;save();App.refreshDownloadGate();App.refreshRecControls();},
   hasRecInput(){const r=State.recs||{};return !!((r.text&&r.text.trim())||(r.clips&&r.clips.length)||(r.bullets&&r.bullets.length));},
+  refreshRecControls(){
+    const r=State.recs||{};const clips=r.clips||[];const recording=!!App._mr;
+    const add=document.getElementById("rec-add-btn");
+    if(add){const on=clips.length>=1&&!recording;add.disabled=!on;add.style.opacity=on?"1":"0.4";add.style.cursor=on?"pointer":"not-allowed";add.title=clips.length<1?"Make your first recording first":"";}
+    const up=document.getElementById("rec-upload-btn");if(up){up.disabled=recording;up.style.opacity=recording?"0.4":"1";}
+    const cnt=document.getElementById("rec-count");
+    if(cnt){const words=(r.text||"").trim()?(r.text.trim().split(/\s+/).length):0;const n=clips.length;
+      cnt.textContent=words+" word"+(words===1?"":"s")+" typed \u00b7 "+n+" recording"+(n===1?"":"s")+" added";}
+  },
   renderRecs(){
     const t=document.getElementById("rec-text");if(t)t.value=(State.recs&&State.recs.text)||"";
-    App.renderRecClips();App.renderRecOutput();App.refreshDownloadGate();
+    App.renderRecClips();App.renderRecOutput();App.refreshDownloadGate();App.refreshRecControls();
   },
   renderRecClips(){
     const el=document.getElementById("rec-clips");if(!el)return;const clips=(State.recs&&State.recs.clips)||[];
@@ -675,21 +684,8 @@ const App={
       return `<div class="chip" style="max-width:100%"><span style="overflow:hidden;text-overflow:ellipsis">${icon}${E(c.name||"audio")}${tail}</span><button type="button" onclick="App.recDelClip(${i})">✕</button></div>`;
     }).join("");
   },
-  recDelClip(i){State.recs.clips.splice(i,1);save();App.renderRecClips();App.refreshDownloadGate();},
+  recDelClip(i){State.recs.clips.splice(i,1);save();App.renderRecClips();App.refreshDownloadGate();App.refreshRecControls();},
   recStatus(m){const s=document.getElementById("rec-status");if(s)s.textContent=m||"";},
-
-  recLiveToggle(){
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR){toast("Live dictation not supported in this browser - use Record or Upload");return;}
-    if(App._sr){App._sr.stop();return;}
-    const rec=new SR();rec.continuous=true;rec.interimResults=false;rec.lang=navigator.language||"en-US";
-    let acc="";
-    rec.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)acc+=e.results[i][0].transcript+" ";}App.recStatus("Listening... "+acc.slice(-60));};
-    rec.onerror=e=>{App.recStatus("Dictation error: "+e.error);};
-    rec.onend=()=>{App._sr=null;const bn=document.getElementById("rec-live-btn");if(bn)bn.textContent="🎙 Live dictation";App.recStatus("");
-      if(acc.trim()){State.recs.clips.push({type:"live",name:"Live dictation",transcript:acc.trim()});save();App.renderRecClips();App.refreshDownloadGate();toast("Dictation captured");}};
-    App._sr=rec;rec.start();document.getElementById("rec-live-btn").textContent="⏹ Stop dictation";App.recStatus("Listening...");
-  },
 
   async recRecordToggle(){
     if(App._mr){App._mr.stop();return;}
@@ -697,11 +693,11 @@ const App={
       const stream=await navigator.mediaDevices.getUserMedia({audio:true});
       const mr=new MediaRecorder(stream);const chunks=[];
       mr.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-      mr.onstop=()=>{stream.getTracks().forEach(t=>t.stop());App._mr=null;App._vizStop();const bn=document.getElementById("rec-record-btn");if(bn)bn.textContent="⏺ Record audio";App.recStatus("");
+      mr.onstop=()=>{stream.getTracks().forEach(t=>t.stop());App._mr=null;App._vizStop();const bn=document.getElementById("rec-record-btn");if(bn)bn.textContent="⏺ Start recording";App.recStatus("");App.refreshRecControls();
         const blob=new Blob(chunks,{type:mr.mimeType||"audio/webm"});const r=new FileReader();
-        r.onload=()=>{const idx=State.recs.clips.push({type:"record",name:"Recording "+new Date().toLocaleTimeString(),dataUrl:r.result,detecting:true})-1;save();App.renderRecClips();App.refreshDownloadGate();toast("Recording added");App.detectClipLang(idx);};
+        r.onload=()=>{const idx=State.recs.clips.push({type:"record",name:"Recording "+new Date().toLocaleTimeString(),dataUrl:r.result,detecting:true})-1;save();App.renderRecClips();App.refreshDownloadGate();App.refreshRecControls();toast("Recording added");App.detectClipLang(idx);};
         r.readAsDataURL(blob);};
-      App._mr=mr;mr.start();App._vizStart(stream);document.getElementById("rec-record-btn").textContent="⏹ Stop recording";App.recStatus("Recording...");
+      App._mr=mr;mr.start();App._vizStart(stream);document.getElementById("rec-record-btn").textContent="⏹ Stop recording";App.recStatus("Recording...");App.refreshRecControls();
     }catch(e){toast("Microphone not available");}
   },
   _vizStart(stream){
@@ -727,10 +723,10 @@ const App={
       const data=await resp.json();
       c.language=(data&&data.language)?data.language:"";
     }catch(e){c.language="";}
-    c.detecting=false;save();App.renderRecClips();
+    c.detecting=false;save();App.renderRecClips();App.refreshRecControls();
   },
 
-  recUpload(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const idx=State.recs.clips.push({type:"upload",name:f.name,dataUrl:r.result,detecting:true})-1;save();App.renderRecClips();App.refreshDownloadGate();toast("Audio file added");App.detectClipLang(idx);};r.readAsDataURL(f);e.target.value="";},
+  recUpload(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const idx=State.recs.clips.push({type:"upload",name:f.name,dataUrl:r.result,detecting:true})-1;save();App.renderRecClips();App.refreshDownloadGate();App.refreshRecControls();toast("Audio file added");App.detectClipLang(idx);};r.readAsDataURL(f);e.target.value="";},
 
   async generateRecs(){
     const r=State.recs||{};
