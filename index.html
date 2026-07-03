@@ -760,8 +760,13 @@ const App={
   renderRecOutput(){
     const el=document.getElementById("rec-output");if(!el)return;const b=(State.recs&&State.recs.bullets)||[];
     if(!b.length){el.innerHTML="";return;}
-    el.innerHTML=`<div class="gen" style="margin-top:12px"><h3>Generated recommendations <span style="font-size:10px;font-weight:400;color:var(--muted)">Editable - regenerate to replace</span></h3><ul>${b.map((x,i)=>`<li><span contenteditable="true" onblur="App.recEditBullet(${i},this.textContent)">${E(x)}</span></li>`).join("")}</ul></div>`;
+    el.innerHTML=`<div class="gen" style="margin-top:12px"><h3>Generated recommendations <span style="font-size:10px;font-weight:400;color:var(--muted)">Editable - click any point to edit</span></h3><ul style="list-style:disc">${b.map((x,i)=>`<li style="margin-bottom:4px"><span contenteditable="true" style="outline:none" onblur="App.recEditBullet(${i},this.textContent)">${E(x)}</span> <button type="button" class="btn-danger" style="font-size:12px" onclick="App.recDelBullet(${i})">✕</button></li>`).join("")}</ul><button type="button" class="btn-ghost btn-sm" onclick="App.recAddBullet()">＋ Add point</button></div>`;
   },
+  recAddBullet(){if(!State.recs.bullets)State.recs.bullets=[];State.recs.bullets.push("New recommendation");save();App.renderRecOutput();App.refreshDownloadGate();
+    // focus the new bullet for immediate typing
+    const el=document.getElementById("rec-output");if(el){const spans=el.querySelectorAll("li span[contenteditable]");const last=spans[spans.length-1];if(last){const rng=document.createRange();rng.selectNodeContents(last);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(rng);last.focus();}}
+  },
+  recDelBullet(i){State.recs.bullets.splice(i,1);save();App.renderRecOutput();App.refreshDownloadGate();},
   recEditBullet(i,v){if(State.recs.bullets[i]!=null){State.recs.bullets[i]=v.trim();save();}},
 
   refreshDownloadGate(){
