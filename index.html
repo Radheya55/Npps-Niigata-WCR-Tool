@@ -216,6 +216,30 @@ textarea{resize:vertical;min-height:38px}
       <button class="btn-amber" onclick="App.process()">⚙ Process Maintenance Summary</button>
     </div>
   </div>
+
+  <h2 class="sec">Overall Recommendations</h2>
+  <div class="card" id="recs-card">
+    <div class="fg"><label class="f">Written recommendations (any language)</label>
+      <textarea id="rec-text" rows="4" placeholder="Type your recommendations here..." oninput="App.recSet('text',this.value)"></textarea>
+    </div>
+    <div style="border-top:1px solid var(--line);margin:12px 0;padding-top:12px">
+      <label class="f">Or speak your recommendations (any language)</label>
+      <div class="row-flex" style="margin-top:6px">
+        <button class="btn-ghost btn-sm" id="rec-live-btn" onclick="App.recLiveToggle()">🎙 Live dictation</button>
+        <button class="btn-ghost btn-sm" id="rec-record-btn" onclick="App.recRecordToggle()">⏺ Record audio</button>
+        <button class="btn-ghost btn-sm" onclick="document.getElementById('rec-audio-input').click()">⬆ Upload audio file</button>
+        <input type="file" id="rec-audio-input" accept="audio/*" class="hidden" onchange="App.recUpload(event)"/>
+        <span id="rec-status" style="font-size:12px;color:var(--muted)"></span>
+      </div>
+      <div id="rec-clips" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+    <div style="border-top:1px solid var(--line);margin:12px 0;padding-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn-amber" onclick="App.generateRecs()">✨ Generate recommendations</button>
+      <span style="font-size:11px;color:var(--muted)">Combines everything written and spoken into clean English bullet points.</span>
+    </div>
+    <div id="rec-output"></div>
+  </div>
+
   <h2 class="sec">Photo Gallery</h2>
   <div class="card">
     <div id="photo-slot"></div>
@@ -243,7 +267,7 @@ textarea{resize:vertical;min-height:38px}
   </div>
 
   <div style="margin-top:24px;display:flex;gap:10px">
-    <button class="btn" onclick="App.downloadReport()">⬇ Download Report</button>
+    <button class="btn dl-btn" onclick="App.downloadReport()">⬇ Download Report</button>
     <button class="btn-ghost" onclick="App.showHome()">⌂ Home</button>
   </div>
 </div>
@@ -393,7 +417,8 @@ let SM_USER=null; // signed-in service manager for base data
 let BD_MEMBERS=[]; // member list buffer for the base data form
 let BD_EDITING=null; // project code currently being edited (null = new)
 
-let State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},processed:false};
+const WORKER_URL="https://polished-lake-4911.radheya-supnekar.workers.dev";
+let State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},processed:false};
 function save(){try{localStorage.setItem("npps_niigata_wcr",JSON.stringify(State));}catch(e){}}
 function load(){try{const s=localStorage.getItem("npps_niigata_wcr");if(s)State=JSON.parse(s);}catch(e){}}
 
@@ -496,14 +521,14 @@ const App={
   fetchProject(){
     const store=bdLoad();const code=bdNorm(document.getElementById("fetch-code").value);
     if(!store[code]){toast("No base data for this code");return;}
-    State={base:JSON.parse(JSON.stringify(store[code].data)),cover:null,history:{},tables:[],photos:[],signoff:{},processed:false};
+    State={base:JSON.parse(JSON.stringify(store[code].data)),cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},processed:false};
     save();
     document.getElementById("hdr-project").textContent=code+(State.base.customer?" · "+State.base.customer:"");
     App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");
-    App.renderHistory();App.renderCover();App.renderMaint();App.renderGenerated();App.renderPhotos();App.renderSignoff();window.scrollTo(0,0);
+    App.renderHistory();App.renderCover();App.renderMaint();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderSignoff();window.scrollTo(0,0);
   },
 
-  newReport(){if(!confirm("Clear the current WCR draft and go Home?"))return;State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},processed:false};save();App.showHome();},
+  newReport(){if(!confirm("Clear the current WCR draft and go Home?"))return;State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},processed:false};save();App.showHome();},
   showBase(){App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");},
   onCover(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{State.cover=r.result;save();App.renderCover();};r.readAsDataURL(f);},
   renderCover(){const s=document.getElementById("cover-slot");if(!s)return;
@@ -630,9 +655,94 @@ const App={
   },
   renderSignoff(){const s=State.signoff||{};["npName","cuName","npDate","cuDate"].forEach(k=>{const el=document.getElementById("so-"+k);if(el)el.value=s[k]||"";});},
 
+  /* ---- overall recommendations ---- */
+  recSet(f,v){State.recs[f]=v;save();App.refreshDownloadGate();},
+  hasRecInput(){const r=State.recs||{};return !!((r.text&&r.text.trim())||(r.clips&&r.clips.length)||(r.bullets&&r.bullets.length));},
+  renderRecs(){
+    const t=document.getElementById("rec-text");if(t)t.value=(State.recs&&State.recs.text)||"";
+    App.renderRecClips();App.renderRecOutput();App.refreshDownloadGate();
+  },
+  renderRecClips(){
+    const el=document.getElementById("rec-clips");if(!el)return;const clips=(State.recs&&State.recs.clips)||[];
+    el.innerHTML=clips.map((c,i)=>`<div class="chip" style="max-width:100%"><span style="overflow:hidden;text-overflow:ellipsis">${c.type==="live"?"🎙 ":c.type==="record"?"⏺ ":"⬆ "}${E(c.name||"audio")}${c.transcript?" (dictated)":""}</span><button type="button" onclick="App.recDelClip(${i})">✕</button></div>`).join("");
+  },
+  recDelClip(i){State.recs.clips.splice(i,1);save();App.renderRecClips();App.refreshDownloadGate();},
+  recStatus(m){const s=document.getElementById("rec-status");if(s)s.textContent=m||"";},
+
+  recLiveToggle(){
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){toast("Live dictation not supported in this browser - use Record or Upload");return;}
+    if(App._sr){App._sr.stop();return;}
+    const rec=new SR();rec.continuous=true;rec.interimResults=false;rec.lang=navigator.language||"en-US";
+    let acc="";
+    rec.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)acc+=e.results[i][0].transcript+" ";}App.recStatus("Listening... "+acc.slice(-60));};
+    rec.onerror=e=>{App.recStatus("Dictation error: "+e.error);};
+    rec.onend=()=>{App._sr=null;const bn=document.getElementById("rec-live-btn");if(bn)bn.textContent="🎙 Live dictation";App.recStatus("");
+      if(acc.trim()){State.recs.clips.push({type:"live",name:"Live dictation",transcript:acc.trim()});save();App.renderRecClips();App.refreshDownloadGate();toast("Dictation captured");}};
+    App._sr=rec;rec.start();document.getElementById("rec-live-btn").textContent="⏹ Stop dictation";App.recStatus("Listening...");
+  },
+
+  async recRecordToggle(){
+    if(App._mr){App._mr.stop();return;}
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      const mr=new MediaRecorder(stream);const chunks=[];
+      mr.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
+      mr.onstop=()=>{stream.getTracks().forEach(t=>t.stop());App._mr=null;const bn=document.getElementById("rec-record-btn");if(bn)bn.textContent="⏺ Record audio";App.recStatus("");
+        const blob=new Blob(chunks,{type:mr.mimeType||"audio/webm"});const r=new FileReader();
+        r.onload=()=>{State.recs.clips.push({type:"record",name:"Recording "+new Date().toLocaleTimeString(),dataUrl:r.result});save();App.renderRecClips();App.refreshDownloadGate();toast("Recording added");};
+        r.readAsDataURL(blob);};
+      App._mr=mr;mr.start();document.getElementById("rec-record-btn").textContent="⏹ Stop recording";App.recStatus("Recording...");
+    }catch(e){toast("Microphone not available");}
+  },
+
+  recUpload(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{State.recs.clips.push({type:"upload",name:f.name,dataUrl:r.result});save();App.renderRecClips();App.refreshDownloadGate();toast("Audio file added");};r.readAsDataURL(f);e.target.value="";},
+
+  async generateRecs(){
+    const r=State.recs||{};
+    if(!App.hasRecInput()){toast("Write or add audio first");return;}
+    App.recStatus("Transcribing and generating...");toast("Generating recommendations...");
+    // split each data URL into {mimeType, data(base64 only)} - the shape the worker/Gemini expects
+    const audios=(r.clips||[]).filter(c=>c.dataUrl).map(c=>{const m=(c.dataUrl||"").match(/^data:([^;]+);base64,(.*)$/);return m?{name:c.name||"audio",mimeType:m[1],data:m[2]}:null;}).filter(Boolean);
+    const dictated=(r.clips||[]).filter(c=>c.transcript).map(c=>c.transcript).join("\n");
+    const written=[r.text||"",dictated].filter(x=>x&&x.trim()).join("\n");
+    try{
+      const resp=await fetch(WORKER_URL+"/recommendations",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({written,audios})
+      });
+      if(!resp.ok)throw new Error("Worker "+resp.status);
+      const data=await resp.json();
+      if(data&&data.error)throw new Error(data.error);
+      const bullets=(data&&data.bullets)||[];
+      if(!bullets.length)throw new Error("No bullets returned");
+      State.recs.bullets=bullets;save();App.renderRecOutput();App.refreshDownloadGate();App.recStatus("");toast("Recommendations generated");
+    }catch(err){
+      App.recStatus("");
+      if(written.trim()&&!audios.length){
+        State.recs.bullets=written.split(/\n|(?<=\.)\s+/).map(s=>s.trim()).filter(Boolean);save();App.renderRecOutput();App.refreshDownloadGate();
+        toast("Generated from text (audio needs the worker)");
+      }else{
+        alert("Could not generate recommendations.\n\n"+err.message+"\n\nThe audio transcription needs the Cloudflare Worker /recommendations route to be live. Written text works without it.");
+      }
+    }
+  },
+  renderRecOutput(){
+    const el=document.getElementById("rec-output");if(!el)return;const b=(State.recs&&State.recs.bullets)||[];
+    if(!b.length){el.innerHTML="";return;}
+    el.innerHTML=`<div class="gen" style="margin-top:12px"><h3>Generated recommendations <span style="font-size:10px;font-weight:400;color:var(--muted)">Editable - regenerate to replace</span></h3><ul>${b.map((x,i)=>`<li><span contenteditable="true" onblur="App.recEditBullet(${i},this.textContent)">${E(x)}</span></li>`).join("")}</ul></div>`;
+  },
+  recEditBullet(i,v){if(State.recs.bullets[i]!=null){State.recs.bullets[i]=v.trim();save();}},
+
+  refreshDownloadGate(){
+    const ok=App.hasRecInput();
+    document.querySelectorAll(".dl-btn").forEach(btn=>{btn.disabled=!ok;btn.style.opacity=ok?"1":"0.45";btn.style.cursor=ok?"pointer":"not-allowed";btn.title=ok?"":"Add written or spoken recommendations first";});
+  },
+
   async downloadReport(){
     const b=State.base;
     const s2=State.signoff||{};
+    if(!App.hasRecInput()){toast("Add written or spoken recommendations before downloading");const rc=document.getElementById("recs-card");if(rc)rc.scrollIntoView({behavior:"smooth",block:"center"});return;}
     if(!(s2.npName&&s2.npDate&&s2.cuName&&s2.cuDate)){toast("Complete all 4 sign-off fields before downloading");const el=document.getElementById("signoff-card");if(el)el.scrollIntoView({behavior:"smooth",block:"center"});return;}
     App.process();
     toast("Building PDF...");
@@ -706,6 +816,12 @@ const App={
       if(t.action){wrap("Suggested action: "+t.action,8.5,OLIVE,"normal");}
       y+=7;
     });
+    // Overall Recommendations
+    const recB=(State.recs&&State.recs.bullets&&State.recs.bullets.length)?State.recs.bullets:((State.recs&&State.recs.text&&State.recs.text.trim())?State.recs.text.split(/\n|(?<=\.)\s+/).map(s=>s.trim()).filter(Boolean):[]);
+    if(recB.length){ h2("Overall Recommendations"); mark("Overall Recommendations");
+      recB.forEach(x=>{ wrap("- "+x,9.5,DARK,"normal",3,3); y+=1.5; });
+      y+=3;
+    }
     // Photo Gallery
     if((State.photos||[]).length){ h2("Photo Gallery"); mark("Photo Gallery");
       State.photos.forEach((p,i)=>{
