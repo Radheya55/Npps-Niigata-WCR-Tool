@@ -248,6 +248,13 @@ textarea{resize:vertical;min-height:38px}
     <button class="btn-ghost btn-sm" style="margin-top:10px" onclick="document.getElementById('photo-input').click()">+ Add photo</button>
   </div>
 
+  <h2 class="sec">Tables (from images)</h2>
+  <div class="card">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Upload a photo or screenshot of a table. For a long table split across pages, add 2-3 images to the same table and they will be stitched top-to-bottom. Always check the digitised values against the image before trusting them.</div>
+    <div id="datatables-slot"></div>
+    <button class="btn-ghost btn-sm" style="margin-top:10px" onclick="App.addDataTable()">+ Add table</button>
+  </div>
+
   <h2 class="sec">Sign-off</h2>
   <div class="card" id="signoff-card">
     <div class="grid2">
@@ -424,7 +431,7 @@ let BD_MEMBERS=[]; // member list buffer for the base data form
 let BD_EDITING=null; // project code currently being edited (null = new)
 
 const WORKER_URL="https://polished-lake-4911.radheya-supnekar.workers.dev";
-let State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},processed:false};
+let State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],processed:false};
 function save(){try{localStorage.setItem("npps_niigata_wcr",JSON.stringify(State));}catch(e){}}
 function load(){try{const s=localStorage.getItem("npps_niigata_wcr");if(s)State=JSON.parse(s);}catch(e){}}
 
@@ -527,14 +534,14 @@ const App={
   fetchProject(){
     const store=bdLoad();const code=bdNorm(document.getElementById("fetch-code").value);
     if(!store[code]){toast("No base data for this code");return;}
-    State={base:JSON.parse(JSON.stringify(store[code].data)),cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},processed:false};
+    State={base:JSON.parse(JSON.stringify(store[code].data)),cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],processed:false};
     save();
     document.getElementById("hdr-project").textContent=code+(State.base.customer?" · "+State.base.customer:"");
     App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");
-    App.renderHistory();App.renderCover();App.renderMaint();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderSignoff();window.scrollTo(0,0);
+    App.renderHistory();App.renderCover();App.renderMaint();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderSignoff();window.scrollTo(0,0);
   },
 
-  newReport(){if(!confirm("Clear the current WCR draft and go Home?"))return;State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},processed:false};save();App.showHome();},
+  newReport(){if(!confirm("Clear the current WCR draft and go Home?"))return;State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],processed:false};save();App.showHome();},
   showBase(){App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");},
   onCover(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{State.cover=r.result;save();App.renderCover();};r.readAsDataURL(f);},
   renderCover(){const s=document.getElementById("cover-slot");if(!s)return;
@@ -786,6 +793,56 @@ const App={
     document.querySelectorAll(".dl-btn").forEach(btn=>{btn.disabled=!ok;btn.style.opacity=ok?"1":"0.45";btn.style.cursor=ok?"pointer":"not-allowed";btn.title=ok?"":"Add written or spoken recommendations first";});
   },
 
+  /* ---- tables from images ---- */
+  addDataTable(){State.dataTables.push({id:"dt_"+Date.now(),title:"",images:[],grid:[],converting:false});save();App.renderDataTables();},
+  delDataTable(i){if(!confirm("Remove this table?"))return;State.dataTables.splice(i,1);save();App.renderDataTables();},
+  dtTitle(i,v){State.dataTables[i].title=v;save();},
+  dtAddImages(i,ev){const files=[...ev.target.files];if(!files.length)return;let pending=files.length;files.forEach(f=>{const r=new FileReader();r.onload=()=>{State.dataTables[i].images.push({name:f.name,dataUrl:r.result});pending--;if(pending===0){save();App.renderDataTables();}};r.readAsDataURL(f);});ev.target.value="";},
+  dtDelImage(i,j){State.dataTables[i].images.splice(j,1);save();App.renderDataTables();},
+  async dtConvert(i){
+    const t=State.dataTables[i];if(!t.images.length){toast("Add at least one image");return;}
+    const images=t.images.map(im=>{const p=parseDataUrl(im.dataUrl);return p?{mimeType:p.mime,data:p.data}:null;}).filter(Boolean);
+    t.converting=true;App.renderDataTables();App._dtCountdown(i,Math.min(150,25+images.length*20));
+    try{
+      const resp=await fetch(WORKER_URL+"/image-to-table",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:t.title||"",images})});
+      const data=await resp.json().catch(()=>({error:"Worker returned a non-JSON response (HTTP "+resp.status+")"}));
+      if(!resp.ok||data.error)throw new Error(data.error||("Worker HTTP "+resp.status));
+      const grid=(data&&data.grid)||[];
+      if(!grid.length)throw new Error("No table could be read from the image(s)");
+      t.grid=grid;t.converting=false;save();App._dtStop(i);App.renderDataTables();toast("Table digitised - please verify against the image");
+    }catch(err){t.converting=false;App._dtStop(i);App.renderDataTables();alert("Could not digitise the table.\n\nReason: "+err.message+"\n\nCheck that the worker /image-to-table route is deployed (open "+WORKER_URL+"/health).");}
+  },
+  _dtCountdown(i,sec){App._dtStop(i);let left=sec;const set=txt=>{const e=document.getElementById("dt-status-"+i);if(e)e.innerHTML='<span style="color:var(--amber)">'+txt+'</span>';};const fmt=n=>{const m=Math.floor(n/60),s=n%60;return m+":"+(s<10?"0":"")+s;};set("⏳ Reading table... "+fmt(left));App._dtTimers=App._dtTimers||{};App._dtTimers[i]=setInterval(()=>{left--;if(left<=0){set("⏳ Almost done...");return;}set("⏳ Reading table... "+fmt(left));},1000);},
+  _dtStop(i){if(App._dtTimers&&App._dtTimers[i]){clearInterval(App._dtTimers[i]);App._dtTimers[i]=null;}const e=document.getElementById("dt-status-"+i);if(e)e.textContent="";},
+  dtCell(ti,r,c,v){State.dataTables[ti].grid[r][c]=v;save();},
+  dtAddRow(ti){const g=State.dataTables[ti].grid;const cols=g[0]?g[0].length:1;g.push(new Array(cols).fill(""));save();App.renderDataTables();},
+  dtAddCol(ti){const g=State.dataTables[ti].grid;g.forEach(row=>row.push(""));if(!g.length)g.push([""]);save();App.renderDataTables();},
+  dtDelRow(ti,r){const g=State.dataTables[ti].grid;if(g.length<=1)return;g.splice(r,1);save();App.renderDataTables();},
+  renderDataTables(){
+    const s=document.getElementById("datatables-slot");if(!s)return;const dts=State.dataTables||[];
+    if(!dts.length){s.innerHTML=`<div class="empty" style="padding:18px">No tables yet. Click "Add table" to upload a table image.</div>`;return;}
+    s.innerHTML=dts.map((t,i)=>{
+      const imgs=t.images.map((im,j)=>`<div style="position:relative"><img src="${im.dataUrl}" style="height:60px;border:1px solid var(--line2);border-radius:6px"/><button type="button" class="btn-danger" style="position:absolute;top:-6px;right:-6px;background:#0b1418;border-radius:50%;font-size:11px;padding:1px 5px" onclick="App.dtDelImage(${i},${j})">✕</button></div>`).join("");
+      let gridHtml="";
+      if(t.grid&&t.grid.length){
+        gridHtml=`<div style="overflow-x:auto;margin-top:10px"><table class="mg" style="min-width:auto"><tbody>`+
+          t.grid.map((row,r)=>`<tr>${row.map((cell,c)=>`<td style="padding:0"><input value="${E(cell)}" style="border:none;background:${r===0?'#16262e':'#1b2b33'};color:var(--ink);font-weight:${r===0?'700':'400'};padding:6px 8px;min-width:70px;font-size:12px" oninput="App.dtCell(${i},${r},${c},this.value)"/></td>`).join("")}<td style="border:none;padding:0 4px"><button type="button" class="btn-danger" style="font-size:11px" onclick="App.dtDelRow(${i},${r})" title="Delete row">✕</button></td></tr>`).join("")+
+          `</tbody></table></div><div class="row-flex" style="margin-top:6px"><button class="btn-ghost btn-sm" onclick="App.dtAddRow(${i})">+ Row</button><button class="btn-ghost btn-sm" onclick="App.dtAddCol(${i})">+ Column</button></div>`;
+      }
+      return `<div class="mtbl">
+        <div class="mtbl-h"><input class="name" value="${E(t.title)}" placeholder="Table title (e.g. Crankshaft Deflection)..." oninput="App.dtTitle(${i},this.value)"/><button class="btn-danger" onclick="App.delDataTable(${i})">🗑 Remove</button></div>
+        <div class="row-flex" style="margin:4px 0">${imgs}</div>
+        <div class="row-flex" style="margin-top:8px">
+          <input type="file" id="dt-input-${i}" accept="image/*" multiple class="hidden" onchange="App.dtAddImages(${i},event)"/>
+          <button class="btn-ghost btn-sm" onclick="document.getElementById('dt-input-${i}').click()">⬆ Add image(s)</button>
+          <button class="btn-amber btn-sm" onclick="App.dtConvert(${i})" ${t.converting?"disabled":""}>✨ Convert to table</button>
+          <span id="dt-status-${i}" style="font-size:12px;color:var(--muted)"></span>
+        </div>
+        ${gridHtml}
+      </div>`;
+    }).join("");
+  },
+
   async downloadReport(){
     const b=State.base;
     const s2=State.signoff||{};
@@ -879,6 +936,20 @@ const App={
         if(p.desc){wrap(p.desc,9,DARK,"normal");y+=1;}
         if(p.refItem&&p.refAct)wrap("Reference to "+p.refItem+". Activity - "+p.refAct,8.5,OLIVE,"italic");
         y+=9;
+      });
+    }
+    // Data tables (from images)
+    const dts=(State.dataTables||[]).filter(t=>t.grid&&t.grid.length);
+    if(dts.length){ h2("Tables"); mark("Tables");
+      dts.forEach(t=>{
+        if(t.title){wrap(t.title,9.5,DARK,"bold");y+=1;}
+        const head=t.grid.length?[t.grid[0]]:[[]];
+        const body=t.grid.slice(1);
+        ensure(20);
+        doc.autoTable({startY:y,margin:ATM,showHead:"everyPage",
+          head,body,theme:"grid",styles:{fontSize:8,cellPadding:1.5,overflow:"linebreak",valign:"top"},
+          headStyles:{fillColor:TEAL,textColor:255,fontStyle:"bold"}});
+        y=doc.lastAutoTable.finalY+7;
       });
     }
     // Sign-off (keep whole table on one page - never split across pages)
