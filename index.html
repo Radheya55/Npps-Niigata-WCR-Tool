@@ -980,17 +980,55 @@ const App={
       recB.forEach(x=>{ wrap("- "+x,9.5,DARK,"normal",3,3); y+=1.5; });
       y+=3;
     }
-    // Photo Gallery
+    // Photo Gallery - 2-column boxed layout: target ~6 per page, scale up when few
+    // images, medium cap for 1-2, and never split an image block across a page.
     if((State.photos||[]).length){ h2("Photo Gallery"); mark("Photo Gallery");
-      State.photos.forEach((p,i)=>{
-        const im=photoImgs[i];let iw=0,ih=0;if(im){iw=118;ih=iw*im.h/im.w;if(ih>84){ih=84;iw=ih*im.w/im.h;}}
-        ensure((ih||0)+16);
-        if(im){doc.addImage(im.src,fmt(im.src),M.l,y,iw,ih);y+=ih+4;}
-        wrap((i+1)+". "+(p.title||"Untitled"),9.5,NAVY,"bold");y+=1.5;
-        if(p.desc){wrap(p.desc,9,DARK,"normal");y+=1;}
-        if(p.refItem&&p.refAct)wrap("Reference to "+p.refItem+". Activity - "+p.refAct,8.5,OLIVE,"italic");
-        y+=9;
+      const n=State.photos.length;
+      const colW=(contentW-6)/2;                // two columns with a 6mm gutter
+      // image height budget: bigger when few photos, medium cap for 1-2, smaller when many
+      let imgBoxH;
+      if(n<=2) imgBoxH=70;                       // medium cap
+      else if(n<=4) imgBoxH=80;                  // a bit larger, all fit on one page
+      else imgBoxH=52;                           // compact so ~6 land per page
+      const pad=3, titleH=6;
+      // pre-measure each block's total height (title + image + desc + ref, wrapped)
+      const measureLines=(txt,size,w)=>{if(!txt)return 0;setF("normal",size,DARK);return doc.splitTextToSize(txt,w).length;};
+      const blocks=State.photos.map((p,i)=>{
+        const im=photoImgs[i];
+        let iw=colW-2*pad, ih=imgBoxH;
+        if(im){const r=im.w/im.h; if(iw/ih>r){iw=ih*r;} else {ih=iw/r;}} // fit within box, keep aspect
+        const innerW=colW-2*pad;
+        const titleLines=measureLines((i+1)+". "+(p.title||"Untitled"),8.5,innerW)||1;
+        const descLines=measureLines(p.desc||"",8,innerW);
+        const refLines=(p.refItem&&p.refAct)?measureLines("Reference to "+p.refItem+". Activity - "+p.refAct,7.5,innerW):0;
+        const textH=titleLines*3.6+ (descLines?descLines*3.4+1:0) + (refLines?refLines*3.2+1:0);
+        const boxH=pad+titleH+ (im?ih+2:0) + textH + pad+3;
+        return {p,im,iw,ih,innerW,boxH,num:i+1};
       });
+      // lay out row by row (2 per row); a row's height is the taller of its two boxes;
+      // if a row won't fit in remaining space, move the whole row to the next page.
+      for(let i=0;i<blocks.length;i+=2){
+        const row=blocks.slice(i,i+2);
+        const rowH=Math.max(...row.map(b=>b.boxH));
+        if(y+rowH>bottomY) np();
+        const rowTop=y;
+        row.forEach((b,c)=>{
+          const bx=M.l + c*(colW+6);
+          // box border
+          doc.setDrawColor(200);doc.setLineWidth(0.3);doc.roundedRect(bx,rowTop,colW,rowH,1.5,1.5);
+          let by=rowTop+pad;
+          // title on top
+          setF("bold",8.5,NAVY);doc.splitTextToSize(b.num+". "+(b.p.title||"Untitled"),b.innerW).forEach(ln=>{doc.text(ln,bx+pad,by+3);by+=3.6;});
+          by+=1.5;
+          // image centered in the column
+          if(b.im){const ix=bx+(colW-b.iw)/2;doc.addImage(b.im.src,fmt(b.im.src),ix,by,b.iw,b.ih);by+=b.ih+2;}
+          // description
+          if(b.p.desc){setF("normal",8,DARK);doc.splitTextToSize(b.p.desc,b.innerW).forEach(ln=>{doc.text(ln,bx+pad,by+2.6);by+=3.4;});by+=1;}
+          // reference
+          if(b.p.refItem&&b.p.refAct){setF("italic",7.5,OLIVE);doc.splitTextToSize("Reference to "+b.p.refItem+". Activity - "+b.p.refAct,b.innerW).forEach(ln=>{doc.text(ln,bx+pad,by+2.4);by+=3.2;});}
+        });
+        y=rowTop+rowH+6;
+      }
     }
     // Data tables (from images)
     const dts=(State.dataTables||[]).filter(t=>t.grid&&t.grid.length);
