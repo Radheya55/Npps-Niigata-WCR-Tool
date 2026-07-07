@@ -73,8 +73,9 @@ textarea{resize:vertical;min-height:38px}
 .gen ul{margin:0 0 0 18px;padding:0}
 .gen li{margin-bottom:6px}
 .gen .item{margin-bottom:12px}
-.execlist{list-style:disc;margin:0 0 0 18px;padding:0}
+.execlist{list-style:none;margin:0;padding:0}
 .execlist li{margin-bottom:12px}
+.ex-num{display:inline-block;background:#1F3864;color:#fff;border-radius:4px;padding:1px 8px;font-size:12px;font-weight:700;margin-right:7px}
 .ex-name{color:#6ea8dc;font-weight:700;margin-bottom:2px}
 .ex-crit .ex-lbl{color:#ff6b6b;font-weight:700}
 .ex-act{margin-top:2px;color:#c9d98f}
@@ -660,7 +661,7 @@ const App={
     const scope=[];State.tables.forEach(t=>{const rows=t.rows.filter(r=>(r.inScope||"").toLowerCase()==="yes"&&(r.activity||"").trim());if(rows.length)scope.push({name:t.name||"(unnamed)",acts:rows.map(r=>scopeInstruction(r.activity))});});
     const exec=State.tables.filter(t=>(t.critical||"").trim()).map(t=>({name:t.name,crit:t.critical.trim(),act:(t.action||"").trim()}));
     const es=document.getElementById("exec-slot");
-    if(State.processed&&exec.length){es.innerHTML=`<h2 class="sec" style="color:var(--amber)">⚡ Executive Summary</h2><div class="gen exec"><ul class="execlist">${exec.map(f=>{let l=`<div class="ex-name">${E(f.name)}</div><div class="ex-crit"><span class="ex-lbl">Critical finding or technical anomaly:</span> ${E(f.crit)}</div>`;if(f.act)l+=`<div class="ex-act"><span class="ex-lbl2">Suggested action:</span> ${E(f.act)}</div>`;return`<li>${l}</li>`;}).join("")}</ul></div>`;}
+    if(State.processed&&exec.length){es.innerHTML=`<h2 class="sec" style="color:var(--amber)">⚡ Executive Summary</h2><div class="gen exec"><ul class="execlist">${exec.map((f,i)=>{let l=`<div class="ex-name"><span class="ex-num">${i+1}</span>${E(f.name)}</div><div class="ex-crit"><span class="ex-lbl">Critical finding or technical anomaly:</span> ${E(f.crit)}</div>`;if(f.act)l+=`<div class="ex-act"><span class="ex-lbl2">Suggested action:</span> ${E(f.act)}</div>`;return`<li>${l}</li>`;}).join("")}</ul></div>`;}
     else if(State.processed){es.innerHTML=`<h2 class="sec" style="color:var(--amber)">⚡ Executive Summary</h2><div class="gen"><span style="color:var(--muted)">No critical findings recorded. Add a “Critical finding” to any item and press Process.</span></div>`;}
     else es.innerHTML="";
     const ss=document.getElementById("scope-slot");
@@ -934,9 +935,17 @@ const App={
 
     // Executive Summary
     if(exec.length){ h2("Executive Summary"); mark("Executive Summary");
-      exec.forEach(f=>{
+      exec.forEach((f,idx)=>{
         ensure(15);
-        wrap(f.name,9.5,NAVY,"bold",3);y+=1.2;
+        // numbered navy badge
+        const num=String(idx+1),bw=6,bh=5;
+        doc.setFillColor(31,56,100);doc.roundedRect(M.l,y-3.7,bw,bh,1,1,"F");
+        setF("bold",8.5,[255,255,255]);doc.text(num,M.l+bw/2,y,{align:"center"});
+        // item name to the right of the badge
+        setF("bold",9.5,NAVY);const nml=doc.splitTextToSize(f.name,contentW-bw-4);
+        doc.text(nml[0]||"",M.l+bw+3,y);y+=4.4;
+        for(let i=1;i<nml.length;i++){ensure(4.4);doc.text(nml[i],M.l+bw+3,y);y+=4.4;}
+        y+=1.2;
         setF("bold",9,RED);const clbl="Critical finding or technical anomaly: ";doc.text(clbl,M.l+3,y);const clw=doc.getTextWidth(clbl);
         setF("normal",9,DARK);const ct=doc.splitTextToSize(f.crit,contentW-3-clw);doc.text(ct[0]||"",M.l+3+clw,y);y+=5;for(let i=1;i<ct.length;i++){ensure(5);doc.text(ct[i],M.l+3,y);y+=5;}
         if(f.act){setF("bold",9,OLIVE);const albl="Suggested action: ";doc.text(albl,M.l+3,y);const alw=doc.getTextWidth(albl);setF("normal",9,OLIVE);const at=doc.splitTextToSize(f.act,contentW-3-alw);doc.text(at[0]||"",M.l+3+alw,y);y+=5;for(let i=1;i<at.length;i++){ensure(5);doc.text(at[i],M.l+3,y);y+=5;}}
