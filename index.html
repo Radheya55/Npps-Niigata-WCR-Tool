@@ -394,8 +394,24 @@ function scopeInstruction(act){
   return out.join(" ");
 }
 // Group maintenance rows into the four scope buckets used by both screen and PDF.
+// Turn a past-tense activity into a negative "was not done" form for the not-carried-out bucket.
+function scopeNegate(act){
+  let s=(act||"").trim().replace(/\.$/,"");
+  if(!s)return "";
+  const m=s.match(/^(.*?\b(?:was|were|is|are|has been|have been))(\s+)(.*)$/i);
+  if(m&&!/\bnot\b/i.test(m[1]))return (m[1]+" not"+m[2]+m[3]).replace(/\s+/g," ").trim()+".";
+  return s.charAt(0).toUpperCase()+s.slice(1)+" was not carried out.";
+}
+// Frame an out-of-scope-but-done activity so it stands out as extra work (rotating variations).
+const ADD_PREFIX=["Although not in the original scope, ","Though not part of the agreed scope, ","Over and above the scope of work, ","Beyond the original scope, ","Out of scope, but "];
+function scopeAdditional(act,i){
+  let s=(act||"").trim().replace(/\.$/,"");
+  if(!s)return "";
+  return ADD_PREFIX[i%ADD_PREFIX.length]+s.charAt(0).toLowerCase()+s.slice(1)+".";
+}
 function computeScopeGroups(tables){
   const imperative=[],notDone=[],partial=[],additional=[];
+  let addCounter=0;
   (tables||[]).forEach(t=>{
     const nm=t.name||"(unnamed)";
     const yes=r=>(r.inScope||"").toLowerCase()==="yes";
@@ -404,11 +420,11 @@ function computeScopeGroups(tables){
     const imp=t.rows.filter(r=>yes(r)&&act(r));
     if(imp.length)imperative.push({name:nm,acts:imp.map(r=>scopeInstruction(r.activity))});
     const nd=t.rows.filter(r=>yes(r)&&st(r)==="not done"&&act(r));
-    if(nd.length)notDone.push({name:nm,acts:nd.map(act)});
+    if(nd.length)notDone.push({name:nm,acts:nd.map(r=>scopeNegate(r.activity))});
     const pp=t.rows.filter(r=>yes(r)&&st(r)==="partially done"&&act(r));
     if(pp.length)partial.push({name:nm,acts:pp.map(act)});
     const ad=t.rows.filter(r=>!yes(r)&&(st(r)==="done"||st(r)==="partially done")&&act(r));
-    if(ad.length)additional.push({name:nm,acts:ad.map(act)});
+    if(ad.length)additional.push({name:nm,acts:ad.map(r=>scopeAdditional(r.activity,addCounter++))});
   });
   return {imperative,notDone,partial,additional};
 }
@@ -884,8 +900,8 @@ const App={
     try{ await App._ensurePdfLibs(); }catch(e){ alert("Could not load the PDF engine. Please check your internet connection and try again."); return; }
     const { jsPDF }=window.jspdf;
     const doc=new jsPDF({unit:"mm",format:"a4"});
-    const pageW=210,pageH=297,M={l:12,r:12,top:26,bottom:22},bottomY=pageH-22,contentW=pageW-24;
-    const ATM={left:12,right:12,top:26,bottom:22};
+    const pageW=210,pageH=297,M={l:12,r:12,top:30,bottom:22},bottomY=pageH-22,contentW=pageW-24;
+    const ATM={left:12,right:12,top:30,bottom:22};
     let y=M.top;
     const NAVY=[31,56,100],TEAL=[13,122,134],RED=[192,57,43],OLIVE=[107,142,35],GREY=[90,90,90],DARK=[20,20,20];
     const fmt=src=>(src&&src.indexOf("image/png")>-1)?"PNG":"JPEG";
@@ -1024,7 +1040,7 @@ const App={
       doc.setDrawColor(232,128,28);doc.setLineWidth(0.7);doc.line(M.l,21,pageW-M.r,21);
       // section (continued) marker on any page that continues a section from a previous page
       const as=activeSec(i);
-      if(as&&i>as.p){setF("italic",8,TEAL);doc.text(as.n+" (continued)",M.l,24.6);}
+      if(as&&i>as.p){setF("italic",8,TEAL);doc.text(as.n+" (continued)",M.l,26.5);}
       doc.setDrawColor(232,128,28);doc.setLineWidth(0.7);doc.line(M.l,281,pageW-M.r,281);
       setF("normal",6.5,NAVY);let fy=284;addr.forEach(l=>{doc.text(l,pageW/2,fy,{align:"center"});fy+=2.6;});
       setF("normal",7,GREY);doc.text("Page "+i+" of "+total,pageW-M.r,295,{align:"right"});
