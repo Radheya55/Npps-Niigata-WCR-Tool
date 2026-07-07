@@ -393,6 +393,25 @@ function scopeInstruction(act){
   });
   return out.join(" ");
 }
+// Group maintenance rows into the four scope buckets used by both screen and PDF.
+function computeScopeGroups(tables){
+  const imperative=[],notDone=[],partial=[],additional=[];
+  (tables||[]).forEach(t=>{
+    const nm=t.name||"(unnamed)";
+    const yes=r=>(r.inScope||"").toLowerCase()==="yes";
+    const st=r=>(r.status||"").toLowerCase();
+    const act=r=>(r.activity||"").trim();
+    const imp=t.rows.filter(r=>yes(r)&&act(r));
+    if(imp.length)imperative.push({name:nm,acts:imp.map(r=>scopeInstruction(r.activity))});
+    const nd=t.rows.filter(r=>yes(r)&&st(r)==="not done"&&act(r));
+    if(nd.length)notDone.push({name:nm,acts:nd.map(act)});
+    const pp=t.rows.filter(r=>yes(r)&&st(r)==="partially done"&&act(r));
+    if(pp.length)partial.push({name:nm,acts:pp.map(act)});
+    const ad=t.rows.filter(r=>!yes(r)&&(st(r)==="done"||st(r)==="partially done")&&act(r));
+    if(ad.length)additional.push({name:nm,acts:ad.map(act)});
+  });
+  return {imperative,notDone,partial,additional};
+}
 
 function buildTable(item){return {id:"t_"+item.id+"_"+Date.now()+Math.floor(Math.random()*999),itemId:item.id,name:item.name,rows:item.activities.map(a=>({activity:a,inScope:"",status:"",calibration:"",replaced:"",comment:""})),note:"",critical:"",action:""};}
 function buildCustom(){return {id:"t_custom_"+Date.now(),itemId:null,custom:true,name:"",rows:[{activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:""}],note:"",critical:"",action:""};}
@@ -629,7 +648,19 @@ const App={
     else if(State.processed){es.innerHTML=`<h2 class="sec" style="color:var(--amber)">⚡ Executive Summary</h2><div class="gen"><span style="color:var(--muted)">No critical findings recorded. Add a “Critical finding” to any item and press Process.</span></div>`;}
     else es.innerHTML="";
     const ss=document.getElementById("scope-slot");
-    if(State.processed&&scope.length){ss.innerHTML=`<h2 class="sec">Scope of Work</h2><div class="gen"><h3>Work carried out under this scope</h3>${scope.map(s=>`<div class="item"><strong>${E(s.name)}</strong><ul>${s.acts.map(a=>`<li>${E(a)}</li>`).join("")}</ul></div>`).join("")}</div>`;}
+    const sg=computeScopeGroups(State.tables);
+    const anyScope=sg.imperative.length||sg.notDone.length||sg.partial.length||sg.additional.length;
+    const scopeItems=arr=>arr.map(s=>`<div class="item"><strong>${E(s.name)}</strong><ul>${s.acts.map(a=>`<li>${E(a)}</li>`).join("")}</ul></div>`).join("");
+    const scopeSub=(title,arr,color)=>arr.length?`<h3 style="margin-top:14px${color?(";color:"+color):""}">${title}</h3>${scopeItems(arr)}`:"";
+    if(State.processed&&anyScope){
+      let html=`<h2 class="sec">Scope of Work</h2><div class="gen">`;
+      if(sg.imperative.length)html+=`<h3>Work carried out under this scope</h3>${scopeItems(sg.imperative)}`;
+      html+=scopeSub("In scope, not carried out",sg.notDone,"#ff6b6b");
+      html+=scopeSub("In scope, partially carried out",sg.partial,"#E8A020");
+      html+=scopeSub("Additional tasks carried out (beyond scope)",sg.additional,"#6ea8dc");
+      html+=`</div>`;
+      ss.innerHTML=html;
+    }
     else if(State.processed){ss.innerHTML=`<h2 class="sec">Scope of Work</h2><div class="gen"><span style="color:var(--muted)">Mark activities as “In Scope = Yes”, then press Process.</span></div>`;}
     else ss.innerHTML="";
   },
@@ -902,8 +933,15 @@ const App={
     if(hist.length){doc.autoTable({startY:y,margin:ATM,body:hist,theme:"grid",styles:{fontSize:9,cellPadding:2},columnStyles:{0:{fontStyle:"bold",fillColor:[238,244,245],cellWidth:72}}});y=doc.lastAutoTable.finalY+4;}
     else{wrap("No history recorded.",9,GREY);y+=2;}
     // Scope
-    if(scope.length){ h2("Scope of Work"); mark("Scope of Work");
-      scope.forEach(sc=>{ensure(10);wrap(sc.name,9.5,DARK,"bold");y+=0.8;sc.acts.forEach(a=>{wrap("- "+a,9,DARK,"normal",3,2);});y+=4;});
+    const sg=computeScopeGroups(State.tables);
+    const anyScope=sg.imperative.length||sg.notDone.length||sg.partial.length||sg.additional.length;
+    if(anyScope){ h2("Scope of Work"); mark("Scope of Work");
+      const scopeList=(arr)=>{arr.forEach(sc=>{ensure(10);wrap(sc.name,9.5,DARK,"bold");y+=0.8;sc.acts.forEach(a=>{wrap("- "+a,9,DARK,"normal",3,2);});y+=4;});};
+      const scopeSub=(title,arr,color)=>{if(!arr.length)return;ensure(12);y+=2;wrap(title,10,color||TEAL,"bold");y+=1.5;scopeList(arr);};
+      if(sg.imperative.length){wrap("Work carried out under this scope",10,TEAL,"bold");y+=1.5;scopeList(sg.imperative);}
+      scopeSub("In scope, not carried out",sg.notDone,RED);
+      scopeSub("In scope, partially carried out",sg.partial,[184,134,11]);
+      scopeSub("Additional tasks carried out (beyond scope)",sg.additional,[31,56,100]);
     }
     // Maintenance Summary
     h2("Maintenance Summary"); mark("Maintenance Summary");
