@@ -923,7 +923,13 @@ const App={
     if(cover){let w=110,hh=w*cover.h/cover.w;if(hh>72){hh=72;w=hh*cover.w/cover.h;}ensure(hh+4);doc.addImage(cover.src,fmt(cover.src),(pageW-w)/2,y,w,hh);y+=hh+6;}
     h2("Project Details");
     const kv=[["Project Code",b.code],["Customer",b.customer],["Contract No.",b.contract],["Vessel/Rig",b.vessel],["Start Date",b.start],["Handing Over",b.end],["Overhaul Type",b.overhaul],["Engine",b.engine],["Serial",b.serial],["Arrangement",b.arr],["RPM & Capacity",b.rpm],["Running Hours",b.hours],["Customer In-Charge",b.custic],["Team Leader",b.leader],["Members",(b.membersList&&b.membersList.length)?b.membersList.join(", "):(b.members||"")]];
-    doc.autoTable({startY:y,margin:ATM,body:kv.map(r=>[r[0],r[1]||"-"]),theme:"grid",styles:{fontSize:9,cellPadding:2},columnStyles:{0:{fontStyle:"bold",fillColor:[238,244,245],cellWidth:55}}});
+    const lblSt={fontStyle:"bold",fillColor:[238,244,245]};
+    const kvRows=[];
+    for(let i=0;i<kv.length;i+=2){const a=kv[i],c=kv[i+1];
+      if(c)kvRows.push([{content:a[0],styles:lblSt},a[1]||"-",{content:c[0],styles:lblSt},c[1]||"-"]);
+      else kvRows.push([{content:a[0],styles:lblSt},{content:a[1]||"-",colSpan:3}]);}
+    doc.autoTable({startY:y,margin:ATM,body:kvRows,theme:"grid",styles:{fontSize:9,cellPadding:2},
+      columnStyles:{0:{cellWidth:38},1:{cellWidth:55},2:{cellWidth:38},3:{cellWidth:55}}});
 
     // ---------- PAGE 2 reserved for TOC ----------
     doc.addPage();const TOC_PAGE=doc.internal.getNumberOfPages();
