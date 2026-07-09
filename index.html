@@ -182,6 +182,19 @@ textarea{resize:vertical;min-height:38px}
   <div id="saved-cards" style="margin-top:22px"></div>
 </div>
 
+<div class="wrap hidden" id="screen-wcr-gate">
+  <h2 class="sec">Create Niigata WCR - Sign in</h2>
+  <div class="card" style="max-width:460px">
+    <div class="fg"><label class="f">Your Name</label>
+      <select id="wcr-name"><option value="">- select -</option></select></div>
+    <div class="fg"><label class="f">Employee ID</label><input id="wcr-emp" placeholder="Enter your employee ID"/></div>
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <button class="btn" onclick="App.wcrContinue()">Continue →</button>
+      <button class="btn-ghost" onclick="App.showHome()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="wrap hidden" id="screen-fetch">
   <h2 class="sec">Create Niigata WCR</h2>
   <div class="card" style="max-width:520px">
@@ -467,6 +480,7 @@ let BD_MEMBERS=[]; // member list buffer for the base data form
 let BD_EDITING=null; // project code currently being edited (null = new)
 
 const WORKER_URL="https://polished-lake-4911.radheya-supnekar.workers.dev";
+let WCR_USER=null;
 let State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],processed:false};
 function save(){try{localStorage.setItem("npps_niigata_wcr",JSON.stringify(State));}catch(e){}}
 function load(){try{const s=localStorage.getItem("npps_niigata_wcr");if(s)State=JSON.parse(s);}catch(e){}}
@@ -476,9 +490,11 @@ const App={
     // populate SM name dropdown
     const sel=document.getElementById("sm-name");
     if(sel)EMPLOYEES.forEach(e=>{const o=document.createElement("option");o.value=e.name;o.textContent=e.name;sel.appendChild(o);});
+    const wsel=document.getElementById("wcr-name");
+    if(wsel)EMPLOYEES.forEach(e=>{const o=document.createElement("option");o.value=e.name;o.textContent=e.name;wsel.appendChild(o);});
     App.showHome();
   },
-  _hideAll(){["screen-home","screen-sm-gate","screen-base","screen-fetch","screen-wcr"].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add("hidden");});},
+  _hideAll(){["screen-home","screen-sm-gate","screen-wcr-gate","screen-base","screen-fetch","screen-wcr"].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add("hidden");});},
   showHome(){App._hideAll();document.getElementById("screen-home").classList.remove("hidden");document.getElementById("hdr-project").textContent="";window.scrollTo(0,0);},
 
   /* ---- Add Base Data (Service Manager) ---- */
@@ -560,7 +576,17 @@ const App={
   },
 
   /* ---- Create WCR (fetch base data) ---- */
-  goCreateWCR(){App._hideAll();document.getElementById("screen-fetch").classList.remove("hidden");document.getElementById("fetch-code").value="";App.onFetchCode("");window.scrollTo(0,0);},
+  goCreateWCR(){App._hideAll();document.getElementById("screen-wcr-gate").classList.remove("hidden");window.scrollTo(0,0);},
+  wcrContinue(){
+    const name=(document.getElementById("wcr-name").value)||"";
+    const typed=(document.getElementById("wcr-emp").value||"").trim();
+    if(!name){toast("Select your name");return;}
+    if(!typed){toast("Enter your employee ID");return;}
+    const rec=EMPLOYEES.find(e=>e.name===name);
+    if(!rec||String(rec.empNo).toLowerCase()!==typed.toLowerCase()){toast("Employee ID does not match this name");return;}
+    WCR_USER={name,emp:rec.empNo};
+    App._hideAll();document.getElementById("screen-fetch").classList.remove("hidden");document.getElementById("fetch-code").value="";App.onFetchCode("");window.scrollTo(0,0);
+  },
   onFetchCode(v){
     const btn=document.getElementById("fetch-btn");const msg=document.getElementById("fetch-msg");
     const store=bdLoad();const code=bdNorm(v);
@@ -863,6 +889,8 @@ const App={
   _dtCountdown(i,sec){App._dtStop(i);let left=sec;const set=txt=>{const e=document.getElementById("dt-status-"+i);if(e)e.innerHTML='<span style="color:var(--amber)">'+txt+'</span>';};const fmt=n=>{const m=Math.floor(n/60),s=n%60;return m+":"+(s<10?"0":"")+s;};set("⏳ Reading table... "+fmt(left));App._dtTimers=App._dtTimers||{};App._dtTimers[i]=setInterval(()=>{left--;if(left<=0){set("⏳ Almost done...");return;}set("⏳ Reading table... "+fmt(left));},1000);},
   _dtStop(i){if(App._dtTimers&&App._dtTimers[i]){clearInterval(App._dtTimers[i]);App._dtTimers[i]=null;}const e=document.getElementById("dt-status-"+i);if(e)e.textContent="";},
   dtCell(ti,r,c,v){State.dataTables[ti].grid[r][c]=v;save();},
+  dtUploadPhoto(i,ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{State.dataTables[i].photo=r.result;save();App.renderDataTables();toast("Table photo attached");};r.readAsDataURL(f);ev.target.value="";},
+  dtDelPhoto(i){State.dataTables[i].photo=null;save();App.renderDataTables();},
   dtAddRow(ti){const g=State.dataTables[ti].grid;const cols=g[0]?g[0].length:1;g.push(new Array(cols).fill(""));save();App.renderDataTables();},
   dtAddCol(ti){const g=State.dataTables[ti].grid;g.forEach(row=>row.push(""));if(!g.length)g.push([""]);save();App.renderDataTables();},
   dtDelRow(ti,r){const g=State.dataTables[ti].grid;if(g.length<=1)return;g.splice(r,1);save();App.renderDataTables();},
@@ -877,6 +905,7 @@ const App={
           t.grid.map((row,r)=>`<tr>${row.map((cell,c)=>`<td style="padding:0"><input value="${E(cell)}" style="border:none;background:${r===0?'#16262e':'#1b2b33'};color:var(--ink);font-weight:${r===0?'700':'400'};padding:6px 8px;min-width:70px;font-size:12px" oninput="App.dtCell(${i},${r},${c},this.value)"/></td>`).join("")}<td style="border:none;padding:0 4px"><button type="button" class="btn-danger" style="font-size:11px" onclick="App.dtDelRow(${i},${r})" title="Delete row">✕</button></td></tr>`).join("")+
           `</tbody></table></div><div class="row-flex" style="margin-top:6px"><button class="btn-ghost btn-sm" onclick="App.dtAddRow(${i})">+ Row</button><button class="btn-ghost btn-sm" onclick="App.dtAddCol(${i})">+ Column</button></div>`;
       }
+      const photoHtml=t.photo?`<div style="margin-top:10px;padding:8px;border:1px solid var(--line2);border-radius:8px;background:#132029"><div style="font-size:11px;color:#7fd6a6;margin-bottom:6px">✓ Table photo attached - this photo will be shown as-is in the report instead of the digitised table.</div><div style="position:relative;display:inline-block"><img src="${t.photo}" style="max-width:100%;max-height:220px;border:1px solid var(--line2);border-radius:6px"/><button type="button" class="btn-danger" style="position:absolute;top:-6px;right:-6px;background:#0b1418;border-radius:50%;font-size:11px;padding:1px 5px" onclick="App.dtDelPhoto(${i})">✕</button></div></div>`:"";
       return `<div class="mtbl">
         <div class="mtbl-h"><input class="name" value="${E(t.title)}" placeholder="Table title (e.g. Crankshaft Deflection)..." oninput="App.dtTitle(${i},this.value)"/><button class="btn-danger" onclick="App.delDataTable(${i})">🗑 Remove</button></div>
         <div class="row-flex" style="margin:4px 0">${imgs}</div>
@@ -887,18 +916,19 @@ const App={
           <span id="dt-status-${i}" style="font-size:12px;color:var(--muted)"></span>
         </div>
         ${gridHtml}
+        <div style="border-top:1px dashed var(--line2);margin-top:12px;padding-top:10px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Not happy with the digitised table? Upload a clear photo of the table and it will be shown as-is in the report.</div>
+          <input type="file" id="dt-photo-${i}" accept="image/*" class="hidden" onchange="App.dtUploadPhoto(${i},event)"/>
+          <button class="btn-ghost btn-sm" onclick="document.getElementById('dt-photo-${i}').click()">🖼 Upload Table Photo</button>
+        </div>
+        ${photoHtml}
       </div>`;
     }).join("");
   },
 
-  async downloadReport(){
+  async _buildPdf(settings){
     const b=State.base;
     const s2=State.signoff||{};
-    if(!App.hasRecInput()){toast("Add written or spoken recommendations before downloading");const rc=document.getElementById("recs-card");if(rc)rc.scrollIntoView({behavior:"smooth",block:"center"});return;}
-    if(!(s2.npName&&s2.npDate&&s2.cuName&&s2.cuDate)){toast("Complete all 4 sign-off fields before downloading");const el=document.getElementById("signoff-card");if(el)el.scrollIntoView({behavior:"smooth",block:"center"});return;}
-    App.process();
-    toast("Building PDF...");
-    try{ await App._ensurePdfLibs(); }catch(e){ alert("Could not load the PDF engine. Please check your internet connection and try again."); return; }
     const { jsPDF }=window.jspdf;
     const doc=new jsPDF({unit:"mm",format:"a4"});
     const pageW=210,pageH=297,M={l:12,r:12,top:30,bottom:22},bottomY=pageH-22,contentW=pageW-24;
@@ -907,9 +937,12 @@ const App={
     const NAVY=[31,56,100],TEAL=[13,122,134],RED=[192,57,43],OLIVE=[107,142,35],GREY=[90,90,90],DARK=[20,20,20];
     const fmt=src=>(src&&src.indexOf("image/png")>-1)?"PNG":"JPEG";
     const loadImg=src=>new Promise(res=>{if(!src)return res(null);const im=new Image();im.onload=()=>res({src,w:im.naturalWidth,h:im.naturalHeight});im.onerror=()=>res(null);im.src=src;});
+    // Downscale + re-encode raster photos to JPEG to control file size.
+    const compress=(src,maxDim,q)=>new Promise(res=>{if(!src)return res(null);const im=new Image();im.onload=()=>{let w=im.naturalWidth,h=im.naturalHeight;const sc=Math.min(1,maxDim/Math.max(w,h));w=Math.max(1,Math.round(w*sc));h=Math.max(1,Math.round(h*sc));const cv=document.createElement("canvas");cv.width=w;cv.height=h;const cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,w,h);cx.drawImage(im,0,0,w,h);let out;try{out=cv.toDataURL("image/jpeg",q);}catch(e){out=src;}res({src:out,w,h});};im.onerror=()=>res(null);im.src=src;});
     const logo=await loadImg(LOGO_B64);
-    const cover=State.cover?await loadImg(State.cover):null;
-    const photoImgs=[];for(const p of (State.photos||[]))photoImgs.push(await loadImg(p.img));
+    const cover=State.cover?await compress(State.cover,settings.coverMax,settings.coverQ):null;
+    const photoImgs=[];for(const p of (State.photos||[]))photoImgs.push(await compress(p.img,settings.galMax,settings.galQ));
+    const tablePhotos={};for(const t of (State.dataTables||[])){if(t.photo)tablePhotos[t.id]=await compress(t.photo,settings.tblMax,settings.tblQ);}
     const np=()=>{doc.addPage();y=M.top;};
     const ensure=hh=>{if(y+hh>bottomY)np();};
     const setF=(st,sz,c)=>{doc.setFont("helvetica",st);doc.setFontSize(sz);doc.setTextColor(c[0],c[1],c[2]);};
@@ -1045,18 +1078,32 @@ const App={
         y=rowTop+rowH+6;
       }
     }
-    // Data tables (from images)
-    const dts=(State.dataTables||[]).filter(t=>t.grid&&t.grid.length);
+    // Data tables (from images) - a table shows an as-is uploaded photo if one is
+    // attached, otherwise the digitised grid.
+    const dts=(State.dataTables||[]).filter(t=>(t.grid&&t.grid.length)||(t.photo&&tablePhotos[t.id]));
     if(dts.length){ h2("Tables"); mark("Tables");
+      const usableH=bottomY-M.top;
       dts.forEach(t=>{
-        if(t.title){wrap(t.title,9.5,DARK,"bold");y+=1;}
-        const head=t.grid.length?[t.grid[0]]:[[]];
-        const body=t.grid.slice(1);
-        ensure(20);
-        doc.autoTable({startY:y,margin:ATM,showHead:"everyPage",
-          head,body,theme:"grid",styles:{fontSize:8,cellPadding:1.5,overflow:"linebreak",valign:"top"},
-          headStyles:{fillColor:TEAL,textColor:255,fontStyle:"bold"}});
-        y=doc.lastAutoTable.finalY+7;
+        if(t.photo&&tablePhotos[t.id]){
+          const im=tablePhotos[t.id];
+          let iw=contentW, ih=iw*im.h/im.w;
+          const capH=usableH*0.48;                 // 2 per page; a single one ~half the page
+          if(ih>capH){ih=capH;iw=ih*im.w/im.h;}
+          const blockH=(t.title?7:0)+ih+7;
+          if(y+blockH>bottomY) np();
+          if(t.title){wrap(t.title,9.5,DARK,"bold");y+=1;}
+          const ix=M.l+(contentW-iw)/2;
+          doc.addImage(im.src,fmt(im.src),ix,y,iw,ih);y+=ih+8;
+        } else {
+          if(t.title){wrap(t.title,9.5,DARK,"bold");y+=1;}
+          const head=t.grid.length?[t.grid[0]]:[[]];
+          const body=t.grid.slice(1);
+          ensure(20);
+          doc.autoTable({startY:y,margin:ATM,showHead:"everyPage",
+            head,body,theme:"grid",styles:{fontSize:8,cellPadding:1.5,overflow:"linebreak",valign:"top"},
+            headStyles:{fillColor:TEAL,textColor:255,fontStyle:"bold"}});
+          y=doc.lastAutoTable.finalY+7;
+        }
       });
     }
     // Sign-off (keep whole table on one page - never split across pages)
@@ -1101,8 +1148,40 @@ const App={
 
     const _n=new Date(),_p=x=>String(x).padStart(2,"0");
     const fname=(b.code||"WCR")+"_"+_p(_n.getDate())+"-"+_p(_n.getMonth()+1)+"-"+_n.getFullYear()+"-"+_p(_n.getHours())+"-"+_p(_n.getMinutes())+"-"+_p(_n.getSeconds());
-    doc.save(fname+".pdf");
-    toast("PDF downloaded");
+    return {doc,fname};
+  },
+  async downloadReport(){
+    const s2=State.signoff||{};
+    if(!App.hasRecInput()){toast("Add written or spoken recommendations before downloading");const rc=document.getElementById("recs-card");if(rc)rc.scrollIntoView({behavior:"smooth",block:"center"});return;}
+    if(!(s2.npName&&s2.npDate&&s2.cuName&&s2.cuDate)){toast("Complete all 4 sign-off fields before downloading");const el=document.getElementById("signoff-card");if(el)el.scrollIntoView({behavior:"smooth",block:"center"});return;}
+    App.process();
+    toast("Building PDF...");
+    try{ await App._ensurePdfLibs(); }catch(e){ alert("Could not load the PDF engine. Please check your internet connection and try again."); return; }
+    const TARGET=16*1024*1024, HARD=22*1024*1024;
+    // Escalating compression. Gallery + cover are squeezed first; table photos are
+    // protected (kept sharper) until the last levels, since they carry the numbers.
+    const levels=[
+      {coverMax:1600,coverQ:0.70,galMax:1600,galQ:0.70,tblMax:2200,tblQ:0.82},
+      {coverMax:1500,coverQ:0.66,galMax:1250,galQ:0.60,tblMax:2200,tblQ:0.80},
+      {coverMax:1300,coverQ:0.62,galMax:1000,galQ:0.55,tblMax:2000,tblQ:0.78},
+      {coverMax:1100,coverQ:0.55,galMax:850, galQ:0.50,tblMax:1700,tblQ:0.72},
+      {coverMax:950, coverQ:0.50,galMax:720, galQ:0.45,tblMax:1450,tblQ:0.66}
+    ];
+    let chosen=null,note="";
+    for(let li=0;li<levels.length;li++){
+      const {doc,fname}=await App._buildPdf(levels[li]);
+      const blob=doc.output("blob");
+      chosen={doc,fname,size:blob.size};
+      if(blob.size<=TARGET){ if(li>0)note=" - compressed to fit"; break; }
+      if(li===levels.length-1) note=" - compressed hard to fit";
+    }
+    const mb=(chosen.size/1048576).toFixed(1);
+    if(chosen.size>HARD){
+      alert("Even at maximum compression this report is "+mb+" MB, above the "+(HARD/1048576)+" MB limit.\n\nPlease reduce the number of photos, or split it into two reports.");
+      return;
+    }
+    chosen.doc.save(chosen.fname+".pdf");
+    toast("PDF downloaded ("+mb+" MB"+note+")");
   },
   _ensurePdfLibs(){
     const load=src=>new Promise((res,rej)=>{if([...document.scripts].some(s=>s.src===src))return res();const s=document.createElement("script");s.src=src;s.onload=()=>res();s.onerror=()=>rej(new Error("fail "+src));document.head.appendChild(s);});
