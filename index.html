@@ -264,9 +264,12 @@ textarea{resize:vertical;min-height:38px}
 
   <h2 class="sec">Tables (from images)</h2>
   <div class="card">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Upload a photo or screenshot of a table. For a long table split across pages, add 2-3 images to the same table and they will be stitched top-to-bottom. Always check the digitised values against the image before trusting them.</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Two options: <b>Digitise table</b> converts one or more images into an editable digital table. <b>Direct photo of table</b> puts a single photo of your table straight into the report, shown as-is. You can add as many of either as you like - all of them appear in the report.</div>
     <div id="datatables-slot"></div>
-    <button class="btn-ghost btn-sm" style="margin-top:10px" onclick="App.addDataTable()">+ Add table</button>
+    <div class="row-flex" style="margin-top:10px">
+      <button class="btn-ghost btn-sm" onclick="App.addDataTable()">+ Digitise table</button>
+      <button class="btn-ghost btn-sm" onclick="App.addPhotoTable()">+ Direct photo of table</button>
+    </div>
   </div>
 
   <h2 class="sec">Sign-off</h2>
@@ -868,7 +871,8 @@ const App={
   },
 
   /* ---- tables from images ---- */
-  addDataTable(){State.dataTables.push({id:"dt_"+Date.now(),title:"",images:[],grid:[],converting:false});save();App.renderDataTables();},
+  addDataTable(){State.dataTables.push({id:"dt_"+Date.now(),type:"grid",title:"",images:[],grid:[],converting:false});save();App.renderDataTables();},
+  addPhotoTable(){State.dataTables.push({id:"dt_"+Date.now(),type:"photo",title:"",photo:null});save();App.renderDataTables();},
   delDataTable(i){if(!confirm("Remove this table?"))return;State.dataTables.splice(i,1);save();App.renderDataTables();},
   dtTitle(i,v){State.dataTables[i].title=v;save();},
   dtAddImages(i,ev){const files=[...ev.target.files];if(!files.length)return;let pending=files.length;files.forEach(f=>{const r=new FileReader();r.onload=()=>{State.dataTables[i].images.push({name:f.name,dataUrl:r.result});pending--;if(pending===0){save();App.renderDataTables();}};r.readAsDataURL(f);});ev.target.value="";},
@@ -896,8 +900,19 @@ const App={
   dtDelRow(ti,r){const g=State.dataTables[ti].grid;if(g.length<=1)return;g.splice(r,1);save();App.renderDataTables();},
   renderDataTables(){
     const s=document.getElementById("datatables-slot");if(!s)return;const dts=State.dataTables||[];
-    if(!dts.length){s.innerHTML=`<div class="empty" style="padding:18px">No tables yet. Click "Add table" to upload a table image.</div>`;return;}
+    if(!dts.length){s.innerHTML=`<div class="empty" style="padding:18px">No tables yet. Use "Digitise table" or "Direct photo of table" below.</div>`;return;}
     s.innerHTML=dts.map((t,i)=>{
+      // ----- Direct photo of table -----
+      if(t.type==="photo"){
+        const photoBox=t.photo
+          ?`<div style="margin-top:8px;position:relative;display:inline-block"><img src="${t.photo}" style="max-width:100%;max-height:260px;border:1px solid var(--line2);border-radius:6px"/><button type="button" class="btn-danger" style="position:absolute;top:-6px;right:-6px;background:#0b1418;border-radius:50%;font-size:11px;padding:1px 5px" onclick="App.dtDelPhoto(${i})">✕</button></div>`
+          :`<div class="row-flex" style="margin-top:8px"><input type="file" id="dt-photo-${i}" accept="image/*" class="hidden" onchange="App.dtUploadPhoto(${i},event)"/><button class="btn-ghost btn-sm" onclick="document.getElementById('dt-photo-${i}').click()">🖼 Upload table photo (one)</button></div>`;
+        return `<div class="mtbl">
+          <div class="mtbl-h"><input class="name" value="${E(t.title)}" placeholder="Table title (optional)..." oninput="App.dtTitle(${i},this.value)"/><span style="font-size:11px;color:var(--muted);margin:0 8px">Direct photo</span><button class="btn-danger" onclick="App.delDataTable(${i})">🗑 Remove</button></div>
+          ${photoBox}
+        </div>`;
+      }
+      // ----- Digitise table -----
       const imgs=t.images.map((im,j)=>`<div style="position:relative"><img src="${im.dataUrl}" style="height:60px;border:1px solid var(--line2);border-radius:6px"/><button type="button" class="btn-danger" style="position:absolute;top:-6px;right:-6px;background:#0b1418;border-radius:50%;font-size:11px;padding:1px 5px" onclick="App.dtDelImage(${i},${j})">✕</button></div>`).join("");
       let gridHtml="";
       if(t.grid&&t.grid.length){
@@ -905,9 +920,8 @@ const App={
           t.grid.map((row,r)=>`<tr>${row.map((cell,c)=>`<td style="padding:0"><input value="${E(cell)}" style="border:none;background:${r===0?'#16262e':'#1b2b33'};color:var(--ink);font-weight:${r===0?'700':'400'};padding:6px 8px;min-width:70px;font-size:12px" oninput="App.dtCell(${i},${r},${c},this.value)"/></td>`).join("")}<td style="border:none;padding:0 4px"><button type="button" class="btn-danger" style="font-size:11px" onclick="App.dtDelRow(${i},${r})" title="Delete row">✕</button></td></tr>`).join("")+
           `</tbody></table></div><div class="row-flex" style="margin-top:6px"><button class="btn-ghost btn-sm" onclick="App.dtAddRow(${i})">+ Row</button><button class="btn-ghost btn-sm" onclick="App.dtAddCol(${i})">+ Column</button></div>`;
       }
-      const photoHtml=t.photo?`<div style="margin-top:10px;padding:8px;border:1px solid var(--line2);border-radius:8px;background:#132029"><div style="font-size:11px;color:#7fd6a6;margin-bottom:6px">✓ Table photo attached - this photo will be shown as-is in the report instead of the digitised table.</div><div style="position:relative;display:inline-block"><img src="${t.photo}" style="max-width:100%;max-height:220px;border:1px solid var(--line2);border-radius:6px"/><button type="button" class="btn-danger" style="position:absolute;top:-6px;right:-6px;background:#0b1418;border-radius:50%;font-size:11px;padding:1px 5px" onclick="App.dtDelPhoto(${i})">✕</button></div></div>`:"";
       return `<div class="mtbl">
-        <div class="mtbl-h"><input class="name" value="${E(t.title)}" placeholder="Table title (e.g. Crankshaft Deflection)..." oninput="App.dtTitle(${i},this.value)"/><button class="btn-danger" onclick="App.delDataTable(${i})">🗑 Remove</button></div>
+        <div class="mtbl-h"><input class="name" value="${E(t.title)}" placeholder="Table title (e.g. Crankshaft Deflection)..." oninput="App.dtTitle(${i},this.value)"/><span style="font-size:11px;color:var(--muted);margin:0 8px">Digitise</span><button class="btn-danger" onclick="App.delDataTable(${i})">🗑 Remove</button></div>
         <div class="row-flex" style="margin:4px 0">${imgs}</div>
         <div class="row-flex" style="margin-top:8px">
           <input type="file" id="dt-input-${i}" accept="image/*" multiple class="hidden" onchange="App.dtAddImages(${i},event)"/>
@@ -916,12 +930,6 @@ const App={
           <span id="dt-status-${i}" style="font-size:12px;color:var(--muted)"></span>
         </div>
         ${gridHtml}
-        <div style="border-top:1px dashed var(--line2);margin-top:12px;padding-top:10px">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Not happy with the digitised table? Upload a clear photo of the table and it will be shown as-is in the report.</div>
-          <input type="file" id="dt-photo-${i}" accept="image/*" class="hidden" onchange="App.dtUploadPhoto(${i},event)"/>
-          <button class="btn-ghost btn-sm" onclick="document.getElementById('dt-photo-${i}').click()">🖼 Upload Table Photo</button>
-        </div>
-        ${photoHtml}
       </div>`;
     }).join("");
   },
