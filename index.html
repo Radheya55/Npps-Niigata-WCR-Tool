@@ -221,6 +221,12 @@ textarea{resize:vertical;min-height:38px}
   <h2 class="sec">History</h2>
   <div class="card" id="history-card"></div>
   <div id="scope-slot"></div>
+  <div id="emd-extra" class="hidden">
+    <h2 class="sec">Schedule of Maintenance <span style="font-size:11px;font-weight:400;color:var(--muted)">(optional)</span></h2>
+    <div class="card" id="sched-card"></div>
+    <h2 class="sec">Mandays <span style="font-size:11px;font-weight:400;color:var(--muted)">(optional)</span></h2>
+    <div class="card" id="mandays-card"></div>
+  </div>
   <h2 class="sec">Maintenance Summary</h2>
   <div class="card">
     <div class="row-flex" style="margin-bottom:12px">
@@ -550,6 +556,13 @@ function engCols(){return engCfg().cols;}
 const COLDEF={calibration:{label:"Calibration",opts:["","Yes","No"],w:22},
               replaced:{label:"Replaced/Reused",opts:["","Replaced","Reused","Reused, Good condition","N/A"],w:26}};
 
+
+/* Schedule of Maintenance + Mandays (EMD / CAT only, both optional) */
+const SCHED_ROWS_DEFAULT=["Spare parts checking & arrangements","Engine dismantling & cleaning","Inspection and validation of reusable parts","Block cleaning and crank inspection, calibration & re-qualification","Stand by days for non availability of parts","Days spent in Lifting, shifting and rigging by our team","Engine assembly","Pre commissioning and trial"];
+const MANDAYS_ROWS_DEFAULT=["Onshore standby man days","Travel man days","Total working man days on board","List reasons for Idle days (include rigging and shifting)","Total idle man days on board","List additional chargeable scope","Additional man days for the extra scope","Total mandays for this job"];
+function newSchedule(){const cols=7;return {cols:Array.from({length:cols},(_,i)=>String(i+1)),rows:SCHED_ROWS_DEFAULT.map(l=>({label:l,cells:new Array(cols).fill("")}))};}
+function newMandays(){return {rows:MANDAYS_ROWS_DEFAULT.map(l=>({label:l,value:""}))};}
+
 function buildTable(item){return {id:"t_"+item.id+"_"+Date.now()+Math.floor(Math.random()*999),itemId:item.id,name:item.name,rows:item.activities.map(a=>({activity:a,inScope:"",status:"",calibration:"",replaced:"",comment:""})),note:"",critical:"",action:""};}
 function buildCustom(){return {id:"t_custom_"+Date.now(),itemId:null,custom:true,name:"",rows:[{activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:""}],note:"",critical:"",action:""};}
 const E=s=>(s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -588,7 +601,7 @@ let BD_EDITING=null; // project code currently being edited (null = new)
 
 const WORKER_URL="https://polished-lake-4911.radheya-supnekar.workers.dev";
 let WCR_USER=null;
-let State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],processed:false};
+let State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,processed:false};
 function save(){try{localStorage.setItem("npps_niigata_wcr",JSON.stringify(State));}catch(e){}}
 function load(){try{const s=localStorage.getItem("npps_niigata_wcr");if(s)State=JSON.parse(s);}catch(e){}}
 
@@ -714,14 +727,14 @@ const App={
   fetchProject(){
     const store=bdLoad();const code=bdNorm(document.getElementById("fetch-code").value);
     if(!store[code]){toast("No base data for this code");return;}
-    State={base:JSON.parse(JSON.stringify(store[code].data)),cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],processed:false};
+    State={base:JSON.parse(JSON.stringify(store[code].data)),cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,processed:false};
     save();
     document.getElementById("hdr-project").textContent=code+(State.base.customer?" · "+State.base.customer:"");
     App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");
-    App.renderHistory();App.renderCover();App.renderMaint();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderSignoff();window.scrollTo(0,0);
+    App.renderHistory();App.renderCover();App.renderMaint();App.renderEmdExtra();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderEmdExtra();App.renderSignoff();window.scrollTo(0,0);
   },
 
-  newReport(){if(!confirm("Clear the current WCR draft and go Home?"))return;State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],processed:false};save();App.showHome();},
+  newReport(){if(!confirm("Clear the current WCR draft and go Home?"))return;State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,processed:false};save();App.showHome();},
   showBase(){App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");},
   onCover(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{State.cover=r.result;save();App.renderCover();};r.readAsDataURL(f);},
   renderCover(){const s=document.getElementById("cover-slot");if(!s)return;
@@ -1145,6 +1158,35 @@ const App={
       scopeSub("In scope, partially carried out",sg.partial,[184,134,11]);
       scopeSub("Additional tasks carried out (beyond scope)",sg.additional,[31,56,100]);
     }
+    // Schedule of Maintenance + Mandays (EMD/CAT only, optional - only if added)
+    if(engOf()!=="NIIGATA"){
+      const sch=State.schedule;
+      if(sch&&sch.rows&&sch.rows.length){
+        h2("Schedule of Maintenance"); mark("Schedule of Maintenance");
+        wrap("Shade or fill boxes as per schedule followed.",8,GREY,"italic");y+=2;
+        const shBody=sch.rows.map(r=>[r.label,...r.cells.map(c=>c||"")]);
+        doc.autoTable({startY:y,margin:ATM,showHead:"everyPage",
+          head:[["Activity",...sch.cols.map(c=>String(c))]],
+          body:shBody,theme:"grid",
+          styles:{fontSize:7.5,cellPadding:1.4,overflow:"linebreak",valign:"middle",halign:"center"},
+          headStyles:{fillColor:TEAL,textColor:255,fontStyle:"bold",halign:"center"},
+          columnStyles:{0:{cellWidth:52,halign:"left",fontStyle:"bold"}},
+          didParseCell:d=>{ if(d.section==="body"&&d.column.index>0&&d.cell.raw){ d.cell.styles.fillColor=[232,160,32]; d.cell.styles.textColor=[16,32,42]; d.cell.styles.fontStyle="bold"; } }
+        });
+        y=doc.lastAutoTable.finalY+7;
+      }
+      const md=State.mandays;
+      if(md&&md.rows&&md.rows.length){
+        h2("Mandays"); mark("Mandays");
+        doc.autoTable({startY:y,margin:ATM,showHead:"everyPage",
+          head:[[{content:"Mandays",colSpan:2,styles:{fillColor:TEAL,textColor:255,halign:"center",fontStyle:"bold"}}]],
+          body:md.rows.map(r=>[r.label,r.value||""]),theme:"grid",
+          styles:{fontSize:9,cellPadding:2,overflow:"linebreak",valign:"top"},
+          columnStyles:{0:{cellWidth:100,fontStyle:"bold",fillColor:[238,244,245]}}});
+        y=doc.lastAutoTable.finalY+2.5;
+        wrap("Note: All days to be calendar day basis.",8,GREY,"italic");y+=5;
+      }
+    }
     // Maintenance Summary
     h2("Maintenance Summary"); mark("Maintenance Summary");
     const mcols=engCols();
@@ -1295,6 +1337,73 @@ const App={
     const fname="WCR for "+(b.code||"WCR")+(_first?("_"+_first):"")+"_"+_n.getDate()+"-"+_mn[_n.getMonth()]+"-"+_n.getFullYear()+"_"+_hh+"-"+_p(_n.getMinutes())+"-"+_ap;
     return {doc,fname};
   },
+  /* ---- Schedule of Maintenance + Mandays (EMD/CAT only, optional) ---- */
+  renderEmdExtra(){
+    const wrap=document.getElementById("emd-extra");if(!wrap)return;
+    const isEmd=engOf()!=="NIIGATA";
+    wrap.classList.toggle("hidden",!isEmd);
+    if(!isEmd)return;
+    App.renderSchedule();App.renderMandays();
+  },
+  addSchedule(){State.schedule=newSchedule();save();App.renderSchedule();},
+  delSchedule(){if(!confirm("Remove the Schedule of Maintenance table?"))return;State.schedule=null;save();App.renderSchedule();},
+  schCol(op,ci){const s=State.schedule;if(!s)return;
+    if(op==="add"){s.cols.push(String(s.cols.length+1));s.rows.forEach(r=>r.cells.push(""));}
+    else if(op==="del"){if(s.cols.length<=1)return;s.cols.splice(ci,1);s.rows.forEach(r=>r.cells.splice(ci,1));}
+    save();App.renderSchedule();},
+  schColName(ci,v){State.schedule.cols[ci]=v;save();},
+  schRow(op,ri){const s=State.schedule;if(!s)return;
+    if(op==="add")s.rows.push({label:"New activity",cells:new Array(s.cols.length).fill("")});
+    else if(op==="del"){if(s.rows.length<=1)return;s.rows.splice(ri,1);}
+    save();App.renderSchedule();},
+  schRowLabel(ri,v){State.schedule.rows[ri].label=v;save();},
+  schCell(ri,ci,v){State.schedule.rows[ri].cells[ci]=v;save();},
+  schShade(ri,ci){const c=State.schedule.rows[ri].cells;c[ci]=c[ci]?"":"X";save();App.renderSchedule();},
+  renderSchedule(){
+    const c=document.getElementById("sched-card");if(!c)return;const s=State.schedule;
+    if(!s){c.innerHTML=`<div class="empty" style="padding:16px">No Schedule of Maintenance table. This section is optional.</div><button class="btn-ghost btn-sm" style="margin-top:10px" onclick="App.addSchedule()">+ Add Schedule of Maintenance</button>`;return;}
+    c.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Shade or fill boxes as per schedule followed. Click a box to shade it, or type into it (e.g. a number of days).</div>
+    <div class="mscroll"><table class="mg"><thead><tr>
+      <th style="min-width:200px">Activity</th>
+      ${s.cols.map((cn,ci)=>`<th style="min-width:54px;padding:2px"><input value="${E(cn)}" style="border:none;background:transparent;color:var(--ink);width:38px;text-align:center;font-weight:700" oninput="App.schColName(${ci},this.value)"/><button class="btn-danger" style="font-size:9px;padding:0 4px" onclick="App.schCol('del',${ci})" title="Delete column">✕</button></th>`).join("")}
+      <th style="width:34px"></th></tr></thead><tbody>
+      ${s.rows.map((r,ri)=>`<tr>
+        <td style="padding:0"><input value="${E(r.label)}" style="border:none;background:#1b2b33;color:var(--ink);padding:6px 8px;width:100%;font-size:12px" oninput="App.schRowLabel(${ri},this.value)"/></td>
+        ${r.cells.map((cell,ci)=>`<td style="padding:0;background:${cell?'#E8A020':'transparent'};cursor:pointer" ondblclick="App.schShade(${ri},${ci})" title="Double-click to shade/unshade"><input value="${E(cell)}" style="border:none;background:transparent;color:${cell?'#10202a':'var(--ink)'};font-weight:${cell?'700':'400'};padding:6px 2px;width:100%;text-align:center;font-size:12px" oninput="App.schCell(${ri},${ci},this.value)"/></td>`).join("")}
+        <td style="text-align:center"><button class="btn-danger" style="font-size:11px" onclick="App.schRow('del',${ri})">✕</button></td>
+      </tr>`).join("")}
+    </tbody></table></div>
+    <div class="row-flex" style="margin-top:10px">
+      <button class="btn-ghost btn-sm" onclick="App.schRow('add')">+ Row</button>
+      <button class="btn-ghost btn-sm" onclick="App.schCol('add')">+ Column</button>
+      <button class="btn-danger btn-sm" onclick="App.delSchedule()">🗑 Remove this table</button>
+    </div>`;
+  },
+  addMandays(){State.mandays=newMandays();save();App.renderMandays();},
+  delMandays(){if(!confirm("Remove the Mandays table?"))return;State.mandays=null;save();App.renderMandays();},
+  mdRow(op,ri){const m=State.mandays;if(!m)return;
+    if(op==="add")m.rows.push({label:"New row",value:""});
+    else if(op==="del"){if(m.rows.length<=1)return;m.rows.splice(ri,1);}
+    save();App.renderMandays();},
+  mdLabel(ri,v){State.mandays.rows[ri].label=v;save();},
+  mdValue(ri,v){State.mandays.rows[ri].value=v;save();},
+  renderMandays(){
+    const c=document.getElementById("mandays-card");if(!c)return;const m=State.mandays;
+    if(!m){c.innerHTML=`<div class="empty" style="padding:16px">No Mandays table. This section is optional.</div><button class="btn-ghost btn-sm" style="margin-top:10px" onclick="App.addMandays()">+ Add Mandays table</button>`;return;}
+    c.innerHTML=`<div class="mscroll"><table class="mg"><thead><tr><th colspan="3" style="text-align:center">Mandays</th></tr></thead><tbody>
+      ${m.rows.map((r,ri)=>`<tr>
+        <td style="padding:0;min-width:260px"><input value="${E(r.label)}" style="border:none;background:#1b2b33;color:var(--ink);padding:6px 8px;width:100%;font-size:12px" oninput="App.mdLabel(${ri},this.value)"/></td>
+        <td style="padding:0;min-width:160px"><input value="${E(r.value)}" placeholder="-" style="border:none;background:transparent;color:var(--ink);padding:6px 8px;width:100%;font-size:12px" oninput="App.mdValue(${ri},this.value)"/></td>
+        <td style="width:34px;text-align:center"><button class="btn-danger" style="font-size:11px" onclick="App.mdRow('del',${ri})">✕</button></td>
+      </tr>`).join("")}
+    </tbody></table></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">Note: All days to be calendar day basis.</div>
+    <div class="row-flex" style="margin-top:10px">
+      <button class="btn-ghost btn-sm" onclick="App.mdRow('add')">+ Row</button>
+      <button class="btn-danger btn-sm" onclick="App.delMandays()">🗑 Remove this table</button>
+    </div>`;
+  },
+
   async downloadReport(){
     const s2=State.signoff||{};
     if(!App.hasRecInput()){toast("Add written or spoken recommendations before downloading");const rc=document.getElementById("recs-card");if(rc)rc.scrollIntoView({behavior:"smooth",block:"center"});return;}
