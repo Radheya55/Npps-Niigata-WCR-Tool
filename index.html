@@ -865,7 +865,7 @@ const App={
       </tr>`;
     };
     const divider = (activeCols.length&&withRows.length&&woRows.length)
-      ? `<tr class="zone-div"><td colspan="${totCols}">Activities below do not use Calibration / Replaced-Reused</td></tr>` : "";
+      ? `<tr class="zone-div"><td colspan="${totCols}"></td></tr>` : "";
     const bodyRows = withRows.map(renderRow).join("") + divider + woRows.map(renderRow).join("");
     const optHeaders = activeCols.map(ck=>`<th style="width:120px">${E(COLDEF[ck].label)}</th>`).join("");
     return `<div class="mtbl">
@@ -1226,20 +1226,25 @@ const App={
     // Executive Summary
     if(exec.length){ h2("Executive Summary"); mark("Executive Summary");
       exec.forEach((f,idx)=>{
-        ensure(15);
-        // numbered navy badge
-        const num=String(idx+1),bw=6,bh=5;
-        doc.setFillColor(31,56,100);doc.roundedRect(M.l,y-3.7,bw,bh,1,1,"F");
-        setF("bold",8.5,[255,255,255]);doc.text(num,M.l+bw/2,y,{align:"center"});
-        // item name to the right of the badge
-        setF("bold",9.5,NAVY);const nml=doc.splitTextToSize(f.name,contentW-bw-4);
-        doc.text(nml[0]||"",M.l+bw+3,y);y+=4.4;
-        for(let i=1;i<nml.length;i++){ensure(4.4);doc.text(nml[i],M.l+bw+3,y);y+=4.4;}
-        y+=1.2;
-        setF("bold",9,RED);const clbl="Critical finding or technical anomaly: ";doc.text(clbl,M.l+3,y);const clw=doc.getTextWidth(clbl);
-        setF("normal",9,DARK);const ct=doc.splitTextToSize(f.crit,contentW-3-clw);doc.text(ct[0]||"",M.l+3+clw,y);y+=5;for(let i=1;i<ct.length;i++){ensure(5);doc.text(ct[i],M.l+3,y);y+=5;}
-        if(f.act){setF("bold",9,OLIVE);const albl="Suggested action: ";doc.text(albl,M.l+3,y);const alw=doc.getTextWidth(albl);setF("normal",9,OLIVE);const at=doc.splitTextToSize(f.act,contentW-3-alw);doc.text(at[0]||"",M.l+3+alw,y);y+=5;for(let i=1;i<at.length;i++){ensure(5);doc.text(at[i],M.l+3,y);y+=5;}}
-        y+=5;
+        ensure(24);
+        const num=String(idx+1);
+        // header row: numbered navy badge + item name (navy bar, like History section bars)
+        const head=[[{content:num+".   "+(f.name||"-"),colSpan:2,styles:{fillColor:NAVY,textColor:255,fontStyle:"bold",fontSize:9.5,halign:"left"}}]];
+        const body=[];
+        body.push([
+          {content:"Critical finding or technical anomaly",styles:{fontStyle:"bold",textColor:RED,fillColor:[250,238,236],cellWidth:62}},
+          {content:f.crit||"-",styles:{textColor:DARK}}
+        ]);
+        if(f.act){
+          body.push([
+            {content:"Suggested action",styles:{fontStyle:"bold",textColor:OLIVE,fillColor:[244,247,235],cellWidth:62}},
+            {content:f.act,styles:{textColor:OLIVE}}
+          ]);
+        }
+        doc.autoTable({startY:y,margin:ATM,head,body,theme:"grid",
+          styles:{fontSize:9,cellPadding:2,overflow:"linebreak",valign:"top"},
+          rowPageBreak:"avoid"});
+        y=doc.lastAutoTable.finalY+5;
       });
     }
     // History
@@ -1316,7 +1321,7 @@ const App={
           ...activeCols.map(ck=> rowCols(r).indexOf(ck)>-1?(r[ck]||""):"-"),
           r.comment]);});
         if(activeCols.length&&withRows.length&&woRows.length){
-          body.push([{content:"Activities below do not use Calibration / Replaced-Reused",colSpan:nCol,styles:{fillColor:[240,244,246],textColor:[90,110,120],fontStyle:"italic",halign:"center",fontSize:7}}]);
+          body.push([{content:"",colSpan:nCol,styles:{fillColor:[225,232,236],minCellHeight:3}}]);
         }
         woRows.forEach(r=>{
           if(activeCols.length) body.push([r.activity,r.inScope,r.status,{content:r.comment||"",colSpan:activeCols.length+1}]);
