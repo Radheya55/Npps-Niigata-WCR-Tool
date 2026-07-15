@@ -45,6 +45,7 @@ td.muted-cell{color:#3d5058;text-align:center}
 .colx:hover{color:#e2664a}
 .colx-add{margin-left:8px;background:transparent;border:1px dashed var(--line2);color:var(--muted);font-size:10px;border-radius:5px;padding:1px 7px;cursor:pointer}
 .colx-add:hover{color:var(--ink);border-color:var(--muted)}
+.rowadd{display:inline-flex;gap:6px;margin-left:8px;vertical-align:middle}
 .mtbl-h{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .mtbl-h input.name{font-weight:700;font-size:14px;background:transparent;border:none;border-bottom:1px solid var(--line2);border-radius:0;flex:1}
 .mscroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
@@ -820,40 +821,57 @@ const App={
     const scopeO=["","Yes","No"],statO=["","Done","Partially Done","Not Done"];
     const OPT=["calibration","replaced"]; // optional columns, in fixed order
     const sel=(o,v,h)=>`<select onchange="${h}">${o.map(x=>`<option value="${E(x)}"${x===v?' selected':''}>${E(x||'-')}</option>`).join("")}</select>`;
-    // A row shows an optional column only if it is listed in that row's cols.
     const rowCols=r=>Array.isArray(r.cols)?r.cols:OPT.slice();
-    // Split rows into "with optional columns" (any of OPT) and "without".
+    // A column header appears only if at least one row in THIS table uses that column.
+    const activeCols=OPT.filter(ck=>t.rows.some(r=>rowCols(r).indexOf(ck)>-1));
+    const totCols=3+activeCols.length+2; // activity+scope+status + active opt + comment + delete
+    // group rows: those using any active column on top, the rest below
     const withRows=[],woRows=[];
-    t.rows.forEach((r,ri)=>{ (rowCols(r).length?withRows:woRows).push({r,ri}); });
+    t.rows.forEach((r,ri)=>{ (rowCols(r).some(c=>activeCols.indexOf(c)>-1)?withRows:woRows).push({r,ri}); });
+    // one cell per ACTIVE column: real dropdown (with per-cell remove) if the row uses it,
+    // else a small "+ add" button so it can be turned on for this row.
     const optCell=(r,ri,ck)=>{
-      const on=rowCols(r).indexOf(ck)>-1;
-      if(!on)return "";
-      return `<td style="position:relative">${sel(COLDEF[ck].opts,r[ck]||"",`App.rset(${ti},${ri},'${ck}',this.value)`)}<button class="colx" title="Remove this ${E(COLDEF[ck].label)} cell" onclick="App.rowColDel(${ti},${ri},'${ck}')">✕</button></td>`;
+      if(rowCols(r).indexOf(ck)>-1){
+        return `<td style="position:relative">${sel(COLDEF[ck].opts,r[ck]||"",`App.rset(${ti},${ri},'${ck}',this.value)`)}<button class="colx" title="Remove this ${E(COLDEF[ck].label)} cell" onclick="App.rowColDel(${ti},${ri},'${ck}')">✕</button></td>`;
+      }
+      return `<td style="text-align:center"><button class="colx-add" onclick="App.rowColAdd(${ti},${ri},'${ck}')" title="Add ${E(COLDEF[ck].label)} to this activity">+ ${E(ck==='calibration'?'Cal':'R/R')}</button></td>`;
     };
-    // Rows in the WITH zone: full optional columns (each cell individually deletable).
-    const renderWith=({r,ri})=>`<tr>
-      <td class="actcell"><textarea class="actinput" rows="2" placeholder="Activity…" oninput="App.rset(${ti},${ri},'activity',this.value)">${E(r.activity)}</textarea></td>
-      <td>${sel(scopeO,r.inScope,`App.rset(${ti},${ri},'inScope',this.value)`)}</td>
-      <td>${sel(statO,r.status,`App.rset(${ti},${ri},'status',this.value)`)}</td>
-      ${OPT.map(ck=> rowCols(r).indexOf(ck)>-1 ? optCell(r,ri,ck) : `<td class="muted-cell">-</td>`).join("")}
-      <td><input value="${E(r.comment)}" placeholder="Comment…" oninput="App.rset(${ti},${ri},'comment',this.value)"/></td>
-      <td style="text-align:center"><button class="btn-danger" onclick="App.delRow(${ti},${ri})">✕</button></td>
-    </tr>`;
-    // Rows in the WITHOUT zone: Comment spans the freed optional-column space; option to re-add columns.
-    const renderWo=({r,ri})=>`<tr>
-      <td class="actcell"><textarea class="actinput" rows="2" placeholder="Activity…" oninput="App.rset(${ti},${ri},'activity',this.value)">${E(r.activity)}</textarea></td>
-      <td>${sel(scopeO,r.inScope,`App.rset(${ti},${ri},'inScope',this.value)`)}</td>
-      <td>${sel(statO,r.status,`App.rset(${ti},${ri},'status',this.value)`)}</td>
-      <td colspan="${OPT.length+1}"><input value="${E(r.comment)}" placeholder="Comment…" style="width:100%" oninput="App.rset(${ti},${ri},'comment',this.value)"/><button class="colx-add" onclick="App.rowColAdd(${ti},${ri})" title="Add Calibration / Replaced columns to this row">+ cols</button></td>
-      <td style="text-align:center"><button class="btn-danger" onclick="App.delRow(${ti},${ri})">✕</button></td>
-    </tr>`;
-    const divider = (withRows.length&&woRows.length)
-      ? `<tr class="zone-div"><td colspan="${3+OPT.length+2}">Items below were marked as not requiring Calibration / Replaced-Reused</td></tr>` : "";
-    const bodyRows = withRows.map(renderWith).join("") + divider + woRows.map(renderWo).join("");
+    // buttons offered under a row that has NO optional columns: add either one specifically
+    const addBtns=(ri)=>`<div class="rowadd">${OPT.map(ck=>`<button class="colx-add" onclick="App.rowColAdd(${ti},${ri},'${ck}')" title="Add ${E(COLDEF[ck].label)} to this activity">+ ${E(COLDEF[ck].label)}</button>`).join("")}</div>`;
+    const renderRow=({r,ri})=>{
+      const usesAny=rowCols(r).some(c=>activeCols.indexOf(c)>-1);
+      if(activeCols.length){
+        // table has active optional columns -> render a cell under each active column
+        const commentColspan = usesAny?1:(1+activeCols.length);
+        const optCells = usesAny
+          ? activeCols.map(ck=>optCell(r,ri,ck)).join("")
+          : ""; // no-opt row: comment will span across the optional columns instead
+        return `<tr>
+          <td class="actcell"><textarea class="actinput" rows="2" placeholder="Activity…" oninput="App.rset(${ti},${ri},'activity',this.value)">${E(r.activity)}</textarea></td>
+          <td>${sel(scopeO,r.inScope,`App.rset(${ti},${ri},'inScope',this.value)`)}</td>
+          <td>${sel(statO,r.status,`App.rset(${ti},${ri},'status',this.value)`)}</td>
+          ${optCells}
+          <td colspan="${commentColspan}"><input value="${E(r.comment)}" placeholder="Comment…" style="width:100%" oninput="App.rset(${ti},${ri},'comment',this.value)"/>${usesAny?"":addBtns(ri)}</td>
+          <td style="text-align:center"><button class="btn-danger" onclick="App.delRow(${ti},${ri})">✕</button></td>
+        </tr>`;
+      }
+      // table has NO active optional columns at all -> only Scope/Status/Comment, plus add buttons
+      return `<tr>
+        <td class="actcell"><textarea class="actinput" rows="2" placeholder="Activity…" oninput="App.rset(${ti},${ri},'activity',this.value)">${E(r.activity)}</textarea></td>
+        <td>${sel(scopeO,r.inScope,`App.rset(${ti},${ri},'inScope',this.value)`)}</td>
+        <td>${sel(statO,r.status,`App.rset(${ti},${ri},'status',this.value)`)}</td>
+        <td><input value="${E(r.comment)}" placeholder="Comment…" style="width:100%" oninput="App.rset(${ti},${ri},'comment',this.value)"/>${addBtns(ri)}</td>
+        <td style="text-align:center"><button class="btn-danger" onclick="App.delRow(${ti},${ri})">✕</button></td>
+      </tr>`;
+    };
+    const divider = (activeCols.length&&withRows.length&&woRows.length)
+      ? `<tr class="zone-div"><td colspan="${totCols}">Activities below do not use Calibration / Replaced-Reused</td></tr>` : "";
+    const bodyRows = withRows.map(renderRow).join("") + divider + woRows.map(renderRow).join("");
+    const optHeaders = activeCols.map(ck=>`<th style="width:120px">${E(COLDEF[ck].label)}</th>`).join("");
     return `<div class="mtbl">
       <div class="mtbl-h"><input class="name" value="${E(t.name)}" placeholder="Name of Item…" oninput="App.tset(${ti},'name',this.value)"/><button class="btn-danger" onclick="App.delTable(${ti})">🗑 Remove</button></div>
       <div class="mscroll"><table class="mg"><thead><tr>
-        <th style="min-width:220px">List of Activities</th><th style="width:80px">In Scope</th><th style="width:120px">Status</th>${OPT.map(ck=>`<th style="width:120px">${E(COLDEF[ck].label)}</th>`).join("")}<th style="min-width:120px">Comment</th><th style="width:34px"></th>
+        <th style="min-width:220px">List of Activities</th><th style="width:80px">In Scope</th><th style="width:120px">Status</th>${optHeaders}<th style="min-width:120px">Comment</th><th style="width:34px"></th>
       </tr></thead><tbody>${bodyRows}</tbody></table></div>
       <div class="row-flex" style="margin-top:8px">
         <button class="btn-ghost btn-sm" onclick="App.addRow(${ti})">+ Add Row (with columns)</button>
@@ -865,12 +883,15 @@ const App={
         <div class="nr"><label>Suggested action or recommendation for this item</label><textarea oninput="App.tset(${ti},'action',this.value)">${E(t.action)}</textarea></div>
       </div></div>`;
   },
-  _reflow(ti){ // keep with-columns rows above without-columns rows
+  _reflow(ti){ // keep rows that use optional columns above those that don't
     const rs=State.tables[ti].rows;
-    rs.sort((x,y)=>((Array.isArray(y.cols)?y.cols.length:2)>0)-((Array.isArray(x.cols)?x.cols.length:2)>0));
+    const has=r=>(Array.isArray(r.cols)?r.cols.length:2)>0;
+    rs.sort((x,y)=>has(y)-has(x));
   },
   rowColDel(ti,ri,ck){const r=State.tables[ti].rows[ri];r.cols=(Array.isArray(r.cols)?r.cols:["calibration","replaced"]).filter(c=>c!==ck);r[ck]="";App._reflow(ti);save();App.renderMaint();},
-  rowColAdd(ti,ri){const r=State.tables[ti].rows[ri];r.cols=["calibration","replaced"];App._reflow(ti);save();App.renderMaint();},
+  rowColAdd(ti,ri,ck){const r=State.tables[ti].rows[ri];let c=Array.isArray(r.cols)?r.cols.slice():[];if(ck){if(c.indexOf(ck)<0)c.push(ck);}else{c=["calibration","replaced"];}
+    // keep canonical order calibration, replaced
+    r.cols=["calibration","replaced"].filter(x=>c.indexOf(x)>-1);App._reflow(ti);save();App.renderMaint();},
   rset(ti,ri,f,v){State.tables[ti].rows[ri][f]=v;save();},
   tset(ti,f,v){State.tables[ti][f]=v;save();},
   addRow(ti){State.tables[ti].rows.push({activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:"",cols:defaultRowCols()});App._reflow(ti);save();App.renderMaint();},
@@ -1282,26 +1303,31 @@ const App={
     State.tables.forEach(t=>{
       ensure(22);
       if(isNiig){
-        // Per-row optional columns: a row keeps a cell only if listed in row.cols; otherwise Comment spans the freed space.
+        // A column is shown only if at least one row in this table uses it.
         const rowCols=r=>Array.isArray(r.cols)?r.cols:OPTC.slice();
+        const activeCols=OPTC.filter(ck=>t.rows.some(r=>rowCols(r).indexOf(ck)>-1));
+        const nCol=3+activeCols.length+1; // Activity, In Scope, Status, [active opt], Comment
         const withRows=[],woRows=[];
-        t.rows.forEach(r=>{(rowCols(r).length?withRows:woRows).push(r);});
-        const nCol=6; // Activity, In Scope, Status, Calibration, Replaced, Comment
+        t.rows.forEach(r=>{(rowCols(r).some(c=>activeCols.indexOf(c)>-1)?withRows:woRows).push(r);});
         const head=[[{content:t.name||"-",colSpan:nCol,styles:{fillColor:TEAL,textColor:255,halign:"left",fontStyle:"bold",fontSize:9.5}}],
-                    ["Activity","In Scope","Status","Calibration","Replaced","Comment"]];
+                    ["Activity","In Scope","Status",...activeCols.map(ck=>COLDEF[ck].label),"Comment"]];
         const body=[];
         withRows.forEach(r=>{body.push([r.activity,r.inScope,r.status,
-          rowCols(r).indexOf("calibration")>-1?(r.calibration||""):"-",
-          rowCols(r).indexOf("replaced")>-1?(r.replaced||""):"-",
+          ...activeCols.map(ck=> rowCols(r).indexOf(ck)>-1?(r[ck]||""):"-"),
           r.comment]);});
-        if(withRows.length&&woRows.length){
-          body.push([{content:"Items below were marked as not requiring Calibration / Replaced-Reused",colSpan:nCol,styles:{fillColor:[240,244,246],textColor:[90,110,120],fontStyle:"italic",halign:"center",fontSize:7}}]);
+        if(activeCols.length&&withRows.length&&woRows.length){
+          body.push([{content:"Activities below do not use Calibration / Replaced-Reused",colSpan:nCol,styles:{fillColor:[240,244,246],textColor:[90,110,120],fontStyle:"italic",halign:"center",fontSize:7}}]);
         }
-        woRows.forEach(r=>{body.push([r.activity,r.inScope,r.status,{content:r.comment||"",colSpan:3}]);});
+        woRows.forEach(r=>{
+          if(activeCols.length) body.push([r.activity,r.inScope,r.status,{content:r.comment||"",colSpan:activeCols.length+1}]);
+          else body.push([r.activity,r.inScope,r.status,r.comment||""]);
+        });
+        const cStyles={0:{cellWidth:"auto"},1:{cellWidth:16},2:{cellWidth:22}};
+        activeCols.forEach((ck,i)=>{cStyles[3+i]={cellWidth:COLDEF[ck].w+(ck==='replaced'?4:0)};});
         doc.autoTable({startY:y,margin:ATM,showHead:"everyPage",head,body,theme:"grid",
           styles:{fontSize:8,cellPadding:1.5,overflow:"linebreak",valign:"top"},
           headStyles:{fillColor:[238,244,245],textColor:DARK},
-          columnStyles:{0:{cellWidth:"auto"},1:{cellWidth:16},2:{cellWidth:22},3:{cellWidth:22},4:{cellWidth:26}}});
+          columnStyles:cStyles});
       } else {
         const mcols=engCols();
         const nCol=4+mcols.length;
