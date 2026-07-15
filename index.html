@@ -39,7 +39,7 @@ button{cursor:pointer;border:none;border-radius:8px;font-weight:600;font-size:13
 .subblock .ttl{font-size:12px;font-weight:700;color:var(--amber);margin-bottom:8px}
 .empty{padding:26px;text-align:center;border:1px dashed var(--line2);border-radius:10px;color:var(--muted)}
 .mtbl{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:14px}
-tr.zone-div td{background:#132029;color:#7fb0c4;font-size:10.5px;font-style:italic;padding:5px 8px;text-align:center;border:1px solid var(--line)}
+tr.zone-div td{background:#132029;padding:2px 8px;border:1px solid var(--line);line-height:1}
 td.muted-cell{color:#3d5058;text-align:center}
 .colx{position:absolute;top:1px;right:1px;background:transparent;border:none;color:#c0553b;font-size:10px;cursor:pointer;padding:0 3px;line-height:1}
 .colx:hover{color:#e2664a}
@@ -1232,13 +1232,13 @@ const App={
         const head=[[{content:num+".   "+(f.name||"-"),colSpan:2,styles:{fillColor:NAVY,textColor:255,fontStyle:"bold",fontSize:9.5,halign:"left"}}]];
         const body=[];
         body.push([
-          {content:"Critical finding or technical anomaly",styles:{fontStyle:"bold",textColor:RED,fillColor:[250,238,236],cellWidth:62}},
-          {content:f.crit||"-",styles:{textColor:DARK}}
+          {content:"Critical finding or technical anomaly",styles:{fontStyle:"bold",textColor:RED,cellWidth:62}},
+          {content:f.crit||"-",styles:{textColor:DARK,fontStyle:"bold"}}
         ]);
         if(f.act){
           body.push([
-            {content:"Suggested action",styles:{fontStyle:"bold",textColor:OLIVE,fillColor:[244,247,235],cellWidth:62}},
-            {content:f.act,styles:{textColor:OLIVE}}
+            {content:"Suggested action",styles:{fontStyle:"bold",textColor:OLIVE,cellWidth:62}},
+            {content:f.act,styles:{textColor:OLIVE,fontStyle:"bold"}}
           ]);
         }
         doc.autoTable({startY:y,margin:ATM,head,body,theme:"grid",
@@ -1321,7 +1321,7 @@ const App={
           ...activeCols.map(ck=> rowCols(r).indexOf(ck)>-1?(r[ck]||""):"-"),
           r.comment]);});
         if(activeCols.length&&withRows.length&&woRows.length){
-          body.push([{content:"",colSpan:nCol,styles:{fillColor:[225,232,236],minCellHeight:3}}]);
+          body.push([{content:"",colSpan:nCol,styles:{fillColor:[225,232,236],minCellHeight:1.5,cellPadding:0.5}}]);
         }
         woRows.forEach(r=>{
           if(activeCols.length) body.push([r.activity,r.inScope,r.status,{content:r.comment||"",colSpan:activeCols.length+1}]);
