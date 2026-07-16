@@ -71,6 +71,9 @@ textarea{resize:vertical;min-height:38px}
 .pick-sec{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);margin:14px 0 6px}
 .pick-row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:6px;cursor:pointer}
 .pick-row:hover{background:var(--panel2)}
+.pick-row.dwr-hit{background:rgba(255,220,120,.14);border:1px solid rgba(255,210,90,.4)}
+.pick-row.dwr-hit:hover{background:rgba(255,220,120,.22)}
+.dwr-tag{font-size:11px;color:#e8b84a;font-style:normal;font-weight:600}
 .pick-row.disabled{opacity:.45;cursor:default}
 .pick-row input{width:16px;height:16px}
 .gen{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
@@ -228,6 +231,8 @@ textarea{resize:vertical;min-height:38px}
   <div id="exec-slot"></div>
   <h2 class="sec">History</h2>
   <div class="card" id="history-card"></div>
+  <h2 class="sec">DWR Summary <span style="font-size:11px;font-weight:400;color:var(--muted)">(optional)</span></h2>
+  <div class="card" id="dwr-card"></div>
   <div id="scope-slot"></div>
   <div id="emd-extra" class="hidden">
     <h2 class="sec">Schedule of Maintenance <span style="font-size:11px;font-weight:400;color:var(--muted)">(optional)</span></h2>
@@ -659,7 +664,7 @@ let BD_EDITING=null; // project code currently being edited (null = new)
 
 const WORKER_URL="https://polished-lake-4911.radheya-supnekar.workers.dev";
 let WCR_USER=null;
-let State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,processed:false};
+let State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,dwr:null,processed:false};
 // ---- Single-level Ctrl+Z-style undo ----
 // save() already stringifies State for localStorage, so we reuse that: UNDO holds
 // the JSON of the state as it was just BEFORE the current action. Consecutive edits
@@ -805,16 +810,16 @@ const App={
   fetchProject(){
     const store=bdLoad();const code=bdNorm(document.getElementById("fetch-code").value);
     if(!store[code]){toast("No base data for this code");return;}
-    State={base:JSON.parse(JSON.stringify(store[code].data)),cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,processed:false};
+    State={base:JSON.parse(JSON.stringify(store[code].data)),cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,dwr:null,processed:false};
     UNDO=null;_committed=null;_txtKey=null;_undoBtn(false);
     save();
     document.getElementById("hdr-project").textContent=code+(State.base.customer?" · "+State.base.customer:"");
     App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");
-    App.renderHistory();App.renderCover();App.renderMaint();App.renderEmdExtra();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderEmdExtra();App.renderSignoff();window.scrollTo(0,0);
+    App.renderHistory();App.renderCover();App.renderDWR();App.renderMaint();App.renderEmdExtra();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderEmdExtra();App.renderSignoff();window.scrollTo(0,0);
   },
 
   renderBuilder(){
-    App.renderHistory();App.renderCover();App.renderMaint();App.renderEmdExtra();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderSignoff();
+    App.renderHistory();App.renderCover();App.renderDWR();App.renderMaint();App.renderEmdExtra();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderSignoff();
   },
   doUndo(){
     if(!UNDO){toast("Nothing to undo");return;}
@@ -826,7 +831,7 @@ const App={
     App.renderBuilder();
     toast("Undone: "+label);
   },
-  newReport(){if(!confirm("Clear the current WCR draft and go Home?"))return;State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,processed:false};UNDO=null;_committed=null;_txtKey=null;_undoBtn(false);save();App.showHome();},
+  newReport(){if(!confirm("Clear the current WCR draft and go Home?"))return;State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,dwr:null,processed:false};UNDO=null;_committed=null;_txtKey=null;_undoBtn(false);save();App.showHome();},
   showBase(){App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");},
   onCover(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{State.cover=r.result;save();App.renderCover();};r.readAsDataURL(f);},
   renderCover(){const s=document.getElementById("cover-slot");if(!s)return;
@@ -934,16 +939,128 @@ const App={
   delRow(ti,ri){if(State.tables[ti].rows.length<=1){toast("At least one row required");return;}mark("deleted an activity row");State.tables[ti].rows.splice(ri,1);save();App.renderMaint();},
   delTable(ti){if(!confirm("Remove this table?"))return;mark("removed item \""+(State.tables[ti].name||"untitled")+"\"");State.tables.splice(ti,1);save();App.renderMaint();if(State.processed)App.renderGenerated();},
   addCustom(){mark("added a custom table");State.tables.push(buildCustom());save();App.renderMaint();},
+  /* ---- DWR Summary integration (optional; both templates) ---- */
+  renderDWR(){
+    const c=document.getElementById("dwr-card");if(!c)return;
+    const d=State.dwr;
+    if(!d){
+      c.innerHTML=`<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Optional. If you have a combined <b>DWR Summary PDF</b> for this project, upload it and press Integrate. The tool reads only the <b>work that was done</b> and uses it to help you build the Maintenance Summary below - matching items get highlighted and their tables get the DWR activities pre-filled. Nothing from the DWR is added to the final report.</div>
+      <input type="file" id="dwr-input" accept="application/pdf" class="hidden" onchange="App.onDWRFile(event)"/>
+      <button class="btn-ghost btn-sm" onclick="document.getElementById('dwr-input').click()">📄 Choose DWR Summary PDF</button>`;
+      return;
+    }
+    if(d.integrating){
+      c.innerHTML=`<div style="font-size:13px;color:var(--ink)"><b>Reading DWRs...</b> <span style="color:var(--amber)">${d.countdown||""}</span></div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:6px">Pulling out the work that was done. This can take a little while for a multi-page summary.</div>`;
+      return;
+    }
+    if(d.done){
+      const nG=(d.groups||[]).length;
+      const nA=(d.groups||[]).reduce((s,g)=>s+g.activities.length,0);
+      c.innerHTML=`<div style="font-size:13px;color:#7fd08a"><b>✓ Points integrated.</b></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Found ${nA} work point(s) across ${nG} component group(s) from the DWRs. Scroll down to the Maintenance Summary - matched items are highlighted in the picker, and selecting them pre-fills the DWR activities. Unmatched work is offered as ready-to-add tables there too.</div>
+      <div class="row-flex" style="margin-top:10px">
+        <button class="btn-ghost btn-sm" onclick="App.dwrReplace()">Replace PDF</button>
+        <button class="btn-danger btn-sm" onclick="App.dwrClear()">Remove DWR data</button>
+      </div>
+      <input type="file" id="dwr-input" accept="application/pdf" class="hidden" onchange="App.onDWRFile(event)"/>`;
+      return;
+    }
+    // uploaded, not yet integrated
+    c.innerHTML=`<div style="font-size:13px;color:var(--ink)">📄 <b>${E(d.name||"DWR Summary.pdf")}</b> ready.</div>
+      <div class="row-flex" style="margin-top:10px">
+        <button class="btn" onclick="App.integrateDWR()">Integrate</button>
+        <button class="btn-ghost btn-sm" onclick="App.dwrReplace()">Choose a different file</button>
+      </div>
+      <input type="file" id="dwr-input" accept="application/pdf" class="hidden" onchange="App.onDWRFile(event)"/>`;
+  },
+  onDWRFile(e){const f=e.target.files[0];if(!f)return;
+    if(f.type!=="application/pdf"){alert("Please choose a PDF file.");return;}
+    const r=new FileReader();
+    r.onload=()=>{mark("uploaded a DWR summary");State.dwr={name:f.name,dataUrl:r.result,groups:null,done:false,integrating:false};save();App.renderDWR();};
+    r.readAsDataURL(f);e.target.value="";},
+  dwrReplace(){const i=document.getElementById("dwr-input");if(i)i.click();},
+  dwrClear(){if(!confirm("Remove the integrated DWR data? Tables you already created stay; only the DWR matching/highlighting is cleared."))return;mark("removed DWR data");State.dwr=null;save();App.renderDWR();App.renderMaint();},
+  _dwrStop(){if(App._dwrTimer){clearInterval(App._dwrTimer);App._dwrTimer=null;}},
+  async integrateDWR(){
+    const d=State.dwr;if(!d||!d.dataUrl){toast("Upload a DWR PDF first");return;}
+    const b64=parseDataUrl(d.dataUrl).data;
+    if(!b64){alert("Could not read the PDF. Please re-choose the file.");return;}
+    d.integrating=true;d.done=false;let t=45;d.countdown=t+"s";save();App.renderDWR();
+    App._dwrStop();
+    App._dwrTimer=setInterval(()=>{t--;if(t<0)t=0;if(State.dwr)State.dwr.countdown=t+"s";App.renderDWR();},1000);
+    try{
+      const resp=await fetch(WORKER_URL+"/integrate-dwr",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pdfBase64:b64})});
+      if(!resp.ok)throw new Error("Worker returned "+resp.status);
+      const data=await resp.json();
+      if(data.error)throw new Error(data.error);
+      App._dwrStop();
+      const groups=Array.isArray(data.groups)?data.groups:[];
+      State.dwr.groups=groups;State.dwr.integrating=false;State.dwr.done=true;State.dwr.countdown="";
+      save();App.renderDWR();App.renderMaint();
+      const nA=groups.reduce((s,g)=>s+(g.activities?g.activities.length:0),0);
+      toast(nA?("Points integrated - "+nA+" work point(s) found"):"Integrated - no distinct work points detected");
+    }catch(err){
+      App._dwrStop();
+      if(State.dwr){State.dwr.integrating=false;State.dwr.done=false;State.dwr.countdown="";}
+      save();App.renderDWR();
+      alert("Could not integrate the DWR summary.\n\nReason: "+err.message+"\n\nOpen "+WORKER_URL+"/health and confirm it lists /integrate-dwr, then try again.");
+    }
+  },
+  // ---- matching DWR groups to the maintenance library ----
+  _norm(s){return (s||"").toString().toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();},
+  // score similarity between a DWR component name and a library item name (word overlap)
+  _matchScore(a,b){const A=new Set(App._norm(a).split(" ").filter(w=>w.length>2));const B=new Set(App._norm(b).split(" ").filter(w=>w.length>2));if(!A.size||!B.size)return 0;let hit=0;A.forEach(w=>{if(B.has(w))hit++;});return hit/Math.min(A.size,B.size);},
+  // for a library item, find the best-matching DWR group (returns {group,score} or null)
+  dwrGroupForItem(itemId,itemName){
+    const d=State.dwr;if(!d||!d.done||!d.groups)return null;
+    let best=null,bs=0;
+    d.groups.forEach(g=>{const s=App._matchScore(g.component,itemName);if(s>bs){bs=s;best=g;}});
+    if(best&&bs>=0.5)return {group:best,score:bs};
+    return null;
+  },
+  // which DWR components matched NO library item -> offered as "add" tables
+  dwrUnmatchedGroups(){
+    const d=State.dwr;if(!d||!d.done||!d.groups)return [];
+    const items=curItems();
+    return d.groups.filter(g=>{
+      return !items.some(it=>App._matchScore(g.component,it.name)>=0.5);
+    });
+  },
+  // add a DWR activity into a table only if not already covered (meaning-level, lenient)
+  _coversActivity(existingActs,dwrAct){
+    const n=App._norm(dwrAct);const words=new Set(n.split(" ").filter(w=>w.length>3));
+    if(!words.size)return false;
+    return existingActs.some(ea=>{const en=App._norm(ea);if(en===n)return true;
+      const ew=new Set(en.split(" ").filter(w=>w.length>3));if(!ew.size)return false;
+      let hit=0;words.forEach(w=>{if(ew.has(w))hit++;});
+      return hit/words.size>=0.8; // only skip clear near-duplicates
+    });
+  },
   openPicker(){
     const used=new Set(State.tables.map(t=>t.itemId).filter(Boolean));let body="";
+    const dwrOn=!!(State.dwr&&State.dwr.done&&State.dwr.groups&&State.dwr.groups.length);
     curSections().forEach(sec=>{const items=curItems().filter(i=>i.section===sec);if(!items.length)return;
       body+=`<div class="pick-sec">${E(sec)}</div>`;
       items.forEach(it=>{const a=used.has(it.id);
-        body+=`<label class="pick-row ${a?'disabled':''}"><input type="checkbox" data-id="${it.id}" ${a?'checked disabled':''}/><span>${E(it.name)}${a?' <em style="font-size:11px;color:#8aa">- added</em>':''}</span></label>`;});});
+        const m=dwrOn?App.dwrGroupForItem(it.id,it.name):null;
+        const yellow=m&&!a;
+        const tag=a?' <em style="font-size:11px;color:#8aa">- added</em>':(yellow?' <em class="dwr-tag">● in DWRs</em>':'');
+        body+=`<label class="pick-row ${a?'disabled':''} ${yellow?'dwr-hit':''}"><input type="checkbox" data-id="${it.id}" ${a?'checked disabled':''}/><span>${E(it.name)}${tag}</span></label>`;});});
+    // unmatched DWR groups -> approve-to-add
+    let extra="";
+    if(dwrOn){
+      const um=App.dwrUnmatchedGroups();
+      if(um.length){
+        extra=`<div class="pick-sec" style="margin-top:12px;color:var(--amber)">From DWRs - not in your item list (tick to create)</div>`;
+        um.forEach((g,gi)=>{
+          extra+=`<label class="pick-row dwr-hit"><input type="checkbox" data-dwr="${gi}"/><span><input class="dwr-name" data-dwr-name="${gi}" value="${E(g.component)}" style="background:#1b2b33;border:1px solid var(--line2);color:var(--ink);border-radius:6px;padding:3px 7px;font-size:12px;width:240px" onclick="event.preventDefault();event.stopPropagation();"/> <em style="font-size:11px;color:#8aa">${g.activities.length} activity(ies)</em></span></label>`;
+        });
+      }
+    }
     const m=document.createElement("div");m.className="modal-bg";m.id="picker";
-    m.innerHTML=`<div class="modal"><div class="mh"><strong>Select items worked on</strong><span class="spacer"></span><button type="button" class="btn-danger" id="pk-x">✕</button></div><div class="mb">${body}</div><div class="mf"><button type="button" class="btn-ghost btn-sm" id="pk-cancel">Cancel</button><button type="button" class="btn" id="pk-add">Add selected tables</button></div></div>`;
+    m.innerHTML=`<div class="modal"><div class="mh"><strong>Select items worked on</strong><span class="spacer"></span><button type="button" class="btn-danger" id="pk-x">✕</button></div><div class="mb">${body}${extra}</div><div class="mf"><button type="button" class="btn-ghost btn-sm" id="pk-cancel">Cancel</button><button type="button" class="btn" id="pk-add">Add selected tables</button></div></div>`;
     document.body.appendChild(m);
-    // wire buttons directly (no reliance on inline handlers)
     m.querySelector("#pk-x").addEventListener("click",App.closePicker);
     m.querySelector("#pk-cancel").addEventListener("click",App.closePicker);
     m.querySelector("#pk-add").addEventListener("click",App.confirmPicker);
@@ -952,12 +1069,45 @@ const App={
   confirmPicker(){
     try{
       const m=document.getElementById("picker");if(!m)return;
-      const picks=[...m.querySelectorAll("input[type=checkbox]:checked:not(:disabled)")].map(c=>c.getAttribute("data-id"));
-      mark("added maintenance item(s)");picks.forEach(id=>{const it=curItems().find(i=>i.id===id);if(it)State.tables.push(buildTable(it));});
+      const picks=[...m.querySelectorAll("input[type=checkbox][data-id]:checked:not(:disabled)")].map(c=>c.getAttribute("data-id"));
+      const dwrPicks=[...m.querySelectorAll("input[type=checkbox][data-dwr]:checked")].map(c=>parseInt(c.getAttribute("data-dwr"),10));
+      const um=(State.dwr&&State.dwr.done)?App.dwrUnmatchedGroups():[];
+      mark("added maintenance item(s)");
+      let prefillCount=0,newTables=0;
+      // 1) library items - build table, then pre-fill DWR activities not already covered
+      picks.forEach(id=>{const it=curItems().find(i=>i.id===id);if(!it)return;
+        const t=buildTable(it);
+        const mg=(State.dwr&&State.dwr.done)?App.dwrGroupForItem(it.id,it.name):null;
+        if(mg&&mg.group&&mg.group.activities){
+          const existing=t.rows.map(r=>r.activity);
+          mg.group.activities.forEach(a=>{
+            if(!App._coversActivity(existing,a)){
+              t.rows.push({activity:a,inScope:"Yes",status:"Done",calibration:"",replaced:"",comment:"",cols:defaultRowCols(),_dwr:true});
+              existing.push(a);prefillCount++;
+            }
+          });
+          if(engOf()==="NIIGATA")App._reflowRows(t);
+        }
+        State.tables.push(t);
+      });
+      // 2) approved unmatched DWR groups -> new custom tables with DWR activities pre-filled
+      dwrPicks.forEach(gi=>{const g=um[gi];if(!g)return;
+        const nameInput=m.querySelector('input[data-dwr-name="'+gi+'"]');
+        const nm=(nameInput&&nameInput.value.trim())||g.component;
+        const t=buildCustom();t.name=nm;
+        t.rows=g.activities.map(a=>({activity:a,inScope:"Yes",status:"Done",calibration:"",replaced:"",comment:"",cols:defaultRowCols(),_dwr:true}));
+        if(!t.rows.length)t.rows=[{activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:"",cols:defaultRowCols()}];
+        State.tables.push(t);newTables++;
+      });
       save();App.closePicker();App.renderMaint();
-      if(picks.length)toast(picks.length+" table(s) added"); else toast("Nothing ticked");
+      const bits=[];
+      if(picks.length)bits.push(picks.length+" item table(s)");
+      if(newTables)bits.push(newTables+" DWR table(s)");
+      if(prefillCount)bits.push(prefillCount+" DWR activity(ies) pre-filled");
+      toast(bits.length?("Added: "+bits.join(", ")):"Nothing ticked");
     }catch(err){alert("Could not add tables: "+err.message);}
   },
+  _reflowRows(t){const has=r=>(Array.isArray(r.cols)?r.cols.length:2)>0;t.rows.sort((x,y)=>has(y)-has(x));},
   process(){State.processed=true;save();App.renderGenerated();toast("Scope & Executive Summary updated");const es=document.getElementById("exec-slot");if(es&&es.innerHTML)es.scrollIntoView({behavior:"smooth",block:"center"});},
   renderGenerated(){
     const scope=[];State.tables.forEach(t=>{const rows=t.rows.filter(r=>(r.inScope||"").toLowerCase()==="yes"&&(r.activity||"").trim());if(rows.length)scope.push({name:t.name||"(unnamed)",acts:rows.map(r=>scopeInstruction(r.activity))});});
