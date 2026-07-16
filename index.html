@@ -123,6 +123,7 @@ textarea{resize:vertical;min-height:38px}
   <div><h1>WCR - EMD, CAT and Niigata</h1><div class="sub">Work Completion Report · Neptunus Power</div></div>
   <div class="spacer"></div>
   <span class="pill" id="hdr-project"></span>
+  <button class="btn-ghost btn-sm" id="undo-btn" onclick="App.doUndo()" disabled title="Undo the last action">↶ Undo</button>
   <button class="btn-ghost btn-sm" onclick="App.showHome()">⌂ Home</button>
   <button class="btn-ghost btn-sm" onclick="App.newReport()">New Report</button>
 </header>
@@ -659,8 +660,28 @@ let BD_EDITING=null; // project code currently being edited (null = new)
 const WORKER_URL="https://polished-lake-4911.radheya-supnekar.workers.dev";
 let WCR_USER=null;
 let State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,processed:false};
-function save(){try{localStorage.setItem("npps_niigata_wcr",JSON.stringify(State));}catch(e){}}
-function load(){try{const s=localStorage.getItem("npps_niigata_wcr");if(s)State=JSON.parse(s);}catch(e){}}
+// ---- Single-level Ctrl+Z-style undo ----
+// save() already stringifies State for localStorage, so we reuse that: UNDO holds
+// the JSON of the state as it was just BEFORE the current action. Consecutive edits
+// to the SAME field coalesce (undo reverts the whole edit, not each keystroke).
+let UNDO=null;        // {json,label} - state before the last undoable action
+let _committed=null;  // JSON of the last saved state
+let _pendLabel=null;  // label for the action currently in progress
+let _pendTxt=null;    // text-session key for the action in progress (null = structural)
+let _txtKey=null;     // text-session key that the current UNDO represents
+function mark(label,txtKey){_pendLabel=label||"last action";_pendTxt=txtKey||null;}
+function _undoBtn(on){const b=document.getElementById("undo-btn");if(b)b.disabled=!on;}
+function save(){
+  let cur;try{cur=JSON.stringify(State);}catch(e){return;}
+  if(_committed===null){_committed=cur;}
+  else if(cur!==_committed){
+    const continuing=(_pendTxt!==null)&&(_pendTxt===_txtKey)&&(UNDO!==null);
+    if(!continuing){UNDO={json:_committed,label:_pendLabel||"last action"};_txtKey=_pendTxt;_undoBtn(true);}
+    _committed=cur;_pendLabel=null;_pendTxt=null;
+  }
+  try{localStorage.setItem("npps_niigata_wcr",cur);}catch(e){}
+}
+function load(){try{const s=localStorage.getItem("npps_niigata_wcr");if(s){State=JSON.parse(s);_committed=s;}}catch(e){}}
 
 const App={
   init(){load();bdPurge();
@@ -785,13 +806,27 @@ const App={
     const store=bdLoad();const code=bdNorm(document.getElementById("fetch-code").value);
     if(!store[code]){toast("No base data for this code");return;}
     State={base:JSON.parse(JSON.stringify(store[code].data)),cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,processed:false};
+    UNDO=null;_committed=null;_txtKey=null;_undoBtn(false);
     save();
     document.getElementById("hdr-project").textContent=code+(State.base.customer?" · "+State.base.customer:"");
     App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");
     App.renderHistory();App.renderCover();App.renderMaint();App.renderEmdExtra();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderEmdExtra();App.renderSignoff();window.scrollTo(0,0);
   },
 
-  newReport(){if(!confirm("Clear the current WCR draft and go Home?"))return;State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,processed:false};save();App.showHome();},
+  renderBuilder(){
+    App.renderHistory();App.renderCover();App.renderMaint();App.renderEmdExtra();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderSignoff();
+  },
+  doUndo(){
+    if(!UNDO){toast("Nothing to undo");return;}
+    const label=UNDO.label;
+    let restored;
+    try{restored=JSON.parse(UNDO.json);}catch(e){toast("Undo failed");return;}
+    State=restored;UNDO=null;_txtKey=null;save();
+    const b=document.getElementById("undo-btn");if(b)b.disabled=true;
+    App.renderBuilder();
+    toast("Undone: "+label);
+  },
+  newReport(){if(!confirm("Clear the current WCR draft and go Home?"))return;State={base:{},cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,processed:false};UNDO=null;_committed=null;_txtKey=null;_undoBtn(false);save();App.showHome();},
   showBase(){App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");},
   onCover(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{State.cover=r.result;save();App.renderCover();};r.readAsDataURL(f);},
   renderCover(){const s=document.getElementById("cover-slot");if(!s)return;
@@ -811,7 +846,7 @@ const App={
       });});
     c.innerHTML=h;
   },
-  hset(k,v){State.history[k]=v;save();},
+  hset(k,v){mark("history edit","hset:"+k);State.history[k]=v;save();},
   renderMaint(){
     const s=document.getElementById("maint-slot");if(!s)return;
     if(!State.tables.length){s.innerHTML=`<div class="empty">No items selected yet. Click <strong>“Select items worked on”</strong> above and tick the components - only those tables appear here.</div>`;return;}
@@ -888,17 +923,17 @@ const App={
     const has=r=>(Array.isArray(r.cols)?r.cols.length:2)>0;
     rs.sort((x,y)=>has(y)-has(x));
   },
-  rowColDel(ti,ri,ck){const r=State.tables[ti].rows[ri];r.cols=(Array.isArray(r.cols)?r.cols:["calibration","replaced"]).filter(c=>c!==ck);r[ck]="";App._reflow(ti);save();App.renderMaint();},
-  rowColAdd(ti,ri,ck){const r=State.tables[ti].rows[ri];let c=Array.isArray(r.cols)?r.cols.slice():[];if(ck){if(c.indexOf(ck)<0)c.push(ck);}else{c=["calibration","replaced"];}
+  rowColDel(ti,ri,ck){mark("removed a "+(COLDEF[ck]?COLDEF[ck].label:ck)+" cell");const r=State.tables[ti].rows[ri];r.cols=(Array.isArray(r.cols)?r.cols:["calibration","replaced"]).filter(c=>c!==ck);r[ck]="";App._reflow(ti);save();App.renderMaint();},
+  rowColAdd(ti,ri,ck){mark("added a "+(ck&&COLDEF[ck]?COLDEF[ck].label:"column")+" cell");const r=State.tables[ti].rows[ri];let c=Array.isArray(r.cols)?r.cols.slice():[];if(ck){if(c.indexOf(ck)<0)c.push(ck);}else{c=["calibration","replaced"];}
     // keep canonical order calibration, replaced
     r.cols=["calibration","replaced"].filter(x=>c.indexOf(x)>-1);App._reflow(ti);save();App.renderMaint();},
-  rset(ti,ri,f,v){State.tables[ti].rows[ri][f]=v;save();},
-  tset(ti,f,v){State.tables[ti][f]=v;save();},
-  addRow(ti){State.tables[ti].rows.push({activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:"",cols:defaultRowCols()});App._reflow(ti);save();App.renderMaint();},
-  addRowNoCols(ti){State.tables[ti].rows.push({activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:"",cols:[]});App._reflow(ti);save();App.renderMaint();},
-  delRow(ti,ri){if(State.tables[ti].rows.length<=1){toast("At least one row required");return;}State.tables[ti].rows.splice(ri,1);save();App.renderMaint();},
-  delTable(ti){if(!confirm("Remove this table?"))return;State.tables.splice(ti,1);save();App.renderMaint();if(State.processed)App.renderGenerated();},
-  addCustom(){State.tables.push(buildCustom());save();App.renderMaint();},
+  rset(ti,ri,f,v){mark((f==="activity"?"activity edit":(f+" change")),"rset:"+ti+":"+ri+":"+f);State.tables[ti].rows[ri][f]=v;save();},
+  tset(ti,f,v){mark(f==="name"?"item name edit":(f+" edit"),"tset:"+ti+":"+f);State.tables[ti][f]=v;save();},
+  addRow(ti){mark("added a row");State.tables[ti].rows.push({activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:"",cols:defaultRowCols()});App._reflow(ti);save();App.renderMaint();},
+  addRowNoCols(ti){mark("added a row");State.tables[ti].rows.push({activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:"",cols:[]});App._reflow(ti);save();App.renderMaint();},
+  delRow(ti,ri){if(State.tables[ti].rows.length<=1){toast("At least one row required");return;}mark("deleted an activity row");State.tables[ti].rows.splice(ri,1);save();App.renderMaint();},
+  delTable(ti){if(!confirm("Remove this table?"))return;mark("removed item \""+(State.tables[ti].name||"untitled")+"\"");State.tables.splice(ti,1);save();App.renderMaint();if(State.processed)App.renderGenerated();},
+  addCustom(){mark("added a custom table");State.tables.push(buildCustom());save();App.renderMaint();},
   openPicker(){
     const used=new Set(State.tables.map(t=>t.itemId).filter(Boolean));let body="";
     curSections().forEach(sec=>{const items=curItems().filter(i=>i.section===sec);if(!items.length)return;
@@ -918,7 +953,7 @@ const App={
     try{
       const m=document.getElementById("picker");if(!m)return;
       const picks=[...m.querySelectorAll("input[type=checkbox]:checked:not(:disabled)")].map(c=>c.getAttribute("data-id"));
-      picks.forEach(id=>{const it=curItems().find(i=>i.id===id);if(it)State.tables.push(buildTable(it));});
+      mark("added maintenance item(s)");picks.forEach(id=>{const it=curItems().find(i=>i.id===id);if(it)State.tables.push(buildTable(it));});
       save();App.closePicker();App.renderMaint();
       if(picks.length)toast(picks.length+" table(s) added"); else toast("Nothing ticked");
     }catch(err){alert("Could not add tables: "+err.message);}
@@ -969,10 +1004,10 @@ const App={
         </div></div>`;
     }).join("");
   },
-  pset(i,f,v){State.photos[i][f]=v;save();},
+  pset(i,f,v){mark("photo "+f+" edit","pset:"+i+":"+f);State.photos[i][f]=v;save();},
   photoRefItem(i,v){State.photos[i].refItem=v;State.photos[i].refAct="";save();App.renderPhotos();},
   photoRefAct(i,v){State.photos[i].refAct=v;save();App.renderPhotos();},
-  delPhoto(i){if(!confirm("Remove this photo?"))return;State.photos.splice(i,1);save();App.renderPhotos();},
+  delPhoto(i){if(!confirm("Remove this photo?"))return;mark("removed a photo");State.photos.splice(i,1);save();App.renderPhotos();},
 
   /* ---- sign-off ---- */
   soset(f,v){State.signoff[f]=v;save();},
@@ -1109,12 +1144,12 @@ const App={
   },
 
   /* ---- tables from images ---- */
-  addDataTable(){State.dataTables.push({id:"dt_"+Date.now(),type:"grid",title:"",images:[],grid:[],converting:false});save();App.renderDataTables();},
-  addPhotoTable(){State.dataTables.push({id:"dt_"+Date.now(),type:"photo",title:"",photo:null});save();App.renderDataTables();},
-  delDataTable(i){if(!confirm("Remove this table?"))return;State.dataTables.splice(i,1);save();App.renderDataTables();},
-  dtTitle(i,v){State.dataTables[i].title=v;save();},
+  addDataTable(){mark("added a digitise-table");State.dataTables.push({id:"dt_"+Date.now(),type:"grid",title:"",images:[],grid:[],converting:false});save();App.renderDataTables();},
+  addPhotoTable(){mark("added a table photo");State.dataTables.push({id:"dt_"+Date.now(),type:"photo",title:"",photo:null});save();App.renderDataTables();},
+  delDataTable(i){if(!confirm("Remove this table?"))return;mark("removed a table");State.dataTables.splice(i,1);save();App.renderDataTables();},
+  dtTitle(i,v){mark("table title edit","dtTitle:"+i);State.dataTables[i].title=v;save();},
   dtAddImages(i,ev){const files=[...ev.target.files];if(!files.length)return;let pending=files.length;files.forEach(f=>{const r=new FileReader();r.onload=()=>{State.dataTables[i].images.push({name:f.name,dataUrl:r.result});pending--;if(pending===0){save();App.renderDataTables();}};r.readAsDataURL(f);});ev.target.value="";},
-  dtDelImage(i,j){State.dataTables[i].images.splice(j,1);save();App.renderDataTables();},
+  dtDelImage(i,j){mark("removed a table image");State.dataTables[i].images.splice(j,1);save();App.renderDataTables();},
   async dtConvert(i){
     const t=State.dataTables[i];if(!t.images.length){toast("Add at least one image");return;}
     const images=t.images.map(im=>{const p=parseDataUrl(im.dataUrl);return p?{mimeType:p.mime,data:p.data}:null;}).filter(Boolean);
@@ -1130,12 +1165,12 @@ const App={
   },
   _dtCountdown(i,sec){App._dtStop(i);let left=sec;const set=txt=>{const e=document.getElementById("dt-status-"+i);if(e)e.innerHTML='<span style="color:var(--amber)">'+txt+'</span>';};const fmt=n=>{const m=Math.floor(n/60),s=n%60;return m+":"+(s<10?"0":"")+s;};set("⏳ Reading table... "+fmt(left));App._dtTimers=App._dtTimers||{};App._dtTimers[i]=setInterval(()=>{left--;if(left<=0){set("⏳ Almost done...");return;}set("⏳ Reading table... "+fmt(left));},1000);},
   _dtStop(i){if(App._dtTimers&&App._dtTimers[i]){clearInterval(App._dtTimers[i]);App._dtTimers[i]=null;}const e=document.getElementById("dt-status-"+i);if(e)e.textContent="";},
-  dtCell(ti,r,c,v){State.dataTables[ti].grid[r][c]=v;save();},
+  dtCell(ti,r,c,v){mark("table cell edit","dtCell:"+ti+":"+r+":"+c);State.dataTables[ti].grid[r][c]=v;save();},
   dtUploadPhoto(i,ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{State.dataTables[i].photo=r.result;save();App.renderDataTables();toast("Table photo attached");};r.readAsDataURL(f);ev.target.value="";},
-  dtDelPhoto(i){State.dataTables[i].photo=null;save();App.renderDataTables();},
+  dtDelPhoto(i){mark("removed a table photo");State.dataTables[i].photo=null;save();App.renderDataTables();},
   dtAddRow(ti){const g=State.dataTables[ti].grid;const cols=g[0]?g[0].length:1;g.push(new Array(cols).fill(""));save();App.renderDataTables();},
   dtAddCol(ti){const g=State.dataTables[ti].grid;g.forEach(row=>row.push(""));if(!g.length)g.push([""]);save();App.renderDataTables();},
-  dtDelRow(ti,r){const g=State.dataTables[ti].grid;if(g.length<=1)return;g.splice(r,1);save();App.renderDataTables();},
+  dtDelRow(ti,r){const g=State.dataTables[ti].grid;if(g.length<=1)return;mark("deleted a table row");g.splice(r,1);save();App.renderDataTables();},
   renderDataTables(){
     const s=document.getElementById("datatables-slot");if(!s)return;const dts=State.dataTables||[];
     if(!dts.length){s.innerHTML=`<div class="empty" style="padding:18px">No tables yet. Use "Digitise table" or "Direct photo of table" below.</div>`;return;}
@@ -1490,18 +1525,18 @@ const App={
     App.renderSchedule();App.renderMandays();
   },
   addSchedule(){State.schedule=newSchedule();save();App.renderSchedule();},
-  delSchedule(){if(!confirm("Remove the Schedule of Maintenance table?"))return;State.schedule=null;save();App.renderSchedule();},
-  schCol(op,ci){const s=State.schedule;if(!s)return;
+  delSchedule(){if(!confirm("Remove the Schedule of Maintenance table?"))return;mark("removed the Schedule of Maintenance");State.schedule=null;save();App.renderSchedule();},
+  schCol(op,ci){const s=State.schedule;if(!s)return;mark(op==="del"?"deleted a schedule column":"added a schedule column");
     if(op==="add"){s.cols.push(String(s.cols.length+1));s.rows.forEach(r=>r.cells.push(""));}
     else if(op==="del"){if(s.cols.length<=1)return;s.cols.splice(ci,1);s.rows.forEach(r=>r.cells.splice(ci,1));}
     save();App.renderSchedule();},
-  schColName(ci,v){State.schedule.cols[ci]=v;save();},
-  schRow(op,ri){const s=State.schedule;if(!s)return;
+  schColName(ci,v){mark("schedule column edit","schCol:"+ci);State.schedule.cols[ci]=v;save();},
+  schRow(op,ri){const s=State.schedule;if(!s)return;mark(op==="del"?"deleted a schedule row":"added a schedule row");
     if(op==="add")s.rows.push({label:"New activity",cells:new Array(s.cols.length).fill("")});
     else if(op==="del"){if(s.rows.length<=1)return;s.rows.splice(ri,1);}
     save();App.renderSchedule();},
-  schRowLabel(ri,v){State.schedule.rows[ri].label=v;save();},
-  schCell(ri,ci,v){State.schedule.rows[ri].cells[ci]=v;save();},
+  schRowLabel(ri,v){mark("schedule row label edit","schLbl:"+ri);State.schedule.rows[ri].label=v;save();},
+  schCell(ri,ci,v){mark("schedule cell edit","schCell:"+ri+":"+ci);State.schedule.rows[ri].cells[ci]=v;save();},
   schShade(ri,ci){const c=State.schedule.rows[ri].cells;c[ci]=c[ci]?"":"X";save();App.renderSchedule();},
   renderSchedule(){
     const c=document.getElementById("sched-card");if(!c)return;const s=State.schedule;
@@ -1524,13 +1559,13 @@ const App={
     </div>`;
   },
   addMandays(){State.mandays=newMandays();save();App.renderMandays();},
-  delMandays(){if(!confirm("Remove the Mandays table?"))return;State.mandays=null;save();App.renderMandays();},
-  mdRow(op,ri){const m=State.mandays;if(!m)return;
+  delMandays(){if(!confirm("Remove the Mandays table?"))return;mark("removed the Mandays table");State.mandays=null;save();App.renderMandays();},
+  mdRow(op,ri){const m=State.mandays;if(!m)return;mark(op==="del"?"deleted a mandays row":"added a mandays row");
     if(op==="add")m.rows.push({label:"New row",value:""});
     else if(op==="del"){if(m.rows.length<=1)return;m.rows.splice(ri,1);}
     save();App.renderMandays();},
-  mdLabel(ri,v){State.mandays.rows[ri].label=v;save();},
-  mdValue(ri,v){State.mandays.rows[ri].value=v;save();},
+  mdLabel(ri,v){mark("mandays label edit","mdLbl:"+ri);State.mandays.rows[ri].label=v;save();},
+  mdValue(ri,v){mark("mandays value edit","mdVal:"+ri);State.mandays.rows[ri].value=v;save();},
   renderMandays(){
     const c=document.getElementById("mandays-card");if(!c)return;const m=State.mandays;
     if(!m){c.innerHTML=`<div class="empty" style="padding:16px">No Mandays table. This section is optional.</div><button class="btn-ghost btn-sm" style="margin-top:10px" onclick="App.addMandays()">+ Add Mandays table</button>`;return;}
