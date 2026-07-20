@@ -51,6 +51,8 @@ td.muted-cell{color:#3d5058;text-align:center}
 .mscroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
 table.mg{border-collapse:collapse;width:100%;font-size:12.5px;min-width:720px}
 table.mg th{background:#16262e;color:var(--ink);font-weight:700;font-size:11px;padding:8px;text-align:left;border:1px solid var(--line);white-space:normal}
+select.hdrsel{background:#22343d;color:var(--ink);border:1px solid var(--line2);border-radius:5px;font-size:11px;font-weight:700;padding:5px 4px;width:100%;cursor:pointer}
+select.hdrsel:hover{border-color:var(--muted)}
 table.mg td{border:1px solid var(--line);padding:0;vertical-align:top}
 td.actcell{padding:0}
 textarea.actinput{width:100%;min-height:44px;border:none;background:#1b2b33;color:var(--ink);font-family:var(--sans);font-size:12.5px;padding:8px;resize:vertical;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -574,6 +576,8 @@ const COLDEF={calibration:{label:"Calibration",opts:["","Yes","No","NA"],w:22,sh
 // Fixed render order for optional columns, and the pair offered by default on new rows.
 const OPT_ORDER=["calibration","overhauled","serviced","tested","replaced"];
 const OPT_BASE=["calibration","replaced"];
+// On a CUSTOM table in the EMD / CAT template, this column is chooseable.
+const CUSTOM_CAL_CHOICES=["calibration","overhauled","tested"];
 
 
 /* Schedule of Maintenance + Mandays (EMD / CAT only, both optional) */
@@ -961,7 +965,13 @@ const App={
     const divider = (activeCols.length&&withRows.length&&woRows.length)
       ? `<tr class="zone-div"><td colspan="${totCols}"></td></tr>` : "";
     const bodyRows = withRows.map(renderRow).join("") + divider + woRows.map(renderRow).join("");
-    const optHeaders = activeCols.map(ck=>`<th style="width:120px">${E(COLDEF[ck].label)}</th>`).join("");
+    const canSwitch = !!t.custom && engOf()!=="NIIGATA";
+    const optHeaders = activeCols.map(ck=>{
+      if(canSwitch && CUSTOM_CAL_CHOICES.indexOf(ck)>-1){
+        return `<th style="width:140px;padding:3px"><select class="hdrsel" title="Choose what this column records" onchange="App.customColSwitch(${ti},'${ck}',this.value)">${CUSTOM_CAL_CHOICES.map(k=>`<option value="${k}"${k===ck?' selected':''}>${E(COLDEF[k].label)}</option>`).join("")}</select></th>`;
+      }
+      return `<th style="width:120px">${E(COLDEF[ck].label)}</th>`;
+    }).join("");
     return `<div class="mtbl">
       <div class="mtbl-h"><input class="name" value="${E(t.name)}" placeholder="Name of Item…" oninput="App.tset(${ti},'name',this.value)"/><button class="btn-danger" onclick="App.delTable(${ti})">🗑 Remove</button></div>
       <div class="mscroll"><table class="mg"><thead><tr>
@@ -976,6 +986,23 @@ const App={
         <div class="nr crit"><label>⚠ Critical finding or non-conformity or technical anomaly</label><textarea oninput="App.tset(${ti},'critical',this.value)">${E(t.critical)}</textarea></div>
         <div class="nr"><label>Suggested action or recommendation for this item</label><textarea oninput="App.tset(${ti},'action',this.value)">${E(t.action)}</textarea></div>
       </div></div>`;
+  },
+  customColSwitch(ti,fromKey,toKey){
+    if(fromKey===toKey)return;
+    if(CUSTOM_CAL_CHOICES.indexOf(toKey)<0)return;
+    const t=State.tables[ti];if(!t)return;
+    mark("changed a column to "+((COLDEF[toKey]&&COLDEF[toKey].label)||toKey));
+    t.rows.forEach(r=>{
+      const c=Array.isArray(r.cols)?r.cols.slice():OPT_BASE.slice();
+      const i=c.indexOf(fromKey);
+      if(i<0)return;
+      c[i]=toKey;
+      const v=r[fromKey]||"";
+      r[fromKey]="";
+      r[toKey]=(COLDEF[toKey].opts.indexOf(v)>-1)?v:"";   // keep the answer only if still valid
+      r.cols=OPT_ORDER.filter(x=>c.indexOf(x)>-1);
+    });
+    save();App.renderMaint();
   },
   _reflow(ti){ // keep rows that use optional columns above those that don't
     const rs=State.tables[ti].rows;
