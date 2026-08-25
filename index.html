@@ -715,6 +715,25 @@ function bdLoad(){try{return JSON.parse(localStorage.getItem(BD_KEY))||{};}catch
 function bdSaveStore(s){try{localStorage.setItem(BD_KEY,JSON.stringify(s));}catch(e){}}
 function bdPurge(){const s=bdLoad();const now=Date.now();let changed=false;Object.keys(s).forEach(k=>{if(now-(s[k].savedAt||0)>BD_TTL){delete s[k];changed=true;}});if(changed)bdSaveStore(s);}
 function bdNorm(c){return (c||"").trim().toUpperCase();}
+// ---- Shared base data (Cloudflare KV via the worker) ----
+// Saving mirrors to the shared store so anyone can fetch it; fetching checks the
+// shared store first and falls back to the local cache if the network is down.
+async function bdShareSave(code,data){
+  try{
+    const r=await fetch(WORKER_URL+"/base-save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code,data})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||j.error)throw new Error(j.error||("HTTP "+r.status));
+    return {ok:true};
+  }catch(e){return {ok:false,error:e.message};}
+}
+async function bdShareGet(code){
+  try{
+    const r=await fetch(WORKER_URL+"/base-get",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||j.error)throw new Error(j.error||("HTTP "+r.status));
+    return {ok:true,found:!!j.found,data:j.data||null};
+  }catch(e){return {ok:false,error:e.message};}
+}
 let SM_USER=null; // signed-in service manager for base data
 let BD_MEMBERS=[]; // member list buffer for the base data form
 let BD_EDITING=null; // project code currently being edited (null = new)
@@ -752,7 +771,32 @@ const App={
     if(sel)EMPLOYEES.forEach(e=>{const o=document.createElement("option");o.value=e.name;o.textContent=e.name;sel.appendChild(o);});
     const wsel=document.getElementById("wcr-name");
     if(wsel)EMPLOYEES.forEach(e=>{const o=document.createElement("option");o.value=e.name;o.textContent=e.name;wsel.appendChild(o);});
-    App.showHome();
+    // Warn before an accidental refresh / tab close while a WCR or base-data form is open.
+    // (The WCR is auto-saved to this browser, so it will reload - but the prompt stops
+    //  a surprise reload and gives the person a Stay/Leave choice.)
+    window.addEventListener("beforeunload",function(e){
+      const wcr=document.getElementById("screen-wcr");
+      const base=document.getElementById("screen-base");
+      const busy=(wcr&&!wcr.classList.contains("hidden"))||(base&&!base.classList.contains("hidden"));
+      if(busy){e.preventDefault();e.returnValue="";return "";}
+    });
+    App._maybeResume();
+  },
+  // After a refresh the WCR is still in localStorage. Reopen it so a reload never
+  // looks like lost work. Only resumes a genuinely-started WCR (has a project code).
+  _maybeResume(){
+    const hasWCR=State&&State.base&&(State.base.code||State.base.customer||State.base.engine)&&(
+      (State.tables&&State.tables.length)||(State.history&&Object.keys(State.history).length)||
+      State.cover||(State.photos&&State.photos.length)||State.processed||
+      (State.recs&&(State.recs.text||(State.recs.bullets&&State.recs.bullets.length)))||
+      State.dwr||State.schedule||State.mandays);
+    if(!hasWCR){App.showHome();return;}
+    const code=State.base.code||"";
+    document.getElementById("hdr-project").textContent=code+(State.base.customer?" · "+State.base.customer:"");
+    App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");
+    App.renderBuilder();
+    toast("Resumed your in-progress WCR"+(code?(" for "+code):""));
+    window.scrollTo(0,0);
   },
   _hideAll(){["screen-home","screen-sm-gate","screen-wcr-gate","screen-base","screen-fetch","screen-wcr"].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add("hidden");});},
   showHome(){App._hideAll();document.getElementById("screen-home").classList.remove("hidden");document.getElementById("hdr-project").textContent="";window.scrollTo(0,0);},
@@ -842,8 +886,13 @@ const App={
     const lastEditedBy={name:(SM_USER&&SM_USER.name)||"Unknown",emp:(SM_USER&&SM_USER.emp)||"",at:now};
     store[code]={data,savedAt,savedBy:SM_USER||null,createdBy,lastEditedBy};
     bdSaveStore(store);
-    toast(BD_EDITING?("Base data updated for \""+code+"\""):("Base data saved for \""+code+"\" (retained 365 days)"));
-    App.showHome();
+    // mirror to the shared store so any device can fetch it
+    toast("Saving base data...");
+    bdShareSave(code,data).then(res=>{
+      if(res.ok)toast(BD_EDITING?("Base data updated & shared for \""+code+"\""):("Base data saved & shared for \""+code+"\""));
+      else toast("Saved on this device, but sharing failed: "+res.error);
+      App.showHome();
+    });
   },
 
   /* ---- Create WCR (fetch base data) ---- */
@@ -858,16 +907,43 @@ const App={
     WCR_USER={name,emp:rec.empNo};
     App._hideAll();document.getElementById("screen-fetch").classList.remove("hidden");document.getElementById("fetch-code").value="";App.onFetchCode("");window.scrollTo(0,0);
   },
-  onFetchCode(v){
+  _fetchSeq:0,
+  async onFetchCode(v){
     const btn=document.getElementById("fetch-btn");const msg=document.getElementById("fetch-msg");
-    const store=bdLoad();const code=bdNorm(v);
-    if(code && store[code]){btn.classList.add("ready");btn.disabled=false;msg.innerHTML="✓ Match found for <b>"+E(code)+"</b>"+(store[code].data.customer?" · "+E(store[code].data.customer):"")+". Press Fetch.";}
-    else{btn.classList.remove("ready");btn.disabled=true;msg.textContent=code?("No base data found for “"+code+"”. Ask the Service Manager to add it."):"Enter a saved project code - Fetch lights up when it matches.";}
+    const code=bdNorm(v);
+    App._fetchFound=null;
+    if(!code){btn.classList.remove("ready");btn.disabled=true;msg.textContent="Enter a saved project code - Fetch lights up when it matches.";return;}
+    // instant hit from the local cache, if present
+    const local=bdLoad();
+    if(local[code]){App._fetchFound={data:local[code].data,src:"local"};btn.classList.add("ready");btn.disabled=false;msg.innerHTML="✓ Match found for <b>"+E(code)+"</b>"+(local[code].data.customer?" · "+E(local[code].data.customer):"")+". Press Fetch.";}
+    else{btn.classList.remove("ready");btn.disabled=true;msg.textContent="Checking shared records for “"+code+"”...";}
+    // always confirm against the shared store (authoritative, sees other people's saves)
+    const seq=++App._fetchSeq;
+    const res=await bdShareGet(code);
+    if(seq!==App._fetchSeq)return; // a newer keystroke superseded this
+    if(res.ok&&res.found){
+      App._fetchFound={data:res.data,src:"shared"};
+      btn.classList.add("ready");btn.disabled=false;
+      msg.innerHTML="✓ Match found for <b>"+E(code)+"</b>"+(res.data.customer?" · "+E(res.data.customer):"")+". Press Fetch.";
+    }else if(res.ok&&!res.found){
+      if(local[code]){/* keep the local hit already shown */}
+      else{btn.classList.remove("ready");btn.disabled=true;msg.textContent="No base data found for “"+code+"”. Ask the Service Manager to add it.";}
+    }else{
+      // network error: fall back to whatever local said
+      if(local[code]){App._fetchFound={data:local[code].data,src:"local"};}
+      else{btn.classList.remove("ready");btn.disabled=true;msg.textContent="Could not reach shared records. Check connection and retry.";}
+    }
   },
-  fetchProject(){
-    const store=bdLoad();const code=bdNorm(document.getElementById("fetch-code").value);
-    if(!store[code]){toast("No base data for this code");return;}
-    State={base:JSON.parse(JSON.stringify(store[code].data)),cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,dwr:null,processed:false};
+  async fetchProject(){
+    const code=bdNorm(document.getElementById("fetch-code").value);
+    let rec=App._fetchFound;
+    if(!rec){ // resolve now if the async check had not settled
+      const local=bdLoad();
+      if(local[code])rec={data:local[code].data,src:"local"};
+      else{const res=await bdShareGet(code);if(res.ok&&res.found)rec={data:res.data,src:"shared"};}
+    }
+    if(!rec||!rec.data){toast("No base data for this code");return;}
+    State={base:JSON.parse(JSON.stringify(rec.data)),cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,dwr:null,processed:false};
     UNDO=null;_committed=null;_txtKey=null;_undoBtn(false);
     save();
     document.getElementById("hdr-project").textContent=code+(State.base.customer?" · "+State.base.customer:"");
@@ -1020,6 +1096,95 @@ const App={
   delTable(ti){if(!confirm("Remove this table?"))return;mark("removed item \""+(State.tables[ti].name||"untitled")+"\"");State.tables.splice(ti,1);save();App.renderMaint();if(State.processed)App.renderGenerated();},
   addCustom(){mark("added a custom table");State.tables.push(buildCustom());save();App.renderMaint();},
   /* ---- DWR Summary integration (optional; both templates) ---- */
+  _ensurePdfJs(){
+    const load=src=>new Promise((res,rej)=>{if([...document.scripts].some(s=>s.src===src))return res();const s=document.createElement("script");s.src=src;s.onload=()=>res();s.onerror=()=>rej(new Error("fail "+src));document.head.appendChild(s);});
+    return (async()=>{
+      if(!window.pdfjsLib)await load("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
+      if(window.pdfjsLib&&window.pdfjsLib.GlobalWorkerOptions&&!window.pdfjsLib.GlobalWorkerOptions.workerSrc){
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      }
+    })();
+  },
+  // Known column headings of the NPPS DWR summary table. Used to label the text we
+  // send, so the model never has to guess which column a line came from.
+  _DWR_HEADS:["Day / Date","Day/Date","Scope Done","Scope Not Done","Addl Tasks","Additional Tasks","Critical Issues","Lost Time","Spares","Cust Manpower","Customer Manpower","Safety","Tool Issues","Cust Property","Customer Property","Plan Next","Plan for Next","Notes/HSE","Notes / HSE"],
+  // Pull TEXT out of the DWR summary PDF in the browser. Photos are ignored entirely,
+  // which is what makes a 30 MB file turn into a few dozen KB.
+  async _extractDwrText(dataUrl){
+    await App._ensurePdfJs();
+    if(!window.pdfjsLib)throw new Error("PDF reader could not load");
+    const raw=parseDataUrl(dataUrl);if(!raw)throw new Error("Could not read the file");
+    const bin=atob(raw.data);const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const pdf=await window.pdfjsLib.getDocument({data:bytes}).promise;
+    const heads=App._DWR_HEADS.map(h=>h.toLowerCase().replace(/\s+/g,""));
+    let out=[],anyText=false,columnsFound=false;
+    for(let p=1;p<=pdf.numPages;p++){
+      const page=await pdf.getPage(p);
+      const tc=await page.getTextContent();
+      const items=tc.items.filter(it=>(it.str||"").trim()).map(it=>({
+        s:it.str,x:it.transform[4],y:it.transform[5],w:it.width||0
+      }));
+      if(!items.length)continue;
+      anyText=true;
+      // group into visual lines by y
+      const lines=[];
+      items.slice().sort((a,b)=>(b.y-a.y)||(a.x-b.x)).forEach(it=>{
+        const L=lines.find(l=>Math.abs(l.y-it.y)<3.2);
+        if(L)L.items.push(it); else lines.push({y:it.y,items:[it]});
+      });
+      lines.forEach(l=>l.items.sort((a,b)=>a.x-b.x));
+      // merge touching items in a line into cells
+      const cellsOf=l=>{const out=[];l.items.forEach(it=>{const last=out[out.length-1];
+        if(last&&(it.x-(last.x+last.w))<6){last.s+=(last.s.endsWith(" ")?"":" ")+it.s;last.w=(it.x+it.w)-last.x;}
+        else out.push({s:it.s,x:it.x,w:it.w});});return out;};
+      // find the header line for this page
+      let hdr=null,hdrLine=null;
+      for(const l of lines){
+        const cs=cellsOf(l);
+        const hits=cs.filter(c=>heads.indexOf(c.s.trim().toLowerCase().replace(/\s+/g,""))>-1).length;
+        if(hits>=3){hdr=cs;hdrLine=l;break;}
+      }
+      if(hdr&&hdr.length>1){
+        columnsFound=true;
+        const centres=hdr.map(c=>c.x+c.w/2);
+        const bounds=[];for(let i=0;i<centres.length-1;i++)bounds.push((centres[i]+centres[i+1])/2);
+        const colOf=x=>{let i=0;while(i<bounds.length&&x>bounds[i])i++;return i;};
+        const buckets=hdr.map(()=>[]);
+        lines.forEach(l=>{
+          if(l===hdrLine)return;
+          if(hdrLine&&l.y>=hdrLine.y-1)return;   // ignore the title/details block above the table
+          const cs=cellsOf(l);
+          // skip repeated header lines and the page footer
+          const isHdr=cs.filter(c=>heads.indexOf(c.s.trim().toLowerCase().replace(/\s+/g,""))>-1).length>=3;
+          if(isHdr)return;
+          cs.forEach(c=>{
+            const t=(c.s||"").trim();if(!t)return;
+            if(/^NPPS Project Summary/i.test(t)||/^Page \d+ of \d+$/i.test(t))return;
+            if(/^(photos?\s*)+$/i.test(t)||/^Site Photos by Day/i.test(t))return;   // photo-gallery captions
+            buckets[colOf(c.x+c.w/2)].push(t);
+          });
+        });
+        const chunk=[];
+        buckets.forEach((b,i)=>{
+          if(!b.length)return;
+          // rejoin wrapped lines, then split back into bullets
+          let joined=b.join(" ").replace(/\s+/g," ").trim();
+          let parts=joined.split(/[•·]\s*/).map(s=>s.trim()).filter(Boolean);
+          if(!parts.length)return;
+          chunk.push("["+(hdr[i].s||("Column "+(i+1))).trim()+"]");
+          parts.forEach(x=>chunk.push("- "+x));
+        });
+        if(chunk.length)out.push("--- PAGE "+p+" ---\n"+chunk.join("\n"));
+      } else {
+        // no recognisable table on this page: plain reading-order text
+        const flat=lines.map(l=>cellsOf(l).map(c=>c.s).join("  ").trim())
+          .filter(t=>t&&!/^NPPS Project Summary/i.test(t)&&!/^Page \d+ of \d+$/i.test(t));
+        if(flat.length)out.push("--- PAGE "+p+" ---\n"+flat.join("\n"));
+      }
+    }
+    return {text:out.join("\n\n").trim(),anyText,columnsFound,pages:pdf.numPages};
+  },
   renderDWR(){
     const c=document.getElementById("dwr-card");if(!c)return;
     const d=State.dwr;
@@ -1030,8 +1195,8 @@ const App={
       return;
     }
     if(d.integrating){
-      c.innerHTML=`<div style="font-size:13px;color:var(--ink)"><b>Reading DWRs...</b> <span style="color:var(--amber)">${d.countdown||""}</span></div>
-      <div style="font-size:11.5px;color:var(--muted);margin-top:6px">Pulling out the work that was done. This can take a little while for a multi-page summary.</div>`;
+      c.innerHTML=`<div style="font-size:13px;color:var(--ink)"><b>${d.phase?E(d.phase):"Reading DWRs..."}</b> <span style="color:var(--amber)">${E(d.countdown||"")}</span></div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:6px">${d.phase?"Pulling the text out of the file. Photos are skipped, so file size is not a problem.":"Pulling out the work that was done."}</div>`;
       return;
     }
     if(d.done){
@@ -1064,27 +1229,56 @@ const App={
   _dwrStop(){if(App._dwrTimer){clearInterval(App._dwrTimer);App._dwrTimer=null;}},
   async integrateDWR(){
     const d=State.dwr;if(!d||!d.dataUrl){toast("Upload a DWR PDF first");return;}
-    const b64=parseDataUrl(d.dataUrl).data;
-    if(!b64){alert("Could not read the PDF. Please re-choose the file.");return;}
-    d.integrating=true;d.done=false;let t=45;d.countdown=t+"s";save();App.renderDWR();
+    const parsed=parseDataUrl(d.dataUrl);
+    if(!parsed||!parsed.data){alert("Could not read the PDF. Please re-choose the file.");return;}
+    d.integrating=true;d.done=false;d.countdown="";d.phase="Reading the PDF...";save();App.renderDWR();
     App._dwrStop();
+    let payload=null,mode="";
+    // Step 1 - pull the TEXT out in the browser. Photos never leave the machine,
+    // so file size stops mattering. Falls back to sending the PDF if that fails.
+    try{
+      const ex=await App._extractDwrText(d.dataUrl);
+      if(ex.text&&ex.text.length>40){payload={text:ex.text};mode=ex.columnsFound?"text-columns":"text-plain";}
+    }catch(e){ /* fall through to sending the PDF */ }
+    if(!payload){
+      const mb=parsed.data.length*0.75/1048576;
+      if(mb>11){
+        App._dwrStop();
+        if(State.dwr){State.dwr.integrating=false;State.dwr.phase="";}
+        save();App.renderDWR();
+        alert("No text could be read from this PDF, so the file itself has to be sent - but it is about "+mb.toFixed(1)+" MB, which is too large.\n\nThis usually means the summary is made of scanned images rather than text. Please ask for a text-based DWR summary, or split it into smaller parts.");
+        return;
+      }
+      payload={pdfBase64:parsed.data};mode="pdf";
+    }
+    // Step 2 - send to the worker
+    let t=(mode==="pdf")?45:25;
+    d.phase="";d.countdown=t+"s";save();App.renderDWR();
     App._dwrTimer=setInterval(()=>{t--;if(t<0)t=0;if(State.dwr)State.dwr.countdown=t+"s";App.renderDWR();},1000);
     try{
-      const resp=await fetch(WORKER_URL+"/integrate-dwr",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pdfBase64:b64})});
-      if(!resp.ok)throw new Error("Worker returned "+resp.status);
+      const resp=await fetch(WORKER_URL+"/integrate-dwr",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      if(!resp.ok){
+        let msg="Worker returned "+resp.status;
+        try{const j=await resp.json();if(j&&j.error)msg=j.error;}catch(e){}
+        throw new Error(msg);
+      }
       const data=await resp.json();
       if(data.error)throw new Error(data.error);
       App._dwrStop();
       const groups=Array.isArray(data.groups)?data.groups:[];
-      State.dwr.groups=groups;State.dwr.integrating=false;State.dwr.done=true;State.dwr.countdown="";
+      State.dwr.groups=groups;State.dwr.integrating=false;State.dwr.done=true;State.dwr.countdown="";State.dwr.phase="";State.dwr.mode=mode;
       save();App.renderDWR();App.renderMaint();
       const nA=groups.reduce((s,g)=>s+(g.activities?g.activities.length:0),0);
       toast(nA?("Points integrated - "+nA+" work point(s) found"):"Integrated - no distinct work points detected");
     }catch(err){
       App._dwrStop();
-      if(State.dwr){State.dwr.integrating=false;State.dwr.done=false;State.dwr.countdown="";}
+      if(State.dwr){State.dwr.integrating=false;State.dwr.done=false;State.dwr.countdown="";State.dwr.phase="";}
       save();App.renderDWR();
-      alert("Could not integrate the DWR summary.\n\nReason: "+err.message+"\n\nOpen "+WORKER_URL+"/health and confirm it lists /integrate-dwr, then try again.");
+      const m=err.message||"unknown error";
+      const busy=/50[23]|429|overload|UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(m);
+      alert("Could not integrate the DWR summary.\n\nReason: "+m+"\n\n"+
+        (busy?"This looks like a temporary busy signal from the AI service. Waiting a minute and pressing Integrate again usually works."
+             :"If this keeps happening, open "+WORKER_URL+"/health and confirm it lists /integrate-dwr."));
     }
   },
   // ---- matching DWR groups to the maintenance library ----
