@@ -116,6 +116,20 @@ textarea{resize:vertical;min-height:38px}
 .chip button{background:transparent;color:var(--red);border:none;padding:0 4px;font-size:14px;cursor:pointer}
 .saved-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:6px}
 .scard{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:12px 14px;cursor:pointer;transition:.15s}
+.draft-wrap{max-width:640px;margin:16px auto 0}
+.draft-sec-h{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:2px}
+.draft-sec-sub{font-size:11.5px;color:var(--muted);margin-bottom:2px}
+.draft-sec-warn{font-size:11px;color:var(--red);margin-bottom:8px}
+.draft-tile{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.draft-tile .dt-main{flex:1;cursor:pointer}
+.draft-tile .dt-code{font-weight:700;color:var(--accent);font-size:14px}
+.draft-tile .dt-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.draft-tile .dt-expiry{font-size:11px;color:var(--amber);margin-top:2px}
+.draft-tile:hover{border-color:var(--accent)}
+.draft-empty{font-size:12px;color:var(--muted);padding:10px 2px}
+.bd-field{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.bd-field .bd-x{background:transparent;border:none;color:var(--red);font-size:13px;cursor:pointer;padding:2px 6px;flex:none}
+.bd-field .bd-x:hover{color:#ff8a8a}
 .scard:hover{border-color:var(--accent);transform:translateY(-2px)}
 .scard .sc-code{font-weight:700;color:var(--accent);font-size:14px}
 .scard .sc-cust{font-size:12px;color:var(--ink);margin-top:2px}
@@ -222,9 +236,13 @@ textarea{resize:vertical;min-height:38px}
     </div>
     <button class="btn-ghost" onclick="App.showHome()">← Back</button>
   </div>
+  <div id="drafts-halfway" class="draft-wrap"></div>
+  <div id="drafts-downloaded" class="draft-wrap"></div>
 </div>
 
 <div class="wrap hidden" id="screen-wcr">
+  <h2 class="sec">Base Data <span style="font-size:11px;font-weight:400;color:var(--muted)">(from the project record - edit or remove fields for this WCR)</span></h2>
+  <div class="card" id="basedata-card"></div>
   <h2 class="sec">Cover Photo</h2>
   <div class="card">
     <div id="cover-slot"></div>
@@ -734,6 +752,44 @@ async function bdShareGet(code){
     return {ok:true,found:!!j.found,data:j.data||null};
   }catch(e){return {ok:false,error:e.message};}
 }
+// ---- Per-person WCR drafts (Cloudflare R2 via the worker) ----
+// The signed-in WCR user's employee id is the owner key (soft identity).
+function draftOwner(){return (WCR_USER&&WCR_USER.emp)?String(WCR_USER.emp):"";}
+async function draftSave(payload){
+  try{
+    const r=await fetch(WORKER_URL+"/draft-save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||j.error)throw new Error(j.error||("HTTP "+r.status));
+    return {ok:true,id:j.id,kind:j.kind,updated:j.updated,expiresAt:j.expiresAt};
+  }catch(e){return {ok:false,error:e.message};}
+}
+async function draftList(owner){
+  try{
+    const r=await fetch(WORKER_URL+"/draft-list",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({owner})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||j.error)throw new Error(j.error||("HTTP "+r.status));
+    return {ok:true,halfway:j.halfway||[],downloaded:j.downloaded||[]};
+  }catch(e){return {ok:false,error:e.message,halfway:[],downloaded:[]};}
+}
+async function draftGet(owner,kind,id){
+  try{
+    const r=await fetch(WORKER_URL+"/draft-get",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({owner,kind,id})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||j.error)throw new Error(j.error||("HTTP "+r.status));
+    return {ok:true,found:!!j.found,draft:j.draft||null};
+  }catch(e){return {ok:false,error:e.message};}
+}
+async function draftDelete(owner,kind,id){
+  try{
+    const r=await fetch(WORKER_URL+"/draft-delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({owner,kind,id})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||j.error)throw new Error(j.error||("HTTP "+r.status));
+    return {ok:true};
+  }catch(e){return {ok:false,error:e.message};}
+}
+// Friendly date + "auto-deletes on ..." helpers for the tiles.
+function fmtWhen(ms){if(!ms)return "";const d=new Date(ms);return d.toLocaleDateString([], {day:"2-digit",month:"short"})+" "+d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});}
+function fmtExpiry(ms){if(!ms)return "";const d=new Date(ms);const days=Math.max(0,Math.ceil((ms-Date.now())/(24*60*60*1000)));return "Auto-deletes on "+d.toLocaleDateString([], {day:"2-digit",month:"short"})+" ("+days+" day"+(days===1?"":"s")+" left)";}
 let SM_USER=null; // signed-in service manager for base data
 let BD_MEMBERS=[]; // member list buffer for the base data form
 let BD_EDITING=null; // project code currently being edited (null = new)
@@ -761,8 +817,42 @@ function save(){
     _committed=cur;_pendLabel=null;_pendTxt=null;
   }
   try{localStorage.setItem("npps_niigata_wcr",cur);}catch(e){}
+  scheduleDraftSave();   // mirror to the cloud draft (debounced), if a WCR is open
 }
 function load(){try{const s=localStorage.getItem("npps_niigata_wcr");if(s){State=JSON.parse(s);_committed=s;}}catch(e){}}
+
+// ---- Cloud draft tracking ----
+// The WCR currently open corresponds to one cloud draft: its kind + id.
+// Debounced so a burst of typing becomes ONE write (protects R2 operation limits).
+let DRAFT={kind:"halfway",id:null,dirty:false,saving:false};
+let _draftTimer=null;
+function draftMeta(){return {ownerName:(WCR_USER&&WCR_USER.name)||"",customer:(State.base&&State.base.customer)||"",engine:(State.base&&State.base.engine)||""};}
+function draftHasWork(){
+  return State&&State.base&&(State.base.code||State.base.customer||State.base.engine)&&(
+    (State.tables&&State.tables.length)||(State.history&&Object.keys(State.history).length)||
+    State.cover||(State.photos&&State.photos.length)||State.processed||
+    (State.recs&&(State.recs.text||(State.recs.clips&&State.recs.clips.length)||(State.recs.bullets&&State.recs.bullets.length)))||
+    State.dwr||State.schedule||State.mandays||(State.signoff&&Object.keys(State.signoff).length));
+}
+function scheduleDraftSave(){
+  const wcr=document.getElementById("screen-wcr");
+  if(!wcr||wcr.classList.contains("hidden"))return;   // only while the builder is open
+  if(!draftOwner())return;                             // need a signed-in user
+  if(!draftHasWork())return;                           // don't create empty drafts
+  DRAFT.dirty=true;
+  if(_draftTimer)clearTimeout(_draftTimer);
+  _draftTimer=setTimeout(pushDraftNow,2500);           // 2.5s after the last change
+}
+async function pushDraftNow(){
+  if(_draftTimer){clearTimeout(_draftTimer);_draftTimer=null;}
+  if(!DRAFT.dirty||DRAFT.saving)return;
+  if(!draftOwner()||!draftHasWork())return;
+  DRAFT.saving=true;DRAFT.dirty=false;
+  const res=await draftSave({owner:draftOwner(),id:DRAFT.id,kind:DRAFT.kind,code:(State.base&&State.base.code)||"",state:State,meta:draftMeta()});
+  DRAFT.saving=false;
+  if(res.ok){DRAFT.id=res.id;DRAFT.kind=res.kind;State._expiresAt=res.expiresAt;}
+  else{DRAFT.dirty=true;} // leave dirty so a later change retries
+}
 
 const App={
   init(){load();bdPurge();
@@ -905,7 +995,63 @@ const App={
     const rec=EMPLOYEES.find(e=>e.name===name);
     if(!rec||String(rec.empNo).toLowerCase()!==typed.toLowerCase()){toast("Employee ID does not match this name");return;}
     WCR_USER={name,emp:rec.empNo};
-    App._hideAll();document.getElementById("screen-fetch").classList.remove("hidden");document.getElementById("fetch-code").value="";App.onFetchCode("");window.scrollTo(0,0);
+    App._hideAll();document.getElementById("screen-fetch").classList.remove("hidden");document.getElementById("fetch-code").value="";App.onFetchCode("");App.renderDraftLists();window.scrollTo(0,0);
+  },
+  // ---- render the two per-person draft lists on the Create-WCR screen ----
+  async renderDraftLists(){
+    const hw=document.getElementById("drafts-halfway");
+    const dl=document.getElementById("drafts-downloaded");
+    if(!hw||!dl)return;
+    const owner=draftOwner();
+    if(!owner){hw.innerHTML="";dl.innerHTML="";return;}
+    hw.innerHTML=`<div class="draft-sec-h">Halfway drafts</div><div class="draft-sec-sub">WCRs left midway - Your existing progress is saved - pick it up from here.</div><div class="draft-sec-warn">Any draft untouched for more than 5 days will be auto deleted.</div><div class="draft-empty">Loading...</div>`;
+    dl.innerHTML=`<div class="draft-sec-h">Downloaded PDFs</div><div class="draft-sec-sub">Draft format of PDF you downloaded - You can edit this in case of corrections.</div><div class="draft-sec-warn">Any draft untouched for more than 5 days will be auto deleted.</div><div class="draft-empty">Loading...</div>`;
+    const res=await draftList(owner);
+    const tiles=(arr,kind)=>{
+      if(!arr.length)return `<div class="draft-empty">None yet.</div>`;
+      return arr.map(d=>`<div class="draft-tile">
+        <div class="dt-main" onclick="App.openDraft('${kind}','${E(d.id)}')">
+          <div class="dt-code">${E(d.code||"(no code)")}${d.customer?` <span style="color:var(--muted);font-weight:400;font-size:12px">· ${E(d.customer)}</span>`:""}</div>
+          <div class="dt-meta">${E(d.engine||"")}${d.engine?" · ":""}Last edited ${E(fmtWhen(d.updated))}</div>
+          <div class="dt-expiry">${E(fmtExpiry(d.expiresAt))}</div>
+        </div>
+        <button class="btn-danger" title="Delete this draft" onclick="App.deleteDraft('${kind}','${E(d.id)}')">🗑</button>
+      </div>`).join("");
+    };
+    if(!res.ok){
+      const msg=`<div class="draft-empty" style="color:var(--red)">Could not load drafts: ${E(res.error||"")}</div>`;
+      hw.querySelector(".draft-empty").outerHTML=msg;dl.querySelector(".draft-empty").outerHTML=msg;return;
+    }
+    hw.querySelector(".draft-empty").outerHTML=tiles(res.halfway,"halfway");
+    dl.querySelector(".draft-empty").outerHTML=tiles(res.downloaded,"downloaded");
+  },
+  async openDraft(kind,id){
+    const owner=draftOwner();if(!owner)return;
+    toast("Opening draft...");
+    const res=await draftGet(owner,kind,id);
+    if(!res.ok){alert("Could not open the draft.\n\nReason: "+res.error);return;}
+    if(!res.found){toast("That draft is no longer available (it may have expired).");App.renderDraftLists();return;}
+    const rec=res.draft;
+    State=rec.state;
+    // normalise any missing fields so older drafts still render
+    State.base=State.base||{};State.history=State.history||{};State.tables=State.tables||[];State.photos=State.photos||[];
+    State.signoff=State.signoff||{};State.recs=State.recs||{text:"",clips:[],bullets:[]};State.dataTables=State.dataTables||[];
+    DRAFT={kind:rec.kind||kind,id:rec.id||id,dirty:false,saving:false};
+    State._expiresAt=rec.expiresAt||0;
+    UNDO=null;_committed=null;_txtKey=null;_undoBtn(false);
+    try{localStorage.setItem("npps_niigata_wcr",JSON.stringify(State));_committed=JSON.stringify(State);}catch(e){}
+    const code=(State.base&&State.base.code)||"";
+    document.getElementById("hdr-project").textContent=code+(State.base.customer?" · "+State.base.customer:"");
+    App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");
+    App.renderBuilder();window.scrollTo(0,0);
+    toast("Draft opened - keep editing, it auto-saves");
+  },
+  async deleteDraft(kind,id){
+    if(!confirm("Delete this draft permanently?"))return;
+    const owner=draftOwner();if(!owner)return;
+    const res=await draftDelete(owner,kind,id);
+    if(!res.ok){alert("Could not delete: "+res.error);return;}
+    toast("Draft deleted");App.renderDraftLists();
   },
   _fetchSeq:0,
   async onFetchCode(v){
@@ -945,14 +1091,15 @@ const App={
     if(!rec||!rec.data){toast("No base data for this code");return;}
     State={base:JSON.parse(JSON.stringify(rec.data)),cover:null,history:{},tables:[],photos:[],signoff:{},recs:{text:"",clips:[],bullets:[]},dataTables:[],schedule:null,mandays:null,dwr:null,processed:false};
     UNDO=null;_committed=null;_txtKey=null;_undoBtn(false);
+    DRAFT={kind:"halfway",id:null,dirty:false,saving:false};  // a brand-new halfway draft
     save();
     document.getElementById("hdr-project").textContent=code+(State.base.customer?" · "+State.base.customer:"");
     App._hideAll();document.getElementById("screen-wcr").classList.remove("hidden");
-    App.renderHistory();App.renderCover();App.renderDWR();App.renderMaint();App.renderEmdExtra();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderEmdExtra();App.renderSignoff();window.scrollTo(0,0);
+    App.renderBase();App.renderHistory();App.renderCover();App.renderDWR();App.renderMaint();App.renderEmdExtra();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderEmdExtra();App.renderSignoff();window.scrollTo(0,0);
   },
 
   renderBuilder(){
-    App.renderHistory();App.renderCover();App.renderDWR();App.renderMaint();App.renderEmdExtra();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderSignoff();
+    App.renderBase();App.renderHistory();App.renderCover();App.renderDWR();App.renderMaint();App.renderEmdExtra();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderSignoff();
   },
   doUndo(){
     if(!UNDO){toast("Nothing to undo");return;}
@@ -971,6 +1118,37 @@ const App={
     s.innerHTML=State.cover?`<img src="${State.cover}" class="cover-img"/><div style="margin-top:8px"><button class="btn-ghost btn-sm" onclick="App.clearCover()">✕ Remove</button></div>`:`<div class="cover-drop" onclick="document.getElementById('cover-input').click()"><div><strong>Upload site / engine photo</strong><br><span style="font-size:12px">click to choose</span></div></div>`;
   },
   clearCover(){State.cover=null;save();App.renderCover();},
+  // ---- Base Data inside the WCR (a local copy; edits never touch the master) ----
+  renderBase(){
+    const c=document.getElementById("basedata-card");if(!c)return;
+    const b=State.base||{};
+    const cfg=engCfg();
+    // field label map (mirrors the Add Base Data form, engine-aware)
+    const F=[
+      ["code","Project Code"],["customer","Customer Name"],
+      ["contract","Project / Contract Number"],["vessel","Vessel / Rig Name"],
+      ["start","Start Date of Job"],["end",cfg.labels.end],
+      ["overhaul",cfg.labels.job],["engine","Engine Make"],
+      ["model","Engine Model / Variant"],["serial","Engine Serial Number"],
+      ["arr",cfg.labels.arr],["rpm","RPM & Capacity"],
+      ["hours","Current Running Hours"],["custic","Customer In-Charge"],
+      ["leader","Neptunus Team Leader"],["members","Neptunus Members"]
+    ];
+    // Only show fields that still exist on this draft's base object (deleted ones are removed).
+    const present=F.filter(([k])=> b[k]!==undefined );
+    if(!present.length){c.innerHTML=`<div style="font-size:12px;color:var(--muted)">All base-data fields were removed for this WCR. That's fine - the report simply won't show them.</div>`;return;}
+    c.innerHTML=`<div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">These came from the project record. Edit any field for this WCR, or press ✕ to drop a blank/unwanted field. Changes here affect only this report - the shared base data stays as it is.</div>`+
+      `<div class="grid2">`+present.map(([k,label])=>{
+        const v=b[k]==null?"":b[k];
+        return `<div class="bd-field"><div class="fg" style="flex:1;margin:0"><label class="f">${E(label)}</label><input value="${E(v)}" oninput="App.bdSet('${k}',this.value)"/></div><button class="bd-x" title="Remove this field from this WCR" onclick="App.bdDelField('${k}')">✕</button></div>`;
+      }).join("")+`</div>`;
+  },
+  bdSet(k,v){mark("base data edit","bdSet:"+k);State.base[k]=v;
+    if(k==="customer"||k==="code"){const code=(State.base.code||"");document.getElementById("hdr-project").textContent=code+(State.base.customer?" · "+State.base.customer:"");}
+    save();},
+  bdDelField(k){mark("removed a base-data field");delete State.base[k];save();App.renderBase();
+    if(k==="customer"||k==="code"){const code=(State.base.code||"");document.getElementById("hdr-project").textContent=code+(State.base.customer?" · "+State.base.customer:"");}
+  },
   renderHistory(){
     const c=document.getElementById("history-card");if(!c)return;let h="";
     curHistory().forEach(block=>{h+=`<div class="pick-sec">${E(block.sec)}</div>`;
@@ -2027,6 +2205,25 @@ const App={
     }
     chosen.doc.save(chosen.fname+".pdf");
     toast("PDF downloaded ("+mb+" MB"+note+")");
+    App._promoteToDownloaded();
+  },
+  // A WCR is a "halfway" draft only until Download is pressed. On download it moves
+  // to the Downloaded list: save a fresh downloaded entry, delete the halfway one.
+  async _promoteToDownloaded(){
+    if(!draftOwner())return;
+    // make sure the latest state is flushed first
+    if(_draftTimer){clearTimeout(_draftTimer);_draftTimer=null;}
+    const owner=draftOwner();
+    const prevKind=DRAFT.kind, prevId=DRAFT.id;
+    // save as a NEW downloaded draft (fresh id + timestamp -> re-downloads accumulate)
+    const res=await draftSave({owner,id:null,kind:"downloaded",code:(State.base&&State.base.code)||"",state:State,meta:draftMeta()});
+    if(res.ok){
+      DRAFT={kind:"downloaded",id:res.id,dirty:false,saving:false};
+      State._expiresAt=res.expiresAt;
+      // if it had been a halfway draft, remove that halfway entry (it's no longer halfway)
+      if(prevKind==="halfway"&&prevId){try{await draftDelete(owner,"halfway",prevId);}catch(e){}}
+      toast("Saved to your Downloaded drafts");
+    }
   },
   _ensurePdfLibs(){
     const load=src=>new Promise((res,rej)=>{if([...document.scripts].some(s=>s.src===src))return res();const s=document.createElement("script");s.src=src;s.onload=()=>res();s.onerror=()=>rej(new Error("fail "+src));document.head.appendChild(s);});
