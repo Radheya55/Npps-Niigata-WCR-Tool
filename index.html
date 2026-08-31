@@ -130,6 +130,12 @@ textarea{resize:vertical;min-height:38px}
 .bd-field{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .bd-field .bd-x{background:transparent;border:none;color:var(--red);font-size:13px;cursor:pointer;padding:2px 6px;flex:none}
 .bd-field .bd-x:hover{color:#ff8a8a}
+.spell-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 0;font-size:12.5px;border-bottom:1px solid var(--line)}
+.spell-lbl{color:var(--muted);font-size:11px}
+.spell-orig{color:#ff8a8a;text-decoration:line-through}
+.spell-apply{background:rgba(127,208,138,.15);border:1px solid rgba(127,208,138,.5);color:#7fd08a;border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer}
+.spell-apply:hover{background:rgba(127,208,138,.28)}
+.spell-ignore{background:transparent;border:1px solid var(--line2);color:var(--muted);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer}
 .scard:hover{border-color:var(--accent);transform:translateY(-2px)}
 .scard .sc-code{font-weight:700;color:var(--accent);font-size:14px}
 .scard .sc-cust{font-size:12px;color:var(--ink);margin-top:2px}
@@ -332,7 +338,9 @@ textarea{resize:vertical;min-height:38px}
     <div style="font-size:11px;color:var(--muted)">All four fields are required to download. Customer date defaults to the Neptunus date until changed.</div>
   </div>
 
-  <div style="margin-top:24px;display:flex;gap:10px">
+  <div id="spell-slot"></div>
+  <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn-amber spell-btn" id="spell-btn" onclick="App.runSpellCheck()">🔤 Run Spell Check</button>
     <button class="btn dl-btn" onclick="App.downloadReport()">⬇ Download Report</button>
     <button class="btn-ghost" onclick="App.showHome()">⌂ Home</button>
   </div>
@@ -704,6 +712,28 @@ function buildTable(item){
 }
 function buildCustom(){return {id:"t_custom_"+Date.now(),itemId:null,custom:true,name:"",rows:[{activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:"",cols:defaultRowCols()}],note:"",critical:"",action:""};}
 const E=s=>(s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+// Tidy shabby PASTED text without changing any words: strip stray bullet glyphs,
+// join mid-sentence line breaks, collapse doubled spaces, keep real paragraph breaks.
+// This fixes text pasted from Word/PDF that arrives with hard line breaks and bullets
+// baked in (which otherwise render as broken-looking tables and exec summaries).
+function cleanPasted(t){
+  if(t==null)return t;
+  let s=String(t).replace(/\r\n?/g,"\n");
+  // normalise common bullet glyphs at the START of a line into a simple "- "
+  s=s.replace(/^[ \t]*[•·▪◦‣∙*]+[ \t]*/gm,"- ");
+  // remove bullet glyphs that appear mid-line (leftover from paste)
+  s=s.replace(/[•·▪◦‣∙]/g,"");
+  // collapse 3+ newlines to a single blank line (one paragraph break max)
+  s=s.replace(/\n{3,}/g,"\n\n");
+  // join a hard line break that is clearly mid-sentence: prev line does NOT end with
+  // sentence punctuation or a bullet, and next line does NOT start a new bullet.
+  s=s.replace(/([^\n.;:!?)\-])\n(?![ \t]*-|\n)([A-Za-z0-9(])/g,"$1 $2");
+  // collapse runs of spaces/tabs
+  s=s.replace(/[ \t]{2,}/g," ");
+  // trim trailing spaces on each line
+  s=s.replace(/[ \t]+\n/g,"\n");
+  return s.trim();
+}
 // Robustly split a data URL into {mime, data} even when it carries codec params
 // e.g. "data:audio/webm;codecs=opus;base64,AAAA" -> {mime:"audio/webm", data:"AAAA"}
 function parseDataUrl(du){const comma=(du||"").indexOf(",");if(comma<0)return null;const meta=du.substring(5,comma);const mime=(meta.split(";")[0])||"application/octet-stream";const data=du.substring(comma+1);return data?{mime,data}:null;}
@@ -869,6 +899,25 @@ const App={
       const base=document.getElementById("screen-base");
       const busy=(wcr&&!wcr.classList.contains("hidden"))||(base&&!base.classList.contains("hidden"));
       if(busy){e.preventDefault();e.returnValue="";return "";}
+    });
+    // Clean shabby pasted text (from Word/PDF) in any WCR text field, so tables and
+    // the executive summary never render with baked-in line breaks or stray bullets.
+    document.addEventListener("paste",function(e){
+      const el=e.target;
+      if(!el||!(el.tagName==="TEXTAREA"||(el.tagName==="INPUT"&&(el.type==="text"||!el.type))))return;
+      const wcr=document.getElementById("screen-wcr");
+      if(!wcr||wcr.classList.contains("hidden"))return; // only inside the builder
+      const raw=(e.clipboardData||window.clipboardData);if(!raw)return;
+      const txt=raw.getData("text");if(txt==null)return;
+      const cleaned=cleanPasted(txt);
+      if(cleaned===txt)return; // nothing to tidy - let the default paste happen
+      e.preventDefault();
+      // insert the cleaned text at the cursor, then fire input so App.* setters save it
+      const start=el.selectionStart||0,end=el.selectionEnd||0;
+      const before=el.value.slice(0,start),after=el.value.slice(end);
+      el.value=before+cleaned+after;
+      const pos=start+cleaned.length;el.selectionStart=el.selectionEnd=pos;
+      el.dispatchEvent(new Event("input",{bubbles:true}));
     });
     App._maybeResume();
   },
@@ -1099,6 +1148,8 @@ const App={
   },
 
   renderBuilder(){
+    const sp=document.getElementById("spell-slot");if(sp)sp.innerHTML="";
+    App._spellFixes=[];
     App.renderBase();App.renderHistory();App.renderCover();App.renderDWR();App.renderMaint();App.renderEmdExtra();App.renderGenerated();App.renderRecs();App.renderPhotos();App.renderDataTables();App.renderSignoff();
   },
   doUndo(){
@@ -1741,8 +1792,11 @@ const App={
   recEditBullet(i,v){if(State.recs.bullets[i]!=null){State.recs.bullets[i]=v.trim();save();}},
 
   refreshDownloadGate(){
-    const ok=App.hasRecInput();
-    document.querySelectorAll(".dl-btn").forEach(btn=>{btn.disabled=!ok;btn.style.opacity=ok?"1":"0.45";btn.style.cursor=ok?"pointer":"not-allowed";btn.title=ok?"":"Add written or spoken recommendations first";});
+    const hasRec=App.hasRecInput();
+    const spellOk=!!State._spellChecked;
+    const ok=hasRec&&spellOk;
+    document.querySelectorAll(".dl-btn").forEach(btn=>{btn.disabled=!ok;btn.style.opacity=ok?"1":"0.45";btn.style.cursor=ok?"pointer":"not-allowed";
+      btn.title=ok?"":(!hasRec?"Add written or spoken recommendations first":"Run Spell Check first");});
   },
 
   /* ---- tables from images ---- */
@@ -1768,8 +1822,48 @@ const App={
   _dtCountdown(i,sec){App._dtStop(i);let left=sec;const set=txt=>{const e=document.getElementById("dt-status-"+i);if(e)e.innerHTML='<span style="color:var(--amber)">'+txt+'</span>';};const fmt=n=>{const m=Math.floor(n/60),s=n%60;return m+":"+(s<10?"0":"")+s;};set("⏳ Reading table... "+fmt(left));App._dtTimers=App._dtTimers||{};App._dtTimers[i]=setInterval(()=>{left--;if(left<=0){set("⏳ Almost done...");return;}set("⏳ Reading table... "+fmt(left));},1000);},
   _dtStop(i){if(App._dtTimers&&App._dtTimers[i]){clearInterval(App._dtTimers[i]);App._dtTimers[i]=null;}const e=document.getElementById("dt-status-"+i);if(e)e.textContent="";},
   dtCell(ti,r,c,v){mark("table cell edit","dtCell:"+ti+":"+r+":"+c);State.dataTables[ti].grid[r][c]=v;save();},
-  dtUploadPhoto(i,ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{State.dataTables[i].photo=r.result;save();App.renderDataTables();toast("Table photo attached");};r.readAsDataURL(f);ev.target.value="";},
-  dtDelPhoto(i){mark("removed a table photo");State.dataTables[i].photo=null;save();App.renderDataTables();},
+  // Combine several images into ONE tall image, stacked vertically, widths normalised
+  // to the widest, on a white background. Used for multi-page part lists.
+  _stackImages(srcs){
+    return new Promise((resolve)=>{
+      const imgs=[];let pending=srcs.length;
+      if(!pending){resolve(null);return;}
+      srcs.forEach((s,idx)=>{const im=new Image();im.onload=()=>{imgs[idx]=im;if(--pending===0)finish();};im.onerror=()=>{imgs[idx]=null;if(--pending===0)finish();};im.src=s;});
+      function finish(){
+        const good=imgs.filter(Boolean);if(!good.length){resolve(null);return;}
+        const MAXW=1600; // cap width so the combined image stays reasonable
+        const w=Math.min(MAXW,Math.max(...good.map(im=>im.naturalWidth)));
+        const gap=10;let totalH=0;const scaled=good.map(im=>{const sc=w/im.naturalWidth;const h=Math.round(im.naturalHeight*sc);totalH+=h+gap;return {im,h};});
+        totalH-=gap;
+        const cv=document.createElement("canvas");cv.width=w;cv.height=totalH;
+        const cx=cv.getContext("2d");cx.fillStyle="#ffffff";cx.fillRect(0,0,w,totalH);
+        let y=0;scaled.forEach(s=>{cx.drawImage(s.im,0,y,w,s.h);y+=s.h+gap;});
+        let out;try{out=cv.toDataURL("image/jpeg",0.82);}catch(e){out=srcs[0];}
+        resolve(out);
+      }
+    });
+  },
+  _readAll(files){return Promise.all([...files].map(f=>new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>res(null);r.readAsDataURL(f);})));},
+  async dtUploadPhoto(i,ev){
+    const files=[...ev.target.files];ev.target.value="";if(!files.length)return;
+    mark("added a table photo");
+    const srcs=(await App._readAll(files)).filter(Boolean);
+    if(!srcs.length)return;
+    const combined=srcs.length>1?await App._stackImages(srcs):srcs[0];
+    State.dataTables[i].photo=combined;State.dataTables[i].pages=srcs.length;
+    save();App.renderDataTables();toast(srcs.length>1?(srcs.length+" pages stitched into one"):"Table photo attached");
+  },
+  async dtAppendPhoto(i,ev){
+    const files=[...ev.target.files];ev.target.value="";if(!files.length)return;
+    const t=State.dataTables[i];if(!t.photo){return App.dtUploadPhoto(i,{target:{files,value:""}});}
+    mark("appended a table page");
+    const added=(await App._readAll(files)).filter(Boolean);
+    if(!added.length)return;
+    const combined=await App._stackImages([t.photo,...added]);
+    t.photo=combined;t.pages=(t.pages||1)+added.length;
+    save();App.renderDataTables();toast("Page"+(added.length>1?"s":"")+" appended - shown as one");
+  },
+  dtDelPhoto(i){mark("removed a table photo");State.dataTables[i].photo=null;State.dataTables[i].pages=0;save();App.renderDataTables();},
   dtAddRow(ti){const g=State.dataTables[ti].grid;const cols=g[0]?g[0].length:1;g.push(new Array(cols).fill(""));save();App.renderDataTables();},
   dtAddCol(ti){const g=State.dataTables[ti].grid;g.forEach(row=>row.push(""));if(!g.length)g.push([""]);save();App.renderDataTables();},
   dtDelRow(ti,r){const g=State.dataTables[ti].grid;if(g.length<=1)return;mark("deleted a table row");g.splice(r,1);save();App.renderDataTables();},
@@ -1777,11 +1871,18 @@ const App={
     const s=document.getElementById("datatables-slot");if(!s)return;const dts=State.dataTables||[];
     if(!dts.length){s.innerHTML=`<div class="empty" style="padding:18px">No tables yet. Use "Digitise table" or "Direct photo of table" below.</div>`;return;}
     s.innerHTML=dts.map((t,i)=>{
-      // ----- Direct photo of table -----
+      // ----- Direct photo of table (supports multi-page part lists stitched into one) -----
       if(t.type==="photo"){
         const photoBox=t.photo
-          ?`<div style="margin-top:8px;position:relative;display:inline-block"><img src="${t.photo}" style="max-width:100%;max-height:260px;border:1px solid var(--line2);border-radius:6px"/><button type="button" class="btn-danger" style="position:absolute;top:-6px;right:-6px;background:#0b1418;border-radius:50%;font-size:11px;padding:1px 5px" onclick="App.dtDelPhoto(${i})">✕</button></div>`
-          :`<div class="row-flex" style="margin-top:8px"><input type="file" id="dt-photo-${i}" accept="image/*" class="hidden" onchange="App.dtUploadPhoto(${i},event)"/><button class="btn-ghost btn-sm" onclick="document.getElementById('dt-photo-${i}').click()">🖼 Upload table photo (one)</button></div>`;
+          ?`<div style="margin-top:8px">
+              <div style="position:relative;display:inline-block"><img src="${t.photo}" style="max-width:100%;max-height:320px;border:1px solid var(--line2);border-radius:6px"/><button type="button" class="btn-danger" style="position:absolute;top:-6px;right:-6px;background:#0b1418;border-radius:50%;font-size:11px;padding:1px 5px" title="Remove this photo" onclick="App.dtDelPhoto(${i})">✕</button></div>
+              <div class="row-flex" style="margin-top:8px">
+                <input type="file" id="dt-append-${i}" accept="image/*" multiple class="hidden" onchange="App.dtAppendPhoto(${i},event)"/>
+                <button class="btn-ghost btn-sm" onclick="document.getElementById('dt-append-${i}').click()">➕ Append photo (next page)</button>
+                <span style="font-size:11px;color:var(--muted)">${t.pages?("Pages: "+t.pages):""} - appended pages are stitched below and shown as one</span>
+              </div>
+            </div>`
+          :`<div class="row-flex" style="margin-top:8px"><input type="file" id="dt-photo-${i}" accept="image/*" multiple class="hidden" onchange="App.dtUploadPhoto(${i},event)"/><button class="btn-ghost btn-sm" onclick="document.getElementById('dt-photo-${i}').click()">🖼 Upload table photo(s)</button><span style="font-size:11px;color:var(--muted)">for a multi-page part list, select several - they stitch into one</span></div>`;
         return `<div class="mtbl">
           <div class="mtbl-h"><input class="name" value="${E(t.title)}" placeholder="Table title (optional)..." oninput="App.dtTitle(${i},this.value)"/><span style="font-size:11px;color:var(--muted);margin:0 8px">Direct photo</span><button class="btn-danger" onclick="App.delDataTable(${i})">🗑 Remove</button></div>
           ${photoBox}
@@ -2173,6 +2274,89 @@ const App={
     </div>`;
   },
 
+  /* ---- Spell check (suggest-only; gates first download; re-runnable any time) ----
+     Checks the free text the engineer actually types - findings, actions, notes,
+     recommendations, history text, table titles - NOT the standardised library
+     activities. Only common-English errors; suggestions never auto-apply. */
+  _spellTargets(){
+    // returns [{path, label, get, set}] for each editable free-text field
+    const T=[];
+    (State.tables||[]).forEach((t,ti)=>{
+      T.push({label:"Item name", get:()=>t.name, set:v=>{t.name=v;}});
+      T.push({label:"Critical finding", get:()=>t.critical, set:v=>{t.critical=v;}});
+      T.push({label:"Suggested action", get:()=>t.action, set:v=>{t.action=v;}});
+      T.push({label:"Note", get:()=>t.note, set:v=>{t.note=v;}});
+      (t.rows||[]).forEach((r,ri)=>{ T.push({label:"Comment", get:()=>r.comment, set:v=>{r.comment=v;}}); });
+    });
+    (State.recs&&State.recs.bullets||[]).forEach((b,i)=>{ T.push({label:"Recommendation", get:()=>State.recs.bullets[i], set:v=>{State.recs.bullets[i]=v;}}); });
+    if(State.recs&&typeof State.recs.text==="string"&&State.recs.text.trim()) T.push({label:"Recommendations text", get:()=>State.recs.text, set:v=>{State.recs.text=v;}});
+    // history free-text (text/sub only, skip dropdowns/grids which are controlled values)
+    try{curHistory().forEach(block=>block.fields.forEach(f=>{
+      if(f.type==="text"){T.push({label:f.label, get:()=>State.history[f.k], set:v=>{State.history[f.k]=v;}});}
+      else if(f.type==="sub"){f.subs.forEach(su=>{T.push({label:su.label, get:()=>State.history[su.k], set:v=>{State.history[su.k]=v;}});});}
+    }));}catch(e){}
+    return T.filter(x=>{const v=x.get();return typeof v==="string"&&v.trim().length>1;});
+  },
+  async runSpellCheck(){
+    const btn=document.getElementById("spell-btn");
+    const slot=document.getElementById("spell-slot");
+    const targets=App._spellTargets();
+    if(!targets.length){State._spellChecked=true;save();App.refreshDownloadGate();slot.innerHTML=`<div class="gen" style="margin-top:12px"><b style="color:#7fd08a">✓ Nothing to check.</b> You can download.</div>`;return;}
+    if(btn){btn.disabled=true;btn.textContent="Checking...";}
+    // Build a numbered list of lines; ask the worker which have basic-English errors.
+    const lines=targets.map(t=>t.get());
+    let issues=[];
+    try{
+      const resp=await fetch(WORKER_URL+"/sentence-grammar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({report:lines.join("\n")})});
+      const data=await resp.json().catch(()=>({}));
+      if(data&&Array.isArray(data.issues))issues=data.issues;
+    }catch(e){}
+    if(btn){btn.disabled=false;btn.textContent="🔤 Run Spell Check";}
+    // map each returned issue (original->suggestion) back onto matching targets
+    App._spellFixes=[];
+    issues.forEach(is=>{
+      const orig=(is.original||"").trim(), sug=(is.suggestion||"").trim();
+      if(!orig||!sug||orig===sug||/unclear/i.test(sug))return;
+      targets.forEach((t,idx)=>{
+        const cur=(t.get()||"").trim();
+        if(cur===orig){App._spellFixes.push({idx,label:t.label,original:orig,suggestion:sug});}
+      });
+    });
+    State._spellChecked=true;save();App.refreshDownloadGate();
+    App._renderSpell(targets);
+  },
+  _renderSpell(targets){
+    const slot=document.getElementById("spell-slot");if(!slot)return;
+    const fixes=App._spellFixes||[];
+    if(!fixes.length){
+      slot.innerHTML=`<div class="gen" style="margin-top:12px"><b style="color:#7fd08a">✓ Spell check complete - no common spelling issues found.</b><div style="font-size:11.5px;color:var(--muted);margin-top:4px">Download is now unlocked. You can re-run this any time.</div></div>`;
+      return;
+    }
+    slot.innerHTML=`<div class="gen" style="margin-top:12px;border-color:rgba(232,160,32,.5)">
+      <h3 style="color:var(--amber)">🔤 Spell check - ${fixes.length} suggestion${fixes.length===1?"":"s"} <span style="font-size:10px;font-weight:400;color:var(--muted)">click a fix to apply it, or ignore it - nothing changes unless you click</span></h3>
+      <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">These look like everyday-English slips. Technical terms may occasionally appear here - just ignore those.</div>
+      ${fixes.map((f,i)=>`<div class="spell-row" id="spell-row-${i}">
+        <span class="spell-lbl">${E(f.label)}:</span>
+        <span class="spell-orig">${E(f.original)}</span>
+        <span style="color:var(--muted)">→</span>
+        <button class="spell-apply" onclick="App.applySpellFix(${i})">${E(f.suggestion)}</button>
+        <button class="spell-ignore" onclick="App.ignoreSpellFix(${i})">ignore</button>
+      </div>`).join("")}
+      <div style="font-size:11.5px;color:#7fd08a;margin-top:8px">Download is unlocked - address these or leave them, your call.</div>
+    </div>`;
+  },
+  applySpellFix(i){
+    const f=(App._spellFixes||[])[i];if(!f)return;
+    const targets=App._spellTargets();
+    const t=targets[f.idx];
+    if(t&&(t.get()||"").trim()===f.original){mark("applied a spelling fix");t.set(f.suggestion);save();
+      App.renderBuilder();App.renderGenerated&&App.renderGenerated();
+    }
+    const row=document.getElementById("spell-row-"+i);if(row){row.style.opacity="0.45";row.innerHTML=`<span class="spell-lbl">${E(f.label)}:</span> <span style="color:#7fd08a">✓ applied "${E(f.suggestion)}"</span>`;}
+  },
+  ignoreSpellFix(i){
+    const row=document.getElementById("spell-row-"+i);if(row){row.style.opacity="0.45";const f=(App._spellFixes||[])[i];row.innerHTML=`<span class="spell-lbl">${E(f?f.label:"")}:</span> <span style="color:var(--muted)">ignored</span>`;}
+  },
   async downloadReport(){
     const s2=State.signoff||{};
     if(!App.hasRecInput()){toast("Add written or spoken recommendations before downloading");const rc=document.getElementById("recs-card");if(rc)rc.scrollIntoView({behavior:"smooth",block:"center"});return;}
