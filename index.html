@@ -821,17 +821,17 @@ async function draftDelete(owner,kind,id){
 // Friendly date + "auto-deletes on ..." helpers for the tiles.
 function fmtWhen(ms){if(!ms)return "";const d=new Date(ms);return d.toLocaleDateString([], {day:"2-digit",month:"short"})+" "+d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});}
 function fmtExpiry(ms){if(!ms)return "";const d=new Date(ms);const days=Math.max(0,Math.ceil((ms-Date.now())/(24*60*60*1000)));return "Auto-deletes on "+d.toLocaleDateString([], {day:"2-digit",month:"short"})+" ("+days+" day"+(days===1?"":"s")+" left)";}
-// Live reverse countdown "2d 04:17:33" -> ticks to 00:00:00 at the deletion deadline.
+// Live countdown to the deletion deadline, shown as total hours : mins : secs
+// (e.g. 4 days left -> "96 hours 55 mins 30 seconds"), which reads clearly.
 function fmtCountdown(ms){
   if(!ms)return "";
   let left=Math.max(0,ms-Date.now());
-  if(left<=0)return "00:00:00 - deleting";
-  const d=Math.floor(left/86400000);left-=d*86400000;
-  const h=Math.floor(left/3600000);left-=h*3600000;
-  const m=Math.floor(left/60000);left-=m*60000;
-  const s=Math.floor(left/1000);
-  const p=n=>String(n).padStart(2,"0");
-  return (d>0?(d+"d "):"")+p(h)+":"+p(m)+":"+p(s);
+  if(left<=0)return "0 hours 0 mins 0 seconds - deleting";
+  const totalSec=Math.floor(left/1000);
+  const h=Math.floor(totalSec/3600);
+  const m=Math.floor((totalSec%3600)/60);
+  const s=totalSec%60;
+  return h+" hour"+(h===1?"":"s")+" "+m+" min"+(m===1?"":"s")+" "+s+" second"+(s===1?"":"s");
 }
 let SM_USER=null; // signed-in service manager for base data
 let BD_MEMBERS=[]; // member list buffer for the base data form
@@ -1076,7 +1076,7 @@ const App={
           <div class="dt-code">${E(d.code||"(no code)")}${d.customer?` <span style="color:var(--muted);font-weight:400;font-size:12px">· ${E(d.customer)}</span>`:""}</div>
           <div class="dt-meta">${E(d.engine||"")}${d.engine?" · ":""}Last edited ${E(fmtWhen(d.updated))}</div>
           <div class="dt-expiry">${E(fmtExpiry(d.expiresAt))}</div>
-          <div class="dt-count" data-exp="${d.expiresAt||0}" style="font-size:12px;font-weight:700;color:#ff8a8a;margin-top:2px;font-variant-numeric:tabular-nums">⏳ ${E(fmtCountdown(d.expiresAt))}</div>
+          <div class="dt-count" data-exp="${d.expiresAt||0}" style="font-size:12px;font-weight:700;color:#ff8a8a;margin-top:2px;font-variant-numeric:tabular-nums">Time left - ${E(fmtCountdown(d.expiresAt))}</div>
         </div>
         <button class="btn-danger" title="Delete this draft" onclick="App.deleteDraft('${kind}','${E(d.id)}')">🗑</button>
       </div>`).join("");
@@ -1097,7 +1097,7 @@ const App={
       if(!els.length){clearInterval(App._cdTimer);App._cdTimer=null;return;}
       const fetchScreen=document.getElementById("screen-fetch");
       if(!fetchScreen||fetchScreen.classList.contains("hidden")){clearInterval(App._cdTimer);App._cdTimer=null;return;}
-      els.forEach(el=>{const exp=parseInt(el.getAttribute("data-exp"),10)||0;el.textContent="⏳ "+fmtCountdown(exp);});
+      els.forEach(el=>{const exp=parseInt(el.getAttribute("data-exp"),10)||0;el.textContent="Time left - "+fmtCountdown(exp);});
     };
     tick();App._cdTimer=setInterval(tick,1000);
   },
@@ -2475,7 +2475,14 @@ ${text}`;
   },
   _ensureDocxLib(){
     const load=src=>new Promise((res,rej)=>{if([...document.scripts].some(s=>s.src===src))return res();const s=document.createElement("script");s.src=src;s.onload=()=>res();s.onerror=()=>rej(new Error("fail "+src));document.head.appendChild(s);});
-    return (async()=>{ if(!window.docx)await load("https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"); })();
+    return (async()=>{
+      if(window.docx)return;
+      // The browser UMD build is build/index.umd.js and exposes window.docx.
+      // Try jsDelivr first, fall back to unpkg if it is blocked.
+      try{ await load("https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"); }
+      catch(e){ await load("https://unpkg.com/docx@8.5.0/build/index.umd.js"); }
+      if(!window.docx)throw new Error("Word library did not load");
+    })();
   },
   // Compress an image data URL to a JPEG (bounded size) and return {dataUrl,w,h,bytes(Uint8Array)}.
   _imgForDocx(src,maxDim,q){
