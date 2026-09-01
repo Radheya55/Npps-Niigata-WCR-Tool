@@ -341,7 +341,8 @@ textarea{resize:vertical;min-height:38px}
   <div id="spell-slot"></div>
   <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
     <button class="btn-amber spell-btn" id="spell-btn" onclick="App.runSpellCheck()">🔤 Run Spell Check</button>
-    <button class="btn dl-btn" onclick="App.downloadReport()">⬇ Download Report</button>
+    <button class="btn dl-btn" onclick="App.downloadReport()">⬇ Download PDF</button>
+    <button class="btn dl-btn" onclick="App.downloadWord()" style="background:#2b5797">⬇ Download Word</button>
     <button class="btn-ghost" onclick="App.showHome()">⌂ Home</button>
   </div>
 </div>
@@ -820,6 +821,18 @@ async function draftDelete(owner,kind,id){
 // Friendly date + "auto-deletes on ..." helpers for the tiles.
 function fmtWhen(ms){if(!ms)return "";const d=new Date(ms);return d.toLocaleDateString([], {day:"2-digit",month:"short"})+" "+d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});}
 function fmtExpiry(ms){if(!ms)return "";const d=new Date(ms);const days=Math.max(0,Math.ceil((ms-Date.now())/(24*60*60*1000)));return "Auto-deletes on "+d.toLocaleDateString([], {day:"2-digit",month:"short"})+" ("+days+" day"+(days===1?"":"s")+" left)";}
+// Live reverse countdown "2d 04:17:33" -> ticks to 00:00:00 at the deletion deadline.
+function fmtCountdown(ms){
+  if(!ms)return "";
+  let left=Math.max(0,ms-Date.now());
+  if(left<=0)return "00:00:00 - deleting";
+  const d=Math.floor(left/86400000);left-=d*86400000;
+  const h=Math.floor(left/3600000);left-=h*3600000;
+  const m=Math.floor(left/60000);left-=m*60000;
+  const s=Math.floor(left/1000);
+  const p=n=>String(n).padStart(2,"0");
+  return (d>0?(d+"d "):"")+p(h)+":"+p(m)+":"+p(s);
+}
 let SM_USER=null; // signed-in service manager for base data
 let BD_MEMBERS=[]; // member list buffer for the base data form
 let BD_EDITING=null; // project code currently being edited (null = new)
@@ -1063,6 +1076,7 @@ const App={
           <div class="dt-code">${E(d.code||"(no code)")}${d.customer?` <span style="color:var(--muted);font-weight:400;font-size:12px">· ${E(d.customer)}</span>`:""}</div>
           <div class="dt-meta">${E(d.engine||"")}${d.engine?" · ":""}Last edited ${E(fmtWhen(d.updated))}</div>
           <div class="dt-expiry">${E(fmtExpiry(d.expiresAt))}</div>
+          <div class="dt-count" data-exp="${d.expiresAt||0}" style="font-size:12px;font-weight:700;color:#ff8a8a;margin-top:2px;font-variant-numeric:tabular-nums">⏳ ${E(fmtCountdown(d.expiresAt))}</div>
         </div>
         <button class="btn-danger" title="Delete this draft" onclick="App.deleteDraft('${kind}','${E(d.id)}')">🗑</button>
       </div>`).join("");
@@ -1073,6 +1087,19 @@ const App={
     }
     hw.querySelector(".draft-empty").outerHTML=tiles(res.halfway,"halfway");
     dl.querySelector(".draft-empty").outerHTML=tiles(res.downloaded,"downloaded");
+    App._startCountdowns();
+  },
+  // tick every second: update each tile's live countdown to its deletion deadline
+  _startCountdowns(){
+    if(App._cdTimer)clearInterval(App._cdTimer);
+    const tick=()=>{
+      const els=document.querySelectorAll(".dt-count");
+      if(!els.length){clearInterval(App._cdTimer);App._cdTimer=null;return;}
+      const fetchScreen=document.getElementById("screen-fetch");
+      if(!fetchScreen||fetchScreen.classList.contains("hidden")){clearInterval(App._cdTimer);App._cdTimer=null;return;}
+      els.forEach(el=>{const exp=parseInt(el.getAttribute("data-exp"),10)||0;el.textContent="⏳ "+fmtCountdown(exp);});
+    };
+    tick();App._cdTimer=setInterval(tick,1000);
   },
   async openDraft(kind,id){
     const owner=draftOwner();if(!owner)return;
@@ -2303,43 +2330,75 @@ const App={
     const targets=App._spellTargets();
     if(!targets.length){State._spellChecked=true;save();App.refreshDownloadGate();slot.innerHTML=`<div class="gen" style="margin-top:12px"><b style="color:#7fd08a">✓ Nothing to check.</b> You can download.</div>`;return;}
     if(btn){btn.disabled=true;btn.textContent="Checking...";}
-    // Build a numbered list of lines; ask the worker which have basic-English errors.
-    const lines=targets.map(t=>t.get());
-    let issues=[];
-    try{
-      const resp=await fetch(WORKER_URL+"/sentence-grammar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({report:lines.join("\n")})});
-      const data=await resp.json().catch(()=>({}));
-      if(data&&Array.isArray(data.issues))issues=data.issues;
-    }catch(e){}
-    if(btn){btn.disabled=false;btn.textContent="🔤 Run Spell Check";}
-    // map each returned issue (original->suggestion) back onto matching targets
+    if(slot)slot.innerHTML=`<div class="gen" style="margin-top:12px"><span style="color:var(--amber)">⏳ Checking spelling and basic grammar...</span></div>`;
     App._spellFixes=[];
-    issues.forEach(is=>{
-      const orig=(is.original||"").trim(), sug=(is.suggestion||"").trim();
-      if(!orig||!sug||orig===sug||/unclear/i.test(sug))return;
-      targets.forEach((t,idx)=>{
-        const cur=(t.get()||"").trim();
-        if(cur===orig){App._spellFixes.push({idx,label:t.label,original:orig,suggestion:sug});}
-      });
-    });
+    // Check each field separately so we can map word-level fixes back precisely.
+    // Fields are checked in small concurrent batches to stay responsive.
+    const jobs=targets.map((t,idx)=>({idx,label:t.label,text:t.get()}));
+    const BATCH=6;
+    for(let i=0;i<jobs.length;i+=BATCH){
+      const slice=jobs.slice(i,i+BATCH);
+      await Promise.all(slice.map(async job=>{
+        const fixes=await App._spellCheckField(job.text);
+        fixes.forEach(fx=>{
+          // only keep fixes whose 'wrong' text is actually present in the field
+          if(job.text.indexOf(fx.wrong)>-1 && fx.wrong!==fx.right){
+            App._spellFixes.push({idx:job.idx,label:job.label,wrong:fx.wrong,right:fx.right});
+          }
+        });
+      }));
+    }
+    // de-duplicate identical (idx,wrong,right)
+    const seen=new Set();App._spellFixes=App._spellFixes.filter(f=>{const k=f.idx+"|"+f.wrong+"|"+f.right;if(seen.has(k))return false;seen.add(k);return true;});
+    if(btn){btn.disabled=false;btn.textContent="🔤 Run Spell Check";}
     State._spellChecked=true;save();App.refreshDownloadGate();
-    App._renderSpell(targets);
+    App._renderSpell();
   },
-  _renderSpell(targets){
+  // Ask the worker (grammar route) for word/phrase-level corrections in ONE field.
+  // Returns [{wrong, right}] - only clear everyday-English spelling/grammar slips.
+  async _spellCheckField(text){
+    if(!text||!text.trim()||text.trim().length<2)return [];
+    const prompt=`You are a careful spelling and basic-grammar checker for a marine engineering report written by non-native English speakers. Look at the text and find ONLY clear, everyday-English mistakes:
+- misspelled ordinary words (e.g. "th"->"the", "guaidlines"/"guidlines"->"guidelines", "recieved"->"received", "tightend"->"tightened")
+- obvious wrong verb form / tense (e.g. "we tight all nuts"->"we tightened all nuts", "was inspect"->"was inspected")
+- clearly missing small words that break grammar (e.g. "as per OEM guideline"->keep; only if truly broken)
+STRICT RULES:
+- DO NOT flag technical terms, part names, abbreviations, model numbers, units, or measurements. If a word looks like jargon or a part name, LEAVE IT ALONE.
+- DO NOT rephrase, reword, restructure, shorten, or improve style. Only fix outright spelling and clear grammar errors.
+- If you are unsure whether something is a real error, DO NOT flag it.
+- Preserve numbers, capitalisation of proper nouns, and technical meaning.
+Return ONLY valid JSON, no markdown, listing each correction as the exact wrong substring and its replacement:
+{ "fixes": [ { "wrong": "<exact text as it appears>", "right": "<corrected text>" } ] }
+If there are no clear errors, return { "fixes": [] }.
+
+TEXT:
+${text}`;
+    try{
+      const resp=await fetch(WORKER_URL+"/grammar-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:prompt})});
+      const data=await resp.json().catch(()=>({}));
+      // grammar-check returns { suggestions:[...] }; but our prompt asks for {fixes:[...]}.
+      // The route passes our prompt to the model and returns parsed JSON - support both shapes.
+      let arr=[];
+      if(data&&Array.isArray(data.fixes))arr=data.fixes;
+      else if(data&&Array.isArray(data.suggestions))arr=data.suggestions.map(s=>({wrong:s.original,right:s.suggestion}));
+      return (arr||[]).map(x=>({wrong:(x.wrong||"").toString(),right:(x.right||"").toString()})).filter(x=>x.wrong&&x.right);
+    }catch(e){return [];}
+  },
+  _renderSpell(){
     const slot=document.getElementById("spell-slot");if(!slot)return;
     const fixes=App._spellFixes||[];
     if(!fixes.length){
-      slot.innerHTML=`<div class="gen" style="margin-top:12px"><b style="color:#7fd08a">✓ Spell check complete - no common spelling issues found.</b><div style="font-size:11.5px;color:var(--muted);margin-top:4px">Download is now unlocked. You can re-run this any time.</div></div>`;
+      slot.innerHTML=`<div class="gen" style="margin-top:12px"><b style="color:#7fd08a">✓ Spell check complete - no common spelling or grammar issues found.</b><div style="font-size:11.5px;color:var(--muted);margin-top:4px">Download is now unlocked. You can re-run this any time.</div></div>`;
       return;
     }
     slot.innerHTML=`<div class="gen" style="margin-top:12px;border-color:rgba(232,160,32,.5)">
-      <h3 style="color:var(--amber)">🔤 Spell check - ${fixes.length} suggestion${fixes.length===1?"":"s"} <span style="font-size:10px;font-weight:400;color:var(--muted)">click a fix to apply it, or ignore it - nothing changes unless you click</span></h3>
-      <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">These look like everyday-English slips. Technical terms may occasionally appear here - just ignore those.</div>
+      <h3 style="color:var(--amber)">🔤 Spell check - ${fixes.length} suggestion${fixes.length===1?"":"s"} <span style="font-size:10px;font-weight:400;color:var(--muted)">click the green fix to apply it, or ignore - nothing changes unless you click</span></h3>
+      <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">Everyday-English slips only. A technical term may occasionally appear here - just ignore those. Nothing is ever changed automatically.</div>
       ${fixes.map((f,i)=>`<div class="spell-row" id="spell-row-${i}">
         <span class="spell-lbl">${E(f.label)}:</span>
-        <span class="spell-orig">${E(f.original)}</span>
+        <span class="spell-orig">${E(f.wrong)}</span>
         <span style="color:var(--muted)">→</span>
-        <button class="spell-apply" onclick="App.applySpellFix(${i})">${E(f.suggestion)}</button>
+        <button class="spell-apply" onclick="App.applySpellFix(${i})">${E(f.right)}</button>
         <button class="spell-ignore" onclick="App.ignoreSpellFix(${i})">ignore</button>
       </div>`).join("")}
       <div style="font-size:11.5px;color:#7fd08a;margin-top:8px">Download is unlocked - address these or leave them, your call.</div>
@@ -2349,13 +2408,18 @@ const App={
     const f=(App._spellFixes||[])[i];if(!f)return;
     const targets=App._spellTargets();
     const t=targets[f.idx];
-    if(t&&(t.get()||"").trim()===f.original){mark("applied a spelling fix");t.set(f.suggestion);save();
-      App.renderBuilder();App.renderGenerated&&App.renderGenerated();
+    if(t){const cur=t.get()||"";
+      if(cur.indexOf(f.wrong)>-1){mark("applied a spelling fix");
+        // replace only the FIRST occurrence of the wrong span
+        const pos=cur.indexOf(f.wrong);
+        const next=cur.slice(0,pos)+f.right+cur.slice(pos+f.wrong.length);
+        t.set(next);save();App.renderBuilder();App.renderGenerated&&App.renderGenerated();
+      }
     }
-    const row=document.getElementById("spell-row-"+i);if(row){row.style.opacity="0.45";row.innerHTML=`<span class="spell-lbl">${E(f.label)}:</span> <span style="color:#7fd08a">✓ applied "${E(f.suggestion)}"</span>`;}
+    const row=document.getElementById("spell-row-"+i);if(row){row.style.opacity="0.5";row.innerHTML=`<span class="spell-lbl">${E(f.label)}:</span> <span style="color:#7fd08a">✓ applied "${E(f.right)}"</span>`;}
   },
   ignoreSpellFix(i){
-    const row=document.getElementById("spell-row-"+i);if(row){row.style.opacity="0.45";const f=(App._spellFixes||[])[i];row.innerHTML=`<span class="spell-lbl">${E(f?f.label:"")}:</span> <span style="color:var(--muted)">ignored</span>`;}
+    const row=document.getElementById("spell-row-"+i);if(row){row.style.opacity="0.5";const f=(App._spellFixes||[])[i];row.innerHTML=`<span class="spell-lbl">${E(f?f.label:"")}:</span> <span style="color:var(--muted)">ignored</span>`;}
   },
   async downloadReport(){
     const s2=State.signoff||{};
@@ -2407,6 +2471,226 @@ const App={
       // if it had been a halfway draft, remove that halfway entry (it's no longer halfway)
       if(prevKind==="halfway"&&prevId){try{await draftDelete(owner,"halfway",prevId);}catch(e){}}
       toast("Saved to your Downloaded drafts");
+    }
+  },
+  _ensureDocxLib(){
+    const load=src=>new Promise((res,rej)=>{if([...document.scripts].some(s=>s.src===src))return res();const s=document.createElement("script");s.src=src;s.onload=()=>res();s.onerror=()=>rej(new Error("fail "+src));document.head.appendChild(s);});
+    return (async()=>{ if(!window.docx)await load("https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"); })();
+  },
+  // Compress an image data URL to a JPEG (bounded size) and return {dataUrl,w,h,bytes(Uint8Array)}.
+  _imgForDocx(src,maxDim,q){
+    return new Promise(res=>{ if(!src)return res(null);
+      const im=new Image();im.onload=()=>{let w=im.naturalWidth,h=im.naturalHeight;const sc=Math.min(1,maxDim/Math.max(w,h));w=Math.max(1,Math.round(w*sc));h=Math.max(1,Math.round(h*sc));
+        const cv=document.createElement("canvas");cv.width=w;cv.height=h;const cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,w,h);cx.drawImage(im,0,0,w,h);
+        let url;try{url=cv.toDataURL("image/jpeg",q||0.8);}catch(e){return res(null);}
+        // to bytes
+        const b64=url.split(",")[1];const bin=atob(b64);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+        res({dataUrl:url,w,h,bytes});
+      };im.onerror=()=>res(null);im.src=src;});
+  },
+  async _buildDocx(){
+    await App._ensureDocxLib();
+    const D=window.docx;
+    const {Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,WidthType,BorderStyle,AlignmentType,ShadingType,ImageRun}=D;
+    const b=State.base||{}, cfg=engCfg();
+    // palette
+    const NAVY="1F3864",TEAL="0D7A86",RED="C0392B",OLIVE="6B8E23",DARK="141414",LBLBG="EEF4F5";
+    const CW=9026; // content width (DXA) for A4 with 1in margins
+    const px=n=>Math.floor(CW*n);
+    const cell=(text,o)=>{o=o||{};const runs=(Array.isArray(text)?text:[text]).map(t=>t instanceof TextRun?t:new TextRun({text:String(t==null?"":t),bold:o.bold,color:o.color,italics:o.italics,size:o.size||18}));
+      return new TableCell({width:{size:o.w||CW,type:WidthType.DXA},columnSpan:o.span||undefined,verticalAlign:"center",
+        shading:o.fill?{type:ShadingType.CLEAR,fill:o.fill,color:"auto"}:undefined,
+        margins:{top:40,bottom:40,left:80,right:80},
+        children:[new Paragraph({alignment:o.align||AlignmentType.LEFT,children:runs})]});};
+    const multiCell=(text,o)=>{o=o||{};const runs=String(text||"").split("\n").map((ln,i)=>new TextRun({text:ln,bold:o.bold,color:o.color,size:o.size||18,break:i>0?1:0}));
+      return new TableCell({width:{size:o.w||CW,type:WidthType.DXA},columnSpan:o.span||undefined,margins:{top:40,bottom:40,left:80,right:80},
+        shading:o.fill?{type:ShadingType.CLEAR,fill:o.fill,color:"auto"}:undefined,
+        children:[new Paragraph({children:runs})]});};
+    const H=t=>new Paragraph({spacing:{before:260,after:120},border:{bottom:{color:"CCCCCC",space:2,style:BorderStyle.SINGLE,size:6}},children:[new TextRun({text:t,bold:true,color:TEAL,size:26})]});
+    const P=(t,o)=>{o=o||{};return new Paragraph({spacing:{after:o.after==null?60:o.after},indent:o.indent?{left:o.indent}:undefined,alignment:o.align,children:(Array.isArray(t)?t:[new TextRun({text:String(t||""),bold:o.bold,color:o.color||DARK,italics:o.italics,size:o.size||20})])});};
+    const tbl=(widths,rows)=>new Table({width:{size:CW,type:WidthType.DXA},columnWidths:widths,rows});
+    const kids=[];
+
+    // ---- Title ----
+    kids.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:80},children:[new TextRun({text:"Work Completion Report",bold:true,color:NAVY,size:40})]}));
+    if(b.customer)kids.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:160},children:[new TextRun({text:b.customer,color:"5A5A5A",size:22})]}));
+
+    // ---- Cover photo ----
+    if(State.cover){const im=await App._imgForDocx(State.cover,1100,0.75);if(im){let w=430,h=Math.round(w*im.h/im.w);if(h>300){h=300;w=Math.round(h*im.w/im.h);}
+      kids.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:160},children:[new ImageRun({type:"jpg",data:im.bytes,transformation:{width:w,height:h}})]}));}}
+
+    // ---- Project Details ----
+    kids.push(H("Project Details"));
+    const engTxt=((b.engine||"NIIGATA")+(b.model?(" "+b.model):"")).trim();
+    const kv=[["Project Code",b.code],["Customer",b.customer]];
+    if(cfg.fields.contract)kv.push(["Contract No.",b.contract]);
+    if(cfg.fields.vessel)kv.push(["Vessel/Rig",b.vessel]);
+    kv.push(["Start Date",b.start],[cfg.labels.end,b.end],[cfg.labels.job,b.overhaul],["Engine Make & Model",engTxt],["Serial",b.serial],[cfg.labels.arr,b.arr],["RPM & Capacity",b.rpm],["Running Hours",b.hours],["Customer In-Charge",b.custic],["Team Leader",b.leader],["Members",(b.membersList&&b.membersList.length)?b.membersList.join(", "):(b.members||"")]);
+    // only rows whose field still exists on this draft's base (deleted fields dropped)
+    const shown=kv.filter(([label,val])=> val!==undefined );
+    const lblW=px(0.17),valW=px(0.33);
+    const kvRows=[];
+    for(let i=0;i<shown.length;i+=2){const a=shown[i],c=shown[i+1];
+      const cells=[cell(a[0],{bold:true,fill:LBLBG,w:lblW}),cell(a[1]||"-",{w:valW})];
+      if(c){cells.push(cell(c[0],{bold:true,fill:LBLBG,w:lblW}));cells.push(cell(c[1]||"-",{w:valW}));}
+      else{cells.push(cell("",{w:lblW}));cells.push(cell("",{w:valW}));}
+      kvRows.push(new TableRow({children:cells}));}
+    if(kvRows.length)kids.push(tbl([lblW,valW,lblW,valW],kvRows));
+
+    // ---- Executive Summary ----
+    const exec=State.tables.filter(t=>(t.critical||"").trim()).map(t=>({name:t.name,crit:t.critical.trim(),act:(t.action||"").trim()}));
+    if(exec.length){ kids.push(H("Executive Summary"));
+      exec.forEach((f,i)=>{
+        const rows=[new TableRow({tableHeader:true,children:[cell((i+1)+".  "+(f.name||"-"),{bold:true,color:"FFFFFF",fill:NAVY,span:2,w:CW,size:20})]})];
+        rows.push(new TableRow({children:[cell("Critical finding or technical anomaly",{bold:true,color:RED,w:px(0.32)}),multiCell(f.crit||"-",{bold:true,w:px(0.68)})]}));
+        if(f.act)rows.push(new TableRow({children:[cell("Suggested action",{bold:true,color:OLIVE,w:px(0.32)}),multiCell(f.act,{bold:true,color:OLIVE,w:px(0.68)})]}));
+        kids.push(tbl([px(0.32),px(0.68)],rows));
+        kids.push(P("",{after:80}));
+      });
+    }
+
+    // ---- History ----
+    kids.push(H("History"));
+    const hrows=[];const grids=[];
+    curHistory().forEach(bl=>bl.fields.forEach(f=>{
+      if(f.type==="sub")f.subs.forEach(su=>{if(State.history[su.k])hrows.push([f.label+" - "+su.label,State.history[su.k]]);});
+      else if(f.type==="grid"){const vals=f.cols.map((cn,ci)=>State.history[f.k+"__"+ci]||"");if(vals.some(v=>v))grids.push({label:f.label,cols:f.cols,vals});}
+      else if(State.history[f.k])hrows.push([f.label,State.history[f.k]]);
+    }));
+    if(hrows.length){kids.push(tbl([px(0.4),px(0.6)],hrows.map(r=>new TableRow({children:[cell(r[0],{bold:true,fill:LBLBG,w:px(0.4)}),cell(r[1],{w:px(0.6)})]}))));}
+    else if(!grids.length)kids.push(P("No history recorded.",{color:"5A5A5A"}));
+    grids.forEach(g=>{kids.push(P(g.label,{bold:true,after:40}));
+      const hdr=new TableRow({tableHeader:true,children:g.cols.map(cn=>cell(cn,{bold:true,fill:LBLBG,w:Math.floor(CW/g.cols.length),align:AlignmentType.CENTER}))});
+      const vr=new TableRow({children:g.vals.map(v=>cell(v||"-",{w:Math.floor(CW/g.cols.length),align:AlignmentType.CENTER}))});
+      kids.push(tbl(g.cols.map(()=>Math.floor(CW/g.cols.length)),[hdr,vr]));kids.push(P("",{after:60}));});
+
+    // ---- Scope of Work ----
+    const sg=computeScopeGroups(State.tables);
+    const anyScope=sg.imperative.length||sg.notDone.length||sg.partial.length||sg.additional.length;
+    if(anyScope){ kids.push(H("Scope of Work"));
+      const grp=(title,arr,color)=>{ if(!arr.length)return; kids.push(P(title,{bold:true,color:color||TEAL,after:60}));
+        arr.forEach(sc=>{ kids.push(P(sc.name,{bold:true,after:20}));
+          sc.acts.forEach(a=>kids.push(new Paragraph({bullet:{level:0},spacing:{after:20},children:[new TextRun({text:a,size:20})]})) );
+          kids.push(P("",{after:60})); }); };
+      grp("Work carried out under this scope",sg.imperative,TEAL);
+      grp("In scope, not carried out",sg.notDone,RED);
+      grp("In scope, partially carried out",sg.partial,"B8860B");
+      grp("Additional tasks carried out (beyond scope)",sg.additional,NAVY);
+    }
+
+    // ---- Schedule of Maintenance + Mandays (EMD/CAT only, optional) ----
+    if(engOf()!=="NIIGATA"){
+      const sch=State.schedule;
+      if(sch&&sch.rows&&sch.rows.length){ kids.push(H("Schedule of Maintenance"));
+        const n=sch.cols.length+1;const w0=px(0.4);const wc=Math.floor((CW-w0)/(n-1));
+        const widths=[w0].concat(sch.cols.map(()=>wc));
+        const hdr=new TableRow({tableHeader:true,children:[cell("Activity",{bold:true,color:"FFFFFF",fill:TEAL,w:w0})].concat(sch.cols.map(c=>cell(String(c),{bold:true,color:"FFFFFF",fill:TEAL,w:wc,align:AlignmentType.CENTER})))});
+        const rows=sch.rows.map(r=>new TableRow({children:[cell(r.label,{bold:true,fill:LBLBG,w:w0})].concat(r.cells.map(c=>cell(c||"",{w:wc,align:AlignmentType.CENTER,fill:c?"E8A020":undefined})))}));
+        kids.push(tbl(widths,[hdr,...rows]));
+      }
+      const md=State.mandays;
+      if(md&&md.rows&&md.rows.length){ kids.push(H("Mandays"));
+        kids.push(tbl([px(0.6),px(0.4)],[new TableRow({tableHeader:true,children:[cell("Mandays",{bold:true,color:"FFFFFF",fill:TEAL,span:2,w:CW,align:AlignmentType.CENTER})]})].concat(
+          md.rows.map(r=>new TableRow({children:[cell(r.label,{bold:true,fill:LBLBG,w:px(0.6)}),cell(r.value||"",{w:px(0.4)})]})))));
+        kids.push(P("Note: All days to be calendar day basis.",{italics:true,color:"5A5A5A",size:16,after:120}));
+      }
+    }
+
+    // ---- Maintenance Summary ----
+    kids.push(H("Maintenance Summary"));
+    const OPT=OPT_ORDER;
+    State.tables.forEach(t=>{
+      const rowCols=r=>Array.isArray(r.cols)?r.cols:OPT_BASE.slice();
+      const active=OPT.filter(ck=>t.rows.some(r=>rowCols(r).indexOf(ck)>-1));
+      const nCol=3+active.length+1;
+      // proportional widths
+      const wAct=px(0.40),wSc=px(0.10),wSt=px(0.14),wCom=px(0.14);
+      const optW=active.length?Math.floor((CW-wAct-wSc-wSt-wCom)/active.length):0;
+      const widths=[wAct,wSc,wSt].concat(active.map(()=>optW)).concat([wCom]);
+      const head=new TableRow({tableHeader:true,children:[cell(t.name||"-",{bold:true,color:"FFFFFF",fill:TEAL,span:nCol,w:CW,size:20})]});
+      const chdr=new TableRow({tableHeader:true,children:[cell("Activity",{bold:true,fill:LBLBG,w:wAct}),cell("In Scope",{bold:true,fill:LBLBG,w:wSc}),cell("Status",{bold:true,fill:LBLBG,w:wSt})].concat(active.map(ck=>cell(COLDEF[ck].label,{bold:true,fill:LBLBG,w:optW}))).concat([cell("Comment",{bold:true,fill:LBLBG,w:wCom})])});
+      const withRows=[],woRows=[];
+      t.rows.forEach(r=>{(rowCols(r).some(c=>active.indexOf(c)>-1)?withRows:woRows).push(r);});
+      const mkRow=r=>{
+        const usesAny=rowCols(r).some(c=>active.indexOf(c)>-1);
+        const base=[multiCell(r.activity||"",{w:wAct}),cell(r.inScope||"",{w:wSc}),cell(r.status||"",{w:wSt})];
+        if(active.length){
+          if(usesAny){active.forEach(ck=>base.push(cell(rowCols(r).indexOf(ck)>-1?(r[ck]||""):"-",{w:optW})));base.push(cell(r.comment||"",{w:wCom}));}
+          else{base.push(new TableCell({width:{size:optW*active.length+wCom,type:WidthType.DXA},columnSpan:active.length+1,margins:{top:40,bottom:40,left:80,right:80},children:[new Paragraph({children:[new TextRun({text:r.comment||"",size:18})]})]}));}
+        } else { base.push(cell(r.comment||"",{w:wCom})); }
+        return new TableRow({children:base});
+      };
+      const bodyRows=withRows.map(mkRow).concat(woRows.map(mkRow));
+      kids.push(tbl(widths,[head,chdr,...bodyRows]));
+      if(t.critical)kids.push(P("Critical finding: "+String(t.critical).replace(/\n/g," "),{bold:true,color:RED,after:20}));
+      if(t.action)kids.push(P("Suggested action: "+t.action,{color:OLIVE,after:120}));
+      else kids.push(P("",{after:80}));
+    });
+
+    // ---- Overall Recommendations ----
+    const recB=(State.recs&&State.recs.bullets&&State.recs.bullets.length)?State.recs.bullets:((State.recs&&State.recs.text&&State.recs.text.trim())?State.recs.text.split(/\n|(?<=\.)\s+/).map(s=>s.trim()).filter(Boolean):[]);
+    if(recB.length){ kids.push(H("Overall Recommendations"));
+      recB.forEach(x=>kids.push(new Paragraph({bullet:{level:0},spacing:{after:40},children:[new TextRun({text:x,size:20})]})) );
+    }
+
+    // ---- Photo Gallery ----
+    const photos=State.photos||[];
+    if(photos.length){ kids.push(H("Photo Gallery"));
+      for(let i=0;i<photos.length;i++){const p=photos[i];const im=await App._imgForDocx(p.img,900,0.7);
+        if(im){let w=300,h=Math.round(w*im.h/im.w);if(h>230){h=230;w=Math.round(h*im.w/im.h);}
+          kids.push(new Paragraph({spacing:{before:80,after:20},children:[new ImageRun({type:"jpg",data:im.bytes,transformation:{width:w,height:h}})]}));}
+        kids.push(P([new TextRun({text:(i+1)+". "+(p.title||"Untitled"),bold:true,color:NAVY,size:18})],{after:10}));
+        if(p.desc)kids.push(P(p.desc,{size:18,after:10}));
+        if(p.refItem&&p.refAct)kids.push(P("Reference to "+p.refItem+". Activity - "+p.refAct,{italics:true,color:OLIVE,size:16,after:80}));
+      }
+    }
+
+    // ---- Tables (from images) ----
+    const dts=(State.dataTables||[]).filter(t=>(t.grid&&t.grid.length)||t.photo);
+    if(dts.length){ kids.push(H("Tables"));
+      for(const t of dts){
+        if(t.title)kids.push(P(t.title,{bold:true,after:40}));
+        if(t.photo){const im=await App._imgForDocx(t.photo,1200,0.78);if(im){let w=430,h=Math.round(w*im.h/im.w);if(h>560){h=560;w=Math.round(h*im.w/im.h);}
+          kids.push(new Paragraph({spacing:{after:120},children:[new ImageRun({type:"jpg",data:im.bytes,transformation:{width:w,height:h}})]}));}}
+        else if(t.grid&&t.grid.length){const cols=t.grid[0].length||1;const cwe=Math.floor(CW/cols);
+          const rows=t.grid.map((row,ri)=>new TableRow({tableHeader:ri===0,children:row.map(c=>cell(c||"",{bold:ri===0,fill:ri===0?TEAL:undefined,color:ri===0?"FFFFFF":undefined,w:cwe}))}));
+          kids.push(tbl(t.grid[0].map(()=>cwe),rows));kids.push(P("",{after:120}));}
+      }
+    }
+
+    // ---- Sign-off ----
+    const so=State.signoff||{};
+    kids.push(H("Sign-off"));
+    kids.push(tbl([px(0.25),px(0.25),px(0.25),px(0.25)],[
+      new TableRow({tableHeader:true,children:[cell("On behalf of Neptunus",{bold:true,color:"FFFFFF",fill:NAVY,span:2,w:px(0.5)}),cell("On behalf of Customer",{bold:true,color:"FFFFFF",fill:NAVY,span:2,w:px(0.5)})]}),
+      new TableRow({children:[cell("Name",{bold:true,fill:LBLBG,w:px(0.25)}),cell(so.npName||"",{w:px(0.25)}),cell("Name",{bold:true,fill:LBLBG,w:px(0.25)}),cell(so.cuName||"",{w:px(0.25)})]}),
+      new TableRow({children:[cell("Date",{bold:true,fill:LBLBG,w:px(0.25)}),cell(so.npDate||"",{w:px(0.25)}),cell("Date",{bold:true,fill:LBLBG,w:px(0.25)}),cell(so.cuDate||"",{w:px(0.25)})]})
+    ]));
+
+    const doc=new Document({creator:"Neptunus WCR Tool",title:"Work Completion Report",
+      sections:[{properties:{page:{margin:{top:1000,bottom:1000,left:1440,right:1440}}},children:kids}]});
+    return await Packer.toBlob(doc);
+  },
+  async downloadWord(){
+    const s2=State.signoff||{};
+    if(!App.hasRecInput()){toast("Add written or spoken recommendations before downloading");const rc=document.getElementById("recs-card");if(rc)rc.scrollIntoView({behavior:"smooth",block:"center"});return;}
+    if(!State._spellChecked){toast("Run Spell Check first");const sb=document.getElementById("spell-btn");if(sb)sb.scrollIntoView({behavior:"smooth",block:"center"});return;}
+    if(!(s2.npName&&s2.npDate&&s2.cuName&&s2.cuDate)){toast("Complete all 4 sign-off fields before downloading");const el=document.getElementById("signoff-card");if(el)el.scrollIntoView({behavior:"smooth",block:"center"});return;}
+    App.process();
+    toast("Building Word document...");
+    try{
+      const blob=await App._buildDocx();
+      const b=State.base||{};
+      const _n=new Date(),_p=x=>String(x).padStart(2,"0");
+      const _mn=["January","February","March","April","May","June","July","August","September","October","November","December"];
+      let _hh=_n.getHours();const _ap=_hh>=12?"PM":"AM";_hh=_hh%12;if(_hh===0)_hh=12;
+      const _first=((WCR_USER&&WCR_USER.name)||"").trim().split(/\s+/)[0]||"";
+      const fname="WCR for "+(b.code||"WCR")+(_first?("_"+_first):"")+"_"+_n.getDate()+"-"+_mn[_n.getMonth()]+"-"+_n.getFullYear()+"_"+_hh+"-"+_p(_n.getMinutes())+"-"+_ap+".docx";
+      const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=fname;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),4000);
+      toast("Word document downloaded ("+(blob.size/1048576).toFixed(1)+" MB)");
+      App._promoteToDownloaded();
+    }catch(err){
+      alert("Could not build the Word document.\n\nReason: "+(err.message||err)+"\n\nThe PDF download is unaffected - you can use that.");
     }
   },
   _ensurePdfLibs(){
