@@ -2669,42 +2669,83 @@ ${text}`;
       const BOX="AAB4BC";
       const boxBorders={top:{style:BorderStyle.SINGLE,size:4,color:BOX},bottom:{style:BorderStyle.SINGLE,size:4,color:BOX},left:{style:BorderStyle.SINGLE,size:4,color:BOX},right:{style:BorderStyle.SINGLE,size:4,color:BOX}};
       const noBorders={top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}};
-      // pre-compress all gallery images (parallel, each guarded) at higher resolution
-      // so gauge/readings stay legible. A failed image resolves to null (handled below).
-      const imgs=await Promise.all(photos.map(p=>App._imgForDocx(p.img,1400,0.82).catch(()=>null)));
+      // ---- ADAPTIVE IMAGE BUDGET ----
+      // Total gallery images share a ~14 MB budget so the whole .docx stays well under
+      // 20 MB (safely emailable under 25 MB). Fewer photos -> each gets more quality and
+      // stays crisp/zoomable; many photos -> each is compressed a bit more so it still
+      // sends. We render at high resolution and only step quality/size down if needed.
+      const n=photos.length;
+      const BUDGET=14*1024*1024;                 // ~14 MB for all gallery images combined
+      const perPhoto=Math.floor(BUDGET/n);        // byte target per photo
+      // choose a max pixel dimension + jpeg quality per photo to roughly hit perPhoto,
+      // but never below a legible floor and never above a sharp ceiling.
+      // Try progressively: (dim,q) tiers from sharpest to most compressed.
+      const tiers=[[2600,0.92],[2200,0.9],[2000,0.88],[1800,0.85],[1600,0.82],[1400,0.78],[1200,0.72],[1000,0.66]];
+      const imgs=await Promise.all(photos.map(async p=>{
+        let best=null;
+        for(const [dim,q] of tiers){
+          const im=await App._imgForDocx(p.img,dim,q).catch(()=>null);
+          if(!im||!im.bytes){continue;}
+          best=im;
+          if(im.bytes.length<=perPhoto) break;   // small enough for its slice -> keep this
+          // else keep stepping down; if we exhaust tiers we keep the last (smallest) one
+        }
+        return best;
+      }));
       const capLen=p=>((p.desc||"")+" "+((p.refItem&&p.refAct)?("Reference to "+p.refItem+". Activity - "+p.refAct):"")).trim().length;
-      const TEXT_HEAVY=150; // desc+ref longer than this -> photo gets its own full-width row
+      const TEXT_HEAVY=150;   // desc+ref longer than this -> photo takes its own full-width row
+      const hasText=p=>capLen(p)>0;               // any description/reference at all
+      // a photo cell (box) at a given display width; imgWpx = display pixels wide
       const photoCell=(p,idx,wDxa,imgWpx)=>{
         const im=imgs[idx];
         const inner=[];
         inner.push(new Paragraph({spacing:{after:40},children:[new TextRun({text:(idx+1)+". "+(p.title||"Untitled"),bold:true,color:NAVY,size:18})]}));
-        if(im&&im.bytes){let w=imgWpx,h=Math.round(w*im.h/im.w);const maxH=wDxa>Math.floor(CW*0.6)?420:300;if(h>maxH){h=maxH;w=Math.round(h*im.w/im.h);}
+        if(im&&im.bytes){let w=imgWpx,h=Math.round(w*im.h/im.w);const maxH=wDxa>Math.floor(CW*0.6)?430:290;if(h>maxH){h=maxH;w=Math.round(h*im.w/im.h);}
           inner.push(new Paragraph({spacing:{after:40},alignment:AlignmentType.CENTER,children:[new ImageRun({type:"jpg",data:im.bytes,transformation:{width:w,height:h}})]}));}
-        else{ // image failed to embed - show a small note, NOT a photo-sized blank gap
-          inner.push(new Paragraph({spacing:{after:40},children:[new TextRun({text:"[image could not be embedded - please re-add this photo]",italics:true,color:"C0392B",size:15})]}));}
+        else{ inner.push(new Paragraph({spacing:{after:40},children:[new TextRun({text:"[image could not be embedded - please re-add this photo]",italics:true,color:"C0392B",size:15})]})); }
         if(p.desc)inner.push(new Paragraph({spacing:{after:20},children:[new TextRun({text:p.desc,size:16})]}));
         if(p.refItem&&p.refAct)inner.push(new Paragraph({children:[new TextRun({text:"Reference to "+p.refItem+". Activity - "+p.refAct,italics:true,color:OLIVE,size:15})]}));
-        return new TableCell({width:{size:wDxa,type:WidthType.DXA},margins:{top:100,bottom:100,left:120,right:120},borders:boxBorders,verticalAlign:"top",children:inner});
+        return new TableCell({width:{size:wDxa,type:WidthType.DXA},margins:{top:90,bottom:90,left:110,right:110},borders:boxBorders,verticalAlign:"top",children:inner});
       };
       const emptyCell=w=>new TableCell({width:{size:w,type:WidthType.DXA},borders:noBorders,children:[new Paragraph("")]});
       const half=Math.floor(CW/2);
+      // A 2x2 grid table (up to 4 plain photos) kept on one page.
+      const grid2x2=(idxs)=>{
+        const rowOf=(a,b)=>new TableRow({cantSplit:true,children:[
+          a!=null?photoCell(photos[a],a,half,300):emptyCell(half),
+          b!=null?photoCell(photos[b],b,half,300):emptyCell(half)
+        ]});
+        const rows=[rowOf(idxs[0],idxs[1])];
+        if(idxs.length>2)rows.push(rowOf(idxs[2],idxs[3]!=null?idxs[3]:null));
+        return new Table({width:{size:CW,type:WidthType.DXA},columnWidths:[half,half],rows});
+      };
       let i=0;
       while(i<photos.length){
         const p=photos[i];
+        // text-heavy -> its own full-width row
         if(capLen(p)>TEXT_HEAVY){
-          kids.push(new Table({width:{size:CW,type:WidthType.DXA},columnWidths:[CW],rows:[new TableRow({children:[photoCell(p,i,CW,460)]})]}));
-          kids.push(P("",{after:120}));i++;
-        } else {
-          const p2=photos[i+1];
-          if(p2 && capLen(p2)<=TEXT_HEAVY){
-            kids.push(new Table({width:{size:CW,type:WidthType.DXA},columnWidths:[half,half],rows:[new TableRow({children:[photoCell(p,i,half,300),photoCell(p2,i+1,half,300)]})]}));
-            i+=2;
-          } else {
-            kids.push(new Table({width:{size:CW,type:WidthType.DXA},columnWidths:[half,half],rows:[new TableRow({children:[photoCell(p,i,half,300),emptyCell(half)]})]}));
-            i+=1;
-          }
-          kids.push(P("",{after:120}));
+          kids.push(new Table({width:{size:CW,type:WidthType.DXA},columnWidths:[CW],rows:[new TableRow({cantSplit:true,children:[photoCell(p,i,CW,470)]})]}));
+          kids.push(P("",{after:140}));i++;continue;
         }
+        // gather a run of consecutive PLAIN (no text) photos -> pack 4 per page (2x2)
+        if(!hasText(p)){
+          const run=[];let j=i;
+          while(j<photos.length && !hasText(photos[j]) && capLen(photos[j])<=TEXT_HEAVY && run.length<4){run.push(j);j++;}
+          kids.push(grid2x2(run));
+          kids.push(P("",{after:140}));
+          i=j;continue;
+        }
+        // photo has some caption text (but not heavy) -> pair two such as a jodi if the
+        // next one is also light+captioned; else solo, each boxed. Never orphaned.
+        const p2=photos[i+1];
+        if(p2 && capLen(p2)<=TEXT_HEAVY && hasText(p2)){
+          kids.push(new Table({width:{size:CW,type:WidthType.DXA},columnWidths:[half,half],rows:[new TableRow({cantSplit:true,children:[photoCell(p,i,half,300),photoCell(p2,i+1,half,300)]})]}));
+          i+=2;
+        } else {
+          kids.push(new Table({width:{size:CW,type:WidthType.DXA},columnWidths:[half,half],rows:[new TableRow({cantSplit:true,children:[photoCell(p,i,half,300),emptyCell(half)]})]}));
+          i+=1;
+        }
+        kids.push(P("",{after:140}));
       }
     }
 
