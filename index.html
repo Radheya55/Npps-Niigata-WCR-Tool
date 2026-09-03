@@ -309,35 +309,6 @@ textarea{resize:vertical;min-height:38px}
     <button class="btn-ghost btn-sm" style="margin-top:10px" onclick="document.getElementById('photo-input').click()">+ Add photo</button>
   </div>
 
-  <h2 class="sec">Tables (from images)</h2>
-  <div class="card">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Two options: <b>Digitise table</b> converts one or more images into an editable digital table. <b>Direct photo of table</b> puts a single photo of your table straight into the report, shown as-is. You can add as many of either as you like - all of them appear in the report.</div>
-    <div id="datatables-slot"></div>
-    <div class="row-flex" style="margin-top:10px">
-      <button class="btn-ghost btn-sm" onclick="App.addDataTable()">+ Digitise table</button>
-      <button class="btn-ghost btn-sm" onclick="App.addPhotoTable()">+ Direct photo of table</button>
-    </div>
-  </div>
-
-  <h2 class="sec">Sign-off</h2>
-  <div class="card" id="signoff-card">
-    <div class="grid2">
-      <div>
-        <div class="subblock"><div class="ttl">On behalf of Neptunus</div>
-          <div class="fg"><label class="f">Name *</label><input id="so-npName" oninput="App.soset('npName',this.value)"/></div>
-          <div class="fg"><label class="f">Date *</label><input id="so-npDate" type="date" onchange="App.soDate('np',this.value)"/></div>
-        </div>
-      </div>
-      <div>
-        <div class="subblock"><div class="ttl">On behalf of Customer</div>
-          <div class="fg"><label class="f">Name *</label><input id="so-cuName" oninput="App.soset('cuName',this.value)"/></div>
-          <div class="fg"><label class="f">Date *</label><input id="so-cuDate" type="date" onchange="App.soDate('cu',this.value)"/></div>
-        </div>
-      </div>
-    </div>
-    <div style="font-size:11px;color:var(--muted)">All four fields are required to download. Customer date defaults to the Neptunus date until changed.</div>
-  </div>
-
   <div id="spell-slot"></div>
   <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
     <button class="btn-amber spell-btn" id="spell-btn" onclick="App.runSpellCheck()">🔤 Run Spell &amp; Grammar Check</button>
@@ -2336,7 +2307,7 @@ const App={
     const BATCH=6;
     // reverse timer, deliberately padded so it usually finishes with time still on the
     // clock (feels fast) and never sits frozen at 0.
-    const est=Math.max(8,Math.ceil(jobs.length/BATCH)*6+8);
+    const est=Math.max(14,Math.ceil(jobs.length/BATCH)*10+12);
     App._spellCountdown(est);
     for(let i=0;i<jobs.length;i+=BATCH){
       const slice=jobs.slice(i,i+BATCH);
@@ -2362,7 +2333,9 @@ const App={
     const fmt=n=>{const m=Math.floor(n/60),s=n%60;return (m>0?(m+"m "):"")+s+"s";};
     const paint=txt=>{if(slot)slot.innerHTML=`<div class="gen" style="margin-top:12px"><span style="color:var(--amber)">⏳ Checking spelling &amp; grammar... `+txt+`</span></div>`;};
     paint(fmt(left));
-    App._spellTimer=setInterval(()=>{left--;if(left<=0){paint("almost done...");return;}paint(fmt(left));},1000);
+    // Count down, but never fall below 3s on the clock - hold there until the real
+    // result arrives (which stops this timer). Avoids the "0 then wait" feeling.
+    App._spellTimer=setInterval(()=>{left--;if(left<=3){left=3;paint(fmt(left)+" (finishing up)");return;}paint(fmt(left));},1000);
   },
   _spellCountdownStop(){if(App._spellTimer){clearInterval(App._spellTimer);App._spellTimer=null;}},
   // Ask the worker (grammar route) for word/phrase-level corrections in ONE field.
@@ -2424,13 +2397,24 @@ ${text}`;
         // replace only the FIRST occurrence of the wrong span
         const pos=cur.indexOf(f.wrong);
         const next=cur.slice(0,pos)+f.right+cur.slice(pos+f.wrong.length);
-        t.set(next);save();App.renderBuilder();App.renderGenerated&&App.renderGenerated();
+        t.set(next);save();
+        // DO NOT re-render the builder here - that would wipe the whole spell panel.
+        // Just quietly refresh the underlying field inputs in place if they are visible.
+        App._silentFieldRefresh();
       }
     }
-    const row=document.getElementById("spell-row-"+i);if(row){row.style.opacity="0.5";row.innerHTML=`<span class="spell-lbl">${E(f.label)}:</span> <span style="color:#7fd08a">✓ applied "${E(f.right)}"</span>`;}
+    const row=document.getElementById("spell-row-"+i);if(row){row.style.opacity="0.6";row.innerHTML=`<span class="spell-lbl">${E(f.label)}:</span> <span style="color:#7fd08a">✓ applied - "${E(f.right)}"</span>`;}
+  },
+  // Update the on-screen field inputs to match State WITHOUT re-rendering the spell panel.
+  _silentFieldRefresh(){
+    // maintenance tables, recs and history are re-rendered, but the spell panel lives in
+    // #spell-slot which these renderers do NOT touch, so the suggestions stay on screen.
+    try{App.renderMaint();}catch(e){}
+    try{App.renderRecOutput&&App.renderRecOutput();}catch(e){}
+    try{App.renderHistory();}catch(e){}
   },
   ignoreSpellFix(i){
-    const row=document.getElementById("spell-row-"+i);if(row){row.style.opacity="0.5";const f=(App._spellFixes||[])[i];row.innerHTML=`<span class="spell-lbl">${E(f?f.label:"")}:</span> <span style="color:var(--muted)">ignored</span>`;}
+    const row=document.getElementById("spell-row-"+i);if(row){row.style.opacity="0.6";const f=(App._spellFixes||[])[i];row.innerHTML=`<span class="spell-lbl">${E(f?f.label:"")}:</span> <span style="color:var(--muted)">ignored</span>`;}
   },
   async downloadReport(){
     const s2=State.signoff||{};
@@ -2653,7 +2637,7 @@ ${text}`;
 
     // ---- Photo Gallery (LAST section) - boxed, 2-up, text-heavy photos go full width ----
     const photos=State.photos||[];
-    if(photos.length){ kids.push(H("Photo Gallery"));
+    if(photos.length){ kids.push(new Paragraph({spacing:{before:260,after:120},keepNext:true,keepLines:true,border:{bottom:{color:"CCCCCC",space:2,style:BorderStyle.SINGLE,size:6}},children:[new TextRun({text:"Photo Gallery",bold:true,color:TEAL,size:26})]}));
       const BOX="AAB4BC";
       const boxBorders={top:{style:BorderStyle.SINGLE,size:4,color:BOX},bottom:{style:BorderStyle.SINGLE,size:4,color:BOX},left:{style:BorderStyle.SINGLE,size:4,color:BOX},right:{style:BorderStyle.SINGLE,size:4,color:BOX}};
       const noBorders={top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}};
