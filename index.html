@@ -2488,6 +2488,40 @@ ${text}`;
     })();
   },
   // Compress an image data URL to a JPEG (bounded size) and return {dataUrl,w,h,bytes(Uint8Array)}.
+  // Get an embeddable image, trying hard so the REAL photo always makes it into the
+  // Word file. Order: (1) canvas re-encode at the target size, (2) canvas at smaller
+  // sizes, (3) embed the ORIGINAL image bytes directly (rescues HEIC/odd formats that
+  // display but won't canvas-encode). Returns {bytes,w,h,ext} or null only if there are
+  // genuinely zero usable pixels. NEVER returns a placeholder.
+  async _imgResilient(src,maxDim,q){
+    // 1 & 2: canvas at the requested size, then progressively smaller
+    const sizes=[maxDim, Math.round(maxDim*0.7), Math.round(maxDim*0.5), 900, 640];
+    for(const d of sizes){
+      const im=await App._imgForDocx(src,d,q).catch(()=>null);
+      if(im&&im.bytes&&im.bytes.length){ im.ext="jpg"; return im; }
+    }
+    // 3: embed the ORIGINAL bytes directly (no canvas) - works when the browser could
+    // store/display it but canvas can't re-encode it.
+    try{
+      const parsed=parseDataUrl(src);
+      if(parsed&&parsed.data){
+        const mime=(parsed.mime||"").toLowerCase();
+        let ext="png";
+        if(mime.indexOf("jpeg")>-1||mime.indexOf("jpg")>-1)ext="jpg";
+        else if(mime.indexOf("png")>-1)ext="png";
+        else if(mime.indexOf("gif")>-1)ext="gif";
+        else if(mime.indexOf("bmp")>-1)ext="bmp";
+        else ext="jpg"; // best-effort; docx ImageRun still tries to embed
+        const bin=atob(parsed.data);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+        if(bytes.length){
+          // try to get real pixel dimensions for aspect ratio; fall back to 4:3
+          const dim=await new Promise(r=>{const im2=new Image();im2.onload=()=>r({w:im2.naturalWidth||im2.width||1000,h:im2.naturalHeight||im2.height||750});im2.onerror=()=>r({w:1000,h:750});im2.src=src;setTimeout(()=>r({w:1000,h:750}),4000);});
+          return {bytes,w:dim.w||1000,h:dim.h||750,ext};
+        }
+      }
+    }catch(e){}
+    return null; // truly no usable pixels
+  },
   _imgForDocx(src,maxDim,q){
     return new Promise(res=>{ if(!src)return res(null);
       const finish=(im)=>{
@@ -2546,8 +2580,8 @@ ${text}`;
     if(b.customer)kids.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:160},children:[new TextRun({text:b.customer,color:"5A5A5A",size:22})]}));
 
     // ---- Cover photo ----
-    if(State.cover){const im=await App._imgForDocx(State.cover,1100,0.75);if(im){let w=430,h=Math.round(w*im.h/im.w);if(h>300){h=300;w=Math.round(h*im.w/im.h);}
-      kids.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:160},children:[new ImageRun({type:"jpg",data:im.bytes,transformation:{width:w,height:h}})]}));}}
+    if(State.cover){const im=await App._imgResilient(State.cover,1400,0.82).catch(()=>null);if(im&&im.bytes&&im.bytes.length){let w=430,h=Math.round(w*im.h/im.w);if(h>300){h=300;w=Math.round(h*im.w/im.h);}
+      kids.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:160},children:[new ImageRun({type:(im.ext||"jpg"),data:im.bytes,transformation:{width:w,height:h}})]}));}}
 
     // ---- Project Details ----
     kids.push(H("Project Details"));
@@ -2682,14 +2716,18 @@ ${text}`;
       // Try progressively: (dim,q) tiers from sharpest to most compressed.
       const tiers=[[2600,0.92],[2200,0.9],[2000,0.88],[1800,0.85],[1600,0.82],[1400,0.78],[1200,0.72],[1000,0.66]];
       const imgs=await Promise.all(photos.map(async p=>{
+        // find the sharpest tier whose bytes fit this photo's slice of the budget;
+        // _imgForDocx returns null on canvas failure, handled by the resilient fallback below.
         let best=null;
         for(const [dim,q] of tiers){
           const im=await App._imgForDocx(p.img,dim,q).catch(()=>null);
           if(!im||!im.bytes){continue;}
-          best=im;
+          best=im;best.ext="jpg";
           if(im.bytes.length<=perPhoto) break;   // small enough for its slice -> keep this
-          // else keep stepping down; if we exhaust tiers we keep the last (smallest) one
         }
+        // if canvas produced nothing (e.g. HEIC that displays but won't encode), fall back
+        // to embedding the ORIGINAL bytes directly so the REAL image still goes in.
+        if(!best){ best=await App._imgResilient(p.img,1600,0.82).catch(()=>null); }
         return best;
       }));
       const capLen=p=>((p.desc||"")+" "+((p.refItem&&p.refAct)?("Reference to "+p.refItem+". Activity - "+p.refAct):"")).trim().length;
@@ -2700,9 +2738,10 @@ ${text}`;
         const im=imgs[idx];
         const inner=[];
         inner.push(new Paragraph({spacing:{after:40},children:[new TextRun({text:(idx+1)+". "+(p.title||"Untitled"),bold:true,color:NAVY,size:18})]}));
-        if(im&&im.bytes){let w=imgWpx,h=Math.round(w*im.h/im.w);const maxH=wDxa>Math.floor(CW*0.6)?430:290;if(h>maxH){h=maxH;w=Math.round(h*im.w/im.h);}
-          inner.push(new Paragraph({spacing:{after:40},alignment:AlignmentType.CENTER,children:[new ImageRun({type:"jpg",data:im.bytes,transformation:{width:w,height:h}})]}));}
-        else{ inner.push(new Paragraph({spacing:{after:40},children:[new TextRun({text:"[image could not be embedded - please re-add this photo]",italics:true,color:"C0392B",size:15})]})); }
+        if(im&&im.bytes&&im.bytes.length){let w=imgWpx,h=Math.round(w*im.h/im.w);const maxH=wDxa>Math.floor(CW*0.6)?430:290;if(h>maxH){h=maxH;w=Math.round(h*im.w/im.h);}
+          inner.push(new Paragraph({spacing:{after:40},alignment:AlignmentType.CENTER,children:[new ImageRun({type:(im.ext||"jpg"),data:im.bytes,transformation:{width:w,height:h}})]}));}
+        else{ // genuinely zero usable pixels (corrupt/unreadable) - quiet one-line note, not a big warning
+          inner.push(new Paragraph({spacing:{after:40},children:[new TextRun({text:"(image unavailable)",italics:true,color:"5A5A5A",size:15})]})); }
         if(p.desc)inner.push(new Paragraph({spacing:{after:20},children:[new TextRun({text:p.desc,size:16})]}));
         if(p.refItem&&p.refAct)inner.push(new Paragraph({children:[new TextRun({text:"Reference to "+p.refItem+". Activity - "+p.refAct,italics:true,color:OLIVE,size:15})]}));
         return new TableCell({width:{size:wDxa,type:WidthType.DXA},margins:{top:90,bottom:90,left:110,right:110},borders:boxBorders,verticalAlign:"top",children:inner});
