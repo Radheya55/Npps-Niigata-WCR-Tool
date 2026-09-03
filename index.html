@@ -340,9 +340,8 @@ textarea{resize:vertical;min-height:38px}
 
   <div id="spell-slot"></div>
   <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
-    <button class="btn-amber spell-btn" id="spell-btn" onclick="App.runSpellCheck()">🔤 Run Spell Check</button>
-    <button class="btn dl-btn" onclick="App.downloadReport()">⬇ Download PDF</button>
-    <button class="btn dl-btn" onclick="App.downloadWord()" style="background:#2b5797">⬇ Download Word</button>
+    <button class="btn-amber spell-btn" id="spell-btn" onclick="App.runSpellCheck()">🔤 Run Spell &amp; Grammar Check</button>
+    <button class="btn dl-btn" onclick="App.downloadWord()">⬇ Download Word Report</button>
     <button class="btn-ghost" onclick="App.showHome()">⌂ Home</button>
   </div>
 </div>
@@ -2330,12 +2329,15 @@ const App={
     const targets=App._spellTargets();
     if(!targets.length){State._spellChecked=true;save();App.refreshDownloadGate();slot.innerHTML=`<div class="gen" style="margin-top:12px"><b style="color:#7fd08a">✓ Nothing to check.</b> You can download.</div>`;return;}
     if(btn){btn.disabled=true;btn.textContent="Checking...";}
-    if(slot)slot.innerHTML=`<div class="gen" style="margin-top:12px"><span style="color:var(--amber)">⏳ Checking spelling and basic grammar...</span></div>`;
     App._spellFixes=[];
     // Check each field separately so we can map word-level fixes back precisely.
     // Fields are checked in small concurrent batches to stay responsive.
     const jobs=targets.map((t,idx)=>({idx,label:t.label,text:t.get()}));
     const BATCH=6;
+    // reverse timer, deliberately padded so it usually finishes with time still on the
+    // clock (feels fast) and never sits frozen at 0.
+    const est=Math.max(8,Math.ceil(jobs.length/BATCH)*6+8);
+    App._spellCountdown(est);
     for(let i=0;i<jobs.length;i+=BATCH){
       const slice=jobs.slice(i,i+BATCH);
       await Promise.all(slice.map(async job=>{
@@ -2351,9 +2353,18 @@ const App={
     // de-duplicate identical (idx,wrong,right)
     const seen=new Set();App._spellFixes=App._spellFixes.filter(f=>{const k=f.idx+"|"+f.wrong+"|"+f.right;if(seen.has(k))return false;seen.add(k);return true;});
     if(btn){btn.disabled=false;btn.textContent="🔤 Run Spell Check";}
+    App._spellCountdownStop();
     State._spellChecked=true;save();App.refreshDownloadGate();
     App._renderSpell();
   },
+  _spellCountdown(sec){
+    App._spellCountdownStop();let left=sec;const slot=document.getElementById("spell-slot");
+    const fmt=n=>{const m=Math.floor(n/60),s=n%60;return (m>0?(m+"m "):"")+s+"s";};
+    const paint=txt=>{if(slot)slot.innerHTML=`<div class="gen" style="margin-top:12px"><span style="color:var(--amber)">⏳ Checking spelling &amp; grammar... `+txt+`</span></div>`;};
+    paint(fmt(left));
+    App._spellTimer=setInterval(()=>{left--;if(left<=0){paint("almost done...");return;}paint(fmt(left));},1000);
+  },
+  _spellCountdownStop(){if(App._spellTimer){clearInterval(App._spellTimer);App._spellTimer=null;}},
   // Ask the worker (grammar route) for word/phrase-level corrections in ONE field.
   // Returns [{wrong, right}] - only clear everyday-English spelling/grammar slips.
   async _spellCheckField(text){
@@ -2640,49 +2651,72 @@ ${text}`;
       recB.forEach(x=>kids.push(new Paragraph({bullet:{level:0},spacing:{after:40},children:[new TextRun({text:x,size:20})]})) );
     }
 
-    // ---- Photo Gallery ----
+    // ---- Photo Gallery (LAST section) - boxed, 2-up, text-heavy photos go full width ----
     const photos=State.photos||[];
     if(photos.length){ kids.push(H("Photo Gallery"));
-      for(let i=0;i<photos.length;i++){const p=photos[i];const im=await App._imgForDocx(p.img,900,0.7);
-        if(im){let w=300,h=Math.round(w*im.h/im.w);if(h>230){h=230;w=Math.round(h*im.w/im.h);}
-          kids.push(new Paragraph({spacing:{before:80,after:20},children:[new ImageRun({type:"jpg",data:im.bytes,transformation:{width:w,height:h}})]}));}
-        kids.push(P([new TextRun({text:(i+1)+". "+(p.title||"Untitled"),bold:true,color:NAVY,size:18})],{after:10}));
-        if(p.desc)kids.push(P(p.desc,{size:18,after:10}));
-        if(p.refItem&&p.refAct)kids.push(P("Reference to "+p.refItem+". Activity - "+p.refAct,{italics:true,color:OLIVE,size:16,after:80}));
+      const BOX="AAB4BC";
+      const boxBorders={top:{style:BorderStyle.SINGLE,size:4,color:BOX},bottom:{style:BorderStyle.SINGLE,size:4,color:BOX},left:{style:BorderStyle.SINGLE,size:4,color:BOX},right:{style:BorderStyle.SINGLE,size:4,color:BOX}};
+      const noBorders={top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}};
+      // pre-compress all gallery images at higher resolution so gauge/readings stay legible
+      const imgs=[];for(const p of photos){imgs.push(await App._imgForDocx(p.img,1400,0.82));}
+      const capLen=p=>((p.desc||"")+" "+((p.refItem&&p.refAct)?("Reference to "+p.refItem+". Activity - "+p.refAct):"")).trim().length;
+      const TEXT_HEAVY=150; // desc+ref longer than this -> photo gets its own full-width row
+      const photoCell=(p,idx,wDxa,imgWpx)=>{
+        const im=imgs[idx];
+        const inner=[];
+        inner.push(new Paragraph({spacing:{after:40},children:[new TextRun({text:(idx+1)+". "+(p.title||"Untitled"),bold:true,color:NAVY,size:18})]}));
+        if(im){let w=imgWpx,h=Math.round(w*im.h/im.w);const maxH=wDxa>Math.floor(CW*0.6)?420:300;if(h>maxH){h=maxH;w=Math.round(h*im.w/im.h);}
+          inner.push(new Paragraph({spacing:{after:40},alignment:AlignmentType.CENTER,children:[new ImageRun({type:"jpg",data:im.bytes,transformation:{width:w,height:h}})]}));}
+        if(p.desc)inner.push(new Paragraph({spacing:{after:20},children:[new TextRun({text:p.desc,size:16})]}));
+        if(p.refItem&&p.refAct)inner.push(new Paragraph({children:[new TextRun({text:"Reference to "+p.refItem+". Activity - "+p.refAct,italics:true,color:OLIVE,size:15})]}));
+        return new TableCell({width:{size:wDxa,type:WidthType.DXA},margins:{top:100,bottom:100,left:120,right:120},borders:boxBorders,children:inner});
+      };
+      const emptyCell=w=>new TableCell({width:{size:w,type:WidthType.DXA},borders:noBorders,children:[new Paragraph("")]});
+      const half=Math.floor(CW/2);
+      let i=0;
+      while(i<photos.length){
+        const p=photos[i];
+        if(capLen(p)>TEXT_HEAVY){
+          kids.push(new Table({width:{size:CW,type:WidthType.DXA},columnWidths:[CW],rows:[new TableRow({children:[photoCell(p,i,CW,460)]})]}));
+          kids.push(P("",{after:120}));i++;
+        } else {
+          const p2=photos[i+1];
+          if(p2 && capLen(p2)<=TEXT_HEAVY){
+            kids.push(new Table({width:{size:CW,type:WidthType.DXA},columnWidths:[half,half],rows:[new TableRow({children:[photoCell(p,i,half,300),photoCell(p2,i+1,half,300)]})]}));
+            i+=2;
+          } else {
+            kids.push(new Table({width:{size:CW,type:WidthType.DXA},columnWidths:[half,half],rows:[new TableRow({children:[photoCell(p,i,half,300),emptyCell(half)]})]}));
+            i+=1;
+          }
+          kids.push(P("",{after:120}));
+        }
       }
     }
 
-    // ---- Tables (from images) ----
-    const dts=(State.dataTables||[]).filter(t=>(t.grid&&t.grid.length)||t.photo);
-    if(dts.length){ kids.push(H("Tables"));
-      for(const t of dts){
-        if(t.title)kids.push(P(t.title,{bold:true,after:40}));
-        if(t.photo){const im=await App._imgForDocx(t.photo,1200,0.78);if(im){let w=430,h=Math.round(w*im.h/im.w);if(h>560){h=560;w=Math.round(h*im.w/im.h);}
-          kids.push(new Paragraph({spacing:{after:120},children:[new ImageRun({type:"jpg",data:im.bytes,transformation:{width:w,height:h}})]}));}}
-        else if(t.grid&&t.grid.length){const cols=t.grid[0].length||1;const cwe=Math.floor(CW/cols);
-          const rows=t.grid.map((row,ri)=>new TableRow({tableHeader:ri===0,children:row.map(c=>cell(c||"",{bold:ri===0,fill:ri===0?TEAL:undefined,color:ri===0?"FFFFFF":undefined,w:cwe}))}));
-          kids.push(tbl(t.grid[0].map(()=>cwe),rows));kids.push(P("",{after:120}));}
-      }
-    }
+    // ---- 4 blank pages for the team to add calibration tables, part lists, sign-off, etc.
+    // (the running header & footer repeat on these and any further pages they add) ----
+    for(let bp=0;bp<4;bp++){ kids.push(new Paragraph({children:[new (window.docx.PageBreak)()]})); }
 
-    // ---- Sign-off ----
-    const so=State.signoff||{};
-    kids.push(H("Sign-off"));
-    kids.push(tbl([px(0.25),px(0.25),px(0.25),px(0.25)],[
-      new TableRow({tableHeader:true,children:[cell("On behalf of Neptunus",{bold:true,color:"FFFFFF",fill:NAVY,span:2,w:px(0.5)}),cell("On behalf of Customer",{bold:true,color:"FFFFFF",fill:NAVY,span:2,w:px(0.5)})]}),
-      new TableRow({children:[cell("Name",{bold:true,fill:LBLBG,w:px(0.25)}),cell(so.npName||"",{w:px(0.25)}),cell("Name",{bold:true,fill:LBLBG,w:px(0.25)}),cell(so.cuName||"",{w:px(0.25)})]}),
-      new TableRow({children:[cell("Date",{bold:true,fill:LBLBG,w:px(0.25)}),cell(so.npDate||"",{w:px(0.25)}),cell("Date",{bold:true,fill:LBLBG,w:px(0.25)}),cell(so.cuDate||"",{w:px(0.25)})]})
-    ]));
+    // ---- running header + footer on EVERY page (incl. blank + manually-added pages) ----
+    const PageNumber=window.docx.PageNumber, Header=window.docx.Header, Footer=window.docx.Footer;
+    const hdrChildren=[new Paragraph({children:[new TextRun({text:"Work Completion Report"+(b.customer?(" - "+b.customer):""),bold:true,color:NAVY,size:18})]}),
+      new Paragraph({spacing:{after:40},border:{bottom:{style:BorderStyle.SINGLE,size:10,color:"E8801C"}},children:[new TextRun({text:"Project: "+(b.code||""),color:"5A5A5A",size:14})]})];
+    // embed logo top-right if available
+    let logoImg=null; try{ logoImg=await App._imgForDocx(LOGO_B64,300,0.9);}catch(e){}
+    const header=new Header({children:hdrChildren});
+    const footer=new Footer({children:[
+      new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:"Neptunus Power Plant Services Pvt. Ltd. | A-554/555, TTC Industrial Area, MIDC, Mahape, Navi Mumbai - 400 710",color:NAVY,size:11})]}),
+      new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:"Tel: +91 95944 10707 | info@neptunus-power.com | www.neptunus-power.com",color:"5A5A5A",size:11})]}),
+      new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({children:["Page ",PageNumber.CURRENT," of ",PageNumber.TOTAL_PAGES],color:"5A5A5A",size:14})]})
+    ]});
 
     const doc=new Document({creator:"Neptunus WCR Tool",title:"Work Completion Report",
-      sections:[{properties:{page:{margin:{top:1000,bottom:1000,left:1440,right:1440}}},children:kids}]});
+      sections:[{properties:{page:{margin:{top:1500,bottom:1300,left:1440,right:1440}}},headers:{default:header},footers:{default:footer},children:kids}]});
     return await Packer.toBlob(doc);
   },
   async downloadWord(){
-    const s2=State.signoff||{};
     if(!App.hasRecInput()){toast("Add written or spoken recommendations before downloading");const rc=document.getElementById("recs-card");if(rc)rc.scrollIntoView({behavior:"smooth",block:"center"});return;}
-    if(!State._spellChecked){toast("Run Spell Check first");const sb=document.getElementById("spell-btn");if(sb)sb.scrollIntoView({behavior:"smooth",block:"center"});return;}
-    if(!(s2.npName&&s2.npDate&&s2.cuName&&s2.cuDate)){toast("Complete all 4 sign-off fields before downloading");const el=document.getElementById("signoff-card");if(el)el.scrollIntoView({behavior:"smooth",block:"center"});return;}
+    if(!State._spellChecked){toast("Run Spell & Grammar Check first");const sb=document.getElementById("spell-btn");if(sb)sb.scrollIntoView({behavior:"smooth",block:"center"});return;}
     App.process();
     toast("Building Word document...");
     try{
