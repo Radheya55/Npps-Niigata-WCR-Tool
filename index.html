@@ -2331,29 +2331,37 @@ const App={
   _spellCountdown(sec){
     App._spellCountdownStop();let left=sec;const slot=document.getElementById("spell-slot");
     const fmt=n=>{const m=Math.floor(n/60),s=n%60;return (m>0?(m+"m "):"")+s+"s";};
-    const paint=txt=>{if(slot)slot.innerHTML=`<div class="gen" style="margin-top:12px"><span style="color:var(--amber)">⏳ Checking spelling &amp; grammar... `+txt+`</span></div>`;};
-    paint(fmt(left));
-    // Count down, but never fall below 3s on the clock - hold there until the real
-    // result arrives (which stops this timer). Avoids the "0 then wait" feeling.
-    App._spellTimer=setInterval(()=>{left--;if(left<=3){left=3;paint(fmt(left)+" (finishing up)");return;}paint(fmt(left));},1000);
+    const dots=["","."," .."," ..."];let dotI=0;
+    const paintNum=txt=>{if(slot)slot.innerHTML=`<div class="gen" style="margin-top:12px"><span style="color:var(--amber)">⏳ Checking spelling &amp; grammar... `+txt+`</span></div>`;};
+    const paintFinishing=()=>{if(slot)slot.innerHTML=`<div class="gen" style="margin-top:12px"><span style="color:var(--amber)">⏳ Finishing up`+dots[(dotI++)%dots.length]+`</span></div>`;};
+    paintNum(fmt(left));
+    // Count down to ~5s, then switch to an indefinite gentle "Finishing up..." pulse so it
+    // never sits frozen at 0. The real result stops this timer whenever it arrives.
+    App._spellTimer=setInterval(()=>{
+      left--;
+      if(left>5){paintNum(fmt(left));}
+      else{paintFinishing();}
+    },1000);
   },
   _spellCountdownStop(){if(App._spellTimer){clearInterval(App._spellTimer);App._spellTimer=null;}},
   // Ask the worker (grammar route) for word/phrase-level corrections in ONE field.
   // Returns [{wrong, right}] - only clear everyday-English spelling/grammar slips.
   async _spellCheckField(text){
     if(!text||!text.trim()||text.trim().length<2)return [];
-    const prompt=`You are a careful spelling and basic-grammar checker for a marine engineering report written by non-native English speakers. Look at the text and find ONLY clear, everyday-English mistakes:
-- misspelled ordinary words (e.g. "th"->"the", "guaidlines"/"guidlines"->"guidelines", "recieved"->"received", "tightend"->"tightened")
-- obvious wrong verb form / tense (e.g. "we tight all nuts"->"we tightened all nuts", "was inspect"->"was inspected")
-- clearly missing small words that break grammar (e.g. "as per OEM guideline"->keep; only if truly broken)
-STRICT RULES:
-- DO NOT flag technical terms, part names, abbreviations, model numbers, units, or measurements. If a word looks like jargon or a part name, LEAVE IT ALONE.
-- DO NOT rephrase, reword, restructure, shorten, or improve style. Only fix outright spelling and clear grammar errors.
-- If you are unsure whether something is a real error, DO NOT flag it.
-- Preserve numbers, capitalisation of proper nouns, and technical meaning.
-Return ONLY valid JSON, no markdown, listing each correction as the exact wrong substring and its replacement:
-{ "fixes": [ { "wrong": "<exact text as it appears>", "right": "<corrected text>" } ] }
-If there are no clear errors, return { "fixes": [] }.
+    const prompt=`You are primarily a SPELLING checker for a marine engineering report written by non-native English speakers. Your MAIN JOB is to catch actual misspelled English words. Read the text word by word.
+
+PRIORITY 1 - SPELLING (this is your main job): flag EVERY word that is not a correctly spelled English word, e.g. "th"->"the", "guaidlines"/"guidlines"->"guidelines", "recieved"->"received", "tightend"->"tightened", "inspction"->"inspection", "cylender"->"cylinder", "temprature"->"temperature", "leackage"->"leakage". Be thorough - if a word is misspelled, catch it.
+PRIORITY 2 - clear grammar/verb-form slips only: e.g. "we tight all nuts"->"we tightened all nuts", "was inspect"->"was inspected".
+
+DO NOT do any of the following:
+- DO NOT suggest better wording, synonyms, rephrasing, restructuring, or style improvements. You are NOT here to make the writing "nicer" - only to fix outright spelling mistakes and clear grammar errors. If a sentence is correctly spelled and grammatically fine, LEAVE IT COMPLETELY ALONE even if it could be phrased better.
+- DO NOT flag technical terms, part names, component names, abbreviations, model numbers, units, or measurements. If a word looks like jargon, a part name, or a brand (e.g. "Niigata", "turbocharger", "REMAN", "MPI", "DP test"), LEAVE IT ALONE.
+- DO NOT flag correct words. DO NOT change numbers or proper-noun capitalisation.
+- If you are unsure whether a word is a real English word or a technical term, LEAVE IT ALONE.
+
+Return ONLY valid JSON, no markdown, one entry per genuine mistake, giving the exact wrong substring and its correction:
+{ "fixes": [ { "wrong": "<exact misspelled word/phrase as it appears>", "right": "<correct spelling>" } ] }
+If there are no spelling or clear grammar mistakes, return { "fixes": [] }.
 
 TEXT:
 ${text}`;
@@ -2482,13 +2490,33 @@ ${text}`;
   // Compress an image data URL to a JPEG (bounded size) and return {dataUrl,w,h,bytes(Uint8Array)}.
   _imgForDocx(src,maxDim,q){
     return new Promise(res=>{ if(!src)return res(null);
-      const im=new Image();im.onload=()=>{let w=im.naturalWidth,h=im.naturalHeight;const sc=Math.min(1,maxDim/Math.max(w,h));w=Math.max(1,Math.round(w*sc));h=Math.max(1,Math.round(h*sc));
-        const cv=document.createElement("canvas");cv.width=w;cv.height=h;const cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,w,h);cx.drawImage(im,0,0,w,h);
-        let url;try{url=cv.toDataURL("image/jpeg",q||0.8);}catch(e){return res(null);}
-        // to bytes
-        const b64=url.split(",")[1];const bin=atob(b64);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
-        res({dataUrl:url,w,h,bytes});
-      };im.onerror=()=>res(null);im.src=src;});
+      const finish=(im)=>{
+        try{
+          let nw=im.naturalWidth||im.width||0, nh=im.naturalHeight||im.height||0;
+          if(!nw||!nh){return res(null);}                 // undecoded / broken -> no blank box
+          const sc=Math.min(1,maxDim/Math.max(nw,nh));
+          let w=Math.max(1,Math.round(nw*sc)), h=Math.max(1,Math.round(nh*sc));
+          const cv=document.createElement("canvas");cv.width=w;cv.height=h;
+          const cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,w,h);
+          cx.drawImage(im,0,0,w,h);
+          let url;try{url=cv.toDataURL("image/jpeg",q||0.8);}catch(e){return res(null);}
+          const b64=url.split(",")[1];if(!b64)return res(null);
+          const bin=atob(b64);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+          res({dataUrl:url,w,h,bytes});
+        }catch(e){res(null);}
+      };
+      const im=new Image();
+      im.onload=()=>{
+        // wait for full decode where supported, so naturalWidth is populated
+        if(im.decode){ im.decode().then(()=>finish(im)).catch(()=>finish(im)); }
+        else finish(im);
+      };
+      im.onerror=()=>res(null);
+      // safety timeout: if an image never loads/decodes, don't hang the whole build
+      const to=setTimeout(()=>{try{im.onload=im.onerror=null;}catch(e){}res(null);},8000);
+      const _res=res; res=(v)=>{clearTimeout(to);_res(v);};
+      im.src=src;
+    });
   },
   async _buildDocx(){
     await App._ensureDocxLib();
@@ -2641,19 +2669,22 @@ ${text}`;
       const BOX="AAB4BC";
       const boxBorders={top:{style:BorderStyle.SINGLE,size:4,color:BOX},bottom:{style:BorderStyle.SINGLE,size:4,color:BOX},left:{style:BorderStyle.SINGLE,size:4,color:BOX},right:{style:BorderStyle.SINGLE,size:4,color:BOX}};
       const noBorders={top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}};
-      // pre-compress all gallery images at higher resolution so gauge/readings stay legible
-      const imgs=[];for(const p of photos){imgs.push(await App._imgForDocx(p.img,1400,0.82));}
+      // pre-compress all gallery images (parallel, each guarded) at higher resolution
+      // so gauge/readings stay legible. A failed image resolves to null (handled below).
+      const imgs=await Promise.all(photos.map(p=>App._imgForDocx(p.img,1400,0.82).catch(()=>null)));
       const capLen=p=>((p.desc||"")+" "+((p.refItem&&p.refAct)?("Reference to "+p.refItem+". Activity - "+p.refAct):"")).trim().length;
       const TEXT_HEAVY=150; // desc+ref longer than this -> photo gets its own full-width row
       const photoCell=(p,idx,wDxa,imgWpx)=>{
         const im=imgs[idx];
         const inner=[];
         inner.push(new Paragraph({spacing:{after:40},children:[new TextRun({text:(idx+1)+". "+(p.title||"Untitled"),bold:true,color:NAVY,size:18})]}));
-        if(im){let w=imgWpx,h=Math.round(w*im.h/im.w);const maxH=wDxa>Math.floor(CW*0.6)?420:300;if(h>maxH){h=maxH;w=Math.round(h*im.w/im.h);}
+        if(im&&im.bytes){let w=imgWpx,h=Math.round(w*im.h/im.w);const maxH=wDxa>Math.floor(CW*0.6)?420:300;if(h>maxH){h=maxH;w=Math.round(h*im.w/im.h);}
           inner.push(new Paragraph({spacing:{after:40},alignment:AlignmentType.CENTER,children:[new ImageRun({type:"jpg",data:im.bytes,transformation:{width:w,height:h}})]}));}
+        else{ // image failed to embed - show a small note, NOT a photo-sized blank gap
+          inner.push(new Paragraph({spacing:{after:40},children:[new TextRun({text:"[image could not be embedded - please re-add this photo]",italics:true,color:"C0392B",size:15})]}));}
         if(p.desc)inner.push(new Paragraph({spacing:{after:20},children:[new TextRun({text:p.desc,size:16})]}));
         if(p.refItem&&p.refAct)inner.push(new Paragraph({children:[new TextRun({text:"Reference to "+p.refItem+". Activity - "+p.refAct,italics:true,color:OLIVE,size:15})]}));
-        return new TableCell({width:{size:wDxa,type:WidthType.DXA},margins:{top:100,bottom:100,left:120,right:120},borders:boxBorders,children:inner});
+        return new TableCell({width:{size:wDxa,type:WidthType.DXA},margins:{top:100,bottom:100,left:120,right:120},borders:boxBorders,verticalAlign:"top",children:inner});
       };
       const emptyCell=w=>new TableCell({width:{size:w,type:WidthType.DXA},borders:noBorders,children:[new Paragraph("")]});
       const half=Math.floor(CW/2);
