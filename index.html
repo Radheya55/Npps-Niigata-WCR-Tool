@@ -196,7 +196,8 @@ textarea{resize:vertical;min-height:38px}
       <div class="fg"><label class="f" id="lbl-job">Type of Overhaul</label>
         <select id="bd-overhaul"><option>Top Overhaul (TOH)</option><option>Major Overhaul (MOH)</option><option>Calibration Job</option><option>Health Check-up</option><option>Troubleshooting</option><option>Other</option></select></div>
       <div class="fg"><label class="f">Engine Make *</label>
-        <select id="bd-engine" onchange="App.onEngineChange(this.value)"><option value="NIIGATA">NIIGATA</option><option value="EMD">EMD</option><option value="CAT">CAT</option></select></div>
+        <select id="bd-engine" onchange="App.onEngineChange(this.value)"><option value="NIIGATA">NIIGATA</option><option value="EMD">EMD</option><option value="CAT">CAT</option><option value="OTHER">Other</option></select></div>
+      <div class="fg" id="fg-otherengine" style="display:none"><label class="f">Name the Engine *</label><input id="bd-otherengine" placeholder="e.g. Wärtsilä, MAN B&amp;W" oninput="App.bdOtherName(this.value)"/></div>
       <div class="fg"><label class="f">Engine Model / Variant</label><input id="bd-model" placeholder="e.g. 645-E7 / 3516"/></div>
       <div class="fg"><label class="f">Engine Serial Number</label><input id="bd-serial"/></div>
       <div class="fg"><label class="f" id="lbl-arr">Engine Arrangement</label><input id="bd-arr" placeholder="e.g. PORT &amp; STBD"/></div>
@@ -551,13 +552,33 @@ const EMD_HISTORY=[
 
 /* Engine configuration: which library, history and optional columns each engine uses. */
 const ENGINES=["NIIGATA","EMD","CAT"];
+// ---- Mixed template (for engine = OTHER) ----
+// Combines BOTH libraries so an unknown engine can pick items from either.
+// Items/sections are namespaced by source so nothing collides, and each activity
+// keeps its own column rules (Niigata pair vs EMD per-activity codes).
+function mixedSections(){
+  return NIIGATA_SECTIONS.map(s=>"Niigata - "+s).concat(EMD_SECTIONS.map(s=>"EMD/CAT - "+s));
+}
+function mixedItems(){
+  const n=NIIGATA_ITEMS.map(it=>Object.assign({},it,{section:"Niigata - "+it.section,_src:"NIIGATA"}));
+  const e=EMD_ITEMS.map(it=>Object.assign({},it,{section:"EMD/CAT - "+it.section,_src:"EMD"}));
+  return n.concat(e);
+}
+function mixedHistory(){
+  // show both history templates, each block clearly labelled by source
+  const n=NIIGATA_HISTORY.map(b=>Object.assign({},b,{sec:"Niigata - "+b.sec}));
+  const e=EMD_HISTORY.map(b=>Object.assign({},b,{sec:"EMD/CAT - "+b.sec}));
+  return n.concat(e);
+}
 const ENGINE_CFG={
   NIIGATA:{items:()=>NIIGATA_ITEMS,sections:()=>NIIGATA_SECTIONS,history:()=>NIIGATA_HISTORY,cols:["calibration","replaced"],
            labels:{end:"Handing Over Date",job:"Type of Overhaul",arr:"Engine Arrangement"},fields:{contract:true,vessel:true}},
   EMD:{items:()=>EMD_ITEMS,sections:()=>EMD_SECTIONS,history:()=>EMD_HISTORY,cols:["calibration","replaced"],
        labels:{end:"Handover Date",job:"Type of Job",arr:"Engine Arrangement No."},fields:{contract:false,vessel:false}},
   CAT:{items:()=>EMD_ITEMS,sections:()=>EMD_SECTIONS,history:()=>EMD_HISTORY,cols:["calibration","replaced"],
-       labels:{end:"Handover Date",job:"Type of Job",arr:"Engine Arrangement No."},fields:{contract:false,vessel:false}}
+       labels:{end:"Handover Date",job:"Type of Job",arr:"Engine Arrangement No."},fields:{contract:false,vessel:false}},
+  OTHER:{items:mixedItems,sections:mixedSections,history:mixedHistory,cols:["calibration","replaced"],mixed:true,
+       labels:{end:"Handover Date",job:"Type of Job",arr:"Engine Arrangement"},fields:{contract:true,vessel:true}}
 };
 function engOf(){const e=((State.base&&State.base.engine)||"NIIGATA").toUpperCase();return ENGINE_CFG[e]?e:"NIIGATA";}
 function engCfg(){return ENGINE_CFG[engOf()];}
@@ -663,8 +684,11 @@ function newRowCols(t){
 }
 function defaultRowCols(){return OPT_BASE.slice();}
 // Per-activity optional columns, from the technical review of each engine.
-function rowColsFor(itemId,activity){
-  if(engOf()==="NIIGATA")return niigataRowCols(itemId,activity);
+function rowColsFor(itemId,activity,src){
+  // src (optional) forces which library's column rules to use - needed for the mixed
+  // (OTHER) template where items come from both. Falls back to the current engine.
+  const useSrc = src || (engOf()==="NIIGATA"?"NIIGATA":(engOf()==="OTHER"?null:"EMD"));
+  if(useSrc==="NIIGATA")return niigataRowCols(itemId,activity);
   const m=EMD_ROWCOLS[itemId];
   if(m){const code=m[activity];if(code!==undefined)return (EMD_COLCODE[code]||[]).slice();}
   return OPT_BASE.slice();
@@ -677,9 +701,10 @@ function niigataRowCols(itemId,activity){
 }
 
 function buildTable(item){
-  let rows=item.activities.map(a=>({activity:a,inScope:"",status:"",calibration:"",overhauled:"",serviced:"",tested:"",replaced:"",comment:"",cols:rowColsFor(item.id,a)}));
+  const src=item._src||null;
+  let rows=item.activities.map(a=>({activity:a,inScope:"",status:"",calibration:"",overhauled:"",serviced:"",tested:"",replaced:"",comment:"",cols:rowColsFor(item.id,a,src)}));
   rows=rows.sort((x,y)=>(y.cols.length>0)-(x.cols.length>0)); // rows using optional columns on top
-  return {id:"t_"+item.id+"_"+Date.now()+Math.floor(Math.random()*999),itemId:item.id,name:item.name,rows,note:"",critical:"",action:""};
+  return {id:"t_"+item.id+"_"+Date.now()+Math.floor(Math.random()*999),itemId:item.id,name:item.name,rows,note:"",critical:"",action:"",_src:src};
 }
 function buildCustom(){return {id:"t_custom_"+Date.now(),itemId:null,custom:true,name:"",rows:[{activity:"",inScope:"",status:"",calibration:"",replaced:"",comment:"",cols:defaultRowCols()}],note:"",critical:"",action:""};}
 const E=s=>(s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -964,6 +989,7 @@ const App={
     const store=bdLoad();const rec=store[code];if(!rec)return;const d=rec.data;
     BD_EDITING=code;
     ["code","customer","contract","vessel","start","end","engine","model","serial","arr","rpm","hours","custic","leader"].forEach(k=>{const el=document.getElementById("bd-"+k);if(el)el.value=d[k]||"";});
+    const oe=document.getElementById("bd-otherengine");if(oe)oe.value=d.otherEngineName||"";
     const engEl=document.getElementById("bd-engine");if(engEl&&!engEl.value)engEl.value="NIIGATA";
     App.applyEngineFields((d.engine||"NIIGATA").toUpperCase());
     const ov=document.getElementById("bd-overhaul");if(ov&&d.overhaul)ov.value=d.overhaul;
@@ -984,12 +1010,14 @@ const App={
     el.innerHTML=BD_MEMBERS.map((m,i)=>`<span class="chip">${E(m)}<button type="button" onclick="App.removeMember(${i})">✕</button></span>`).join("");
   },
   onEngineChange(v){App.applyEngineFields((v||"NIIGATA").toUpperCase());},
+  bdOtherName(v){/* stored at save time; kept simple here */},
   applyEngineFields(eng){
     const cfg=ENGINE_CFG[eng]||ENGINE_CFG.NIIGATA;
     const setTxt=(id,t)=>{const el=document.getElementById(id);if(el)el.textContent=t;};
     const show=(id,on)=>{const el=document.getElementById(id);if(el)el.style.display=on?"":"none";};
     setTxt("lbl-end",cfg.labels.end);setTxt("lbl-job",cfg.labels.job);setTxt("lbl-arr",cfg.labels.arr);
     show("fg-contract",cfg.fields.contract);show("fg-vessel",cfg.fields.vessel);
+    show("fg-otherengine",eng==="OTHER");   // reveal "name the engine" only for Other
   },
   addBaseDataSave(){
     const codeRaw=document.getElementById("bd-code").value;
@@ -999,6 +1027,12 @@ const App={
     if(store[code] && code!==BD_EDITING){toast("Project code \""+code+"\" already exists - not saved");return;}
     const data={};["code","customer","contract","vessel","start","end","overhaul","engine","model","serial","arr","rpm","hours","custic","leader"].forEach(k=>{const el=document.getElementById("bd-"+k);data[k]=el?el.value:"";});
     data.code=code;
+    // Engine = OTHER -> require and store the custom engine name
+    if((data.engine||"").toUpperCase()==="OTHER"){
+      const on=(document.getElementById("bd-otherengine")||{}).value||"";
+      if(!on.trim()){toast("Please name the engine for 'Other'");return;}
+      data.otherEngineName=on.trim();
+    }
     data.membersList=BD_MEMBERS.slice();
     data.members=BD_MEMBERS.join(", ");
     const savedAt=(BD_EDITING&&store[BD_EDITING])?store[BD_EDITING].savedAt:Date.now();
@@ -1176,7 +1210,7 @@ const App={
       ["code","Project Code"],["customer","Customer Name"],
       ["contract","Project / Contract Number"],["vessel","Vessel / Rig Name"],
       ["start","Start Date of Job"],["end",cfg.labels.end],
-      ["overhaul",cfg.labels.job],["engine","Engine Make"],
+      ["overhaul",cfg.labels.job],["engine","Engine Make"],["otherEngineName","Engine Name (Other)"],
       ["model","Engine Model / Variant"],["serial","Engine Serial Number"],
       ["arr",cfg.labels.arr],["rpm","RPM & Capacity"],
       ["hours","Current Running Hours"],["custic","Customer In-Charge"],
@@ -1415,35 +1449,64 @@ const App={
     const c=document.getElementById("dwr-card");if(!c)return;
     const d=State.dwr;
     if(!d){
-      c.innerHTML=`<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Optional. If you have a combined <b>DWR Summary PDF</b> for this project, upload it and press Integrate. The tool reads only the <b>work that was done</b> and uses it to help you build the Maintenance Summary below - matching items get highlighted and their tables get the DWR activities pre-filled. Nothing from the DWR is added to the final report.</div>
+      c.innerHTML=`<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Optional. Use a combined <b>DWR Summary PDF</b>, or <b>Bulk Upload</b> many individual DWR PDFs. The tool reads only the <b>work that was done</b> (Scope Done / Additional Tasks), ignores photos and everything else, and uses it to help build the Maintenance Summary - matching items get highlighted and pre-filled. Nothing from the DWRs is added to the final report.</div>
       <input type="file" id="dwr-input" accept="application/pdf" class="hidden" onchange="App.onDWRFile(event)"/>
-      <button class="btn-ghost btn-sm" onclick="document.getElementById('dwr-input').click()">📄 Choose DWR Summary PDF</button>`;
+      <input type="file" id="dwr-bulk-input" accept="application/pdf" multiple class="hidden" onchange="App.onDWRBulk(event)"/>
+      <div class="row-flex">
+        <button class="btn-ghost btn-sm" onclick="document.getElementById('dwr-input').click()">📄 DWR Summary PDF</button>
+        <button class="btn-ghost btn-sm" onclick="document.getElementById('dwr-bulk-input').click()">📚 Bulk Upload DWRs</button>
+      </div>`;
       return;
     }
     if(d.integrating){
       c.innerHTML=`<div style="font-size:13px;color:var(--ink)"><b>${d.phase?E(d.phase):"Reading DWRs..."}</b> <span style="color:var(--amber)">${E(d.countdown||"")}</span></div>
-      <div style="font-size:11.5px;color:var(--muted);margin-top:6px">${d.phase?"Pulling the text out of the file. Photos are skipped, so file size is not a problem.":"Pulling out the work that was done."}</div>`;
+      <div style="font-size:11.5px;color:var(--muted);margin-top:6px">${d.phase?"Pulling the text out of the file(s). Photos are skipped, so file size is not a problem.":"Pulling out the work that was done."}</div>`;
       return;
     }
     if(d.done){
       const nG=(d.groups||[]).length;
       const nA=(d.groups||[]).reduce((s,g)=>s+g.activities.length,0);
       c.innerHTML=`<div style="font-size:13px;color:#7fd08a"><b>✓ Points integrated.</b></div>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">Found ${nA} work point(s) across ${nG} component group(s) from the DWRs. Scroll down to the Maintenance Summary - matched items are highlighted in the picker, and selecting them pre-fills the DWR activities. Unmatched work is offered as ready-to-add tables there too.</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Found ${nA} work point(s) across ${nG} component group(s) from ${d.bulk?((d.files&&d.files.length)||0)+" DWR file(s)":"the DWR summary"}. Scroll down to the Maintenance Summary - matched items are highlighted in the picker, and selecting them pre-fills the DWR activities. Unmatched work is offered as ready-to-add tables there too.</div>
       <div class="row-flex" style="margin-top:10px">
-        <button class="btn-ghost btn-sm" onclick="App.dwrReplace()">Replace PDF</button>
+        <button class="btn-ghost btn-sm" onclick="App.dwrReplace()">Replace</button>
         <button class="btn-danger btn-sm" onclick="App.dwrClear()">Remove DWR data</button>
       </div>
       <input type="file" id="dwr-input" accept="application/pdf" class="hidden" onchange="App.onDWRFile(event)"/>`;
       return;
     }
-    // uploaded, not yet integrated
+    // BULK: files chosen, not yet integrated -> show the list of names + Integrate
+    if(d.bulk){
+      const list=(d.files||[]).map((f,i)=>`<div style="font-size:12px;color:var(--ink);padding:2px 0">${i+1}. ${E(f.name)}</div>`).join("");
+      c.innerHTML=`<div style="font-size:13px;color:var(--ink)">📚 <b>${(d.files||[]).length} DWR file(s)</b> ready.</div>
+        <div style="max-height:180px;overflow:auto;border:1px solid var(--line2);border-radius:8px;padding:8px;margin:8px 0">${list||'<span style="color:var(--muted)">No files</span>'}</div>
+        <div class="row-flex">
+          <button class="btn" onclick="App.integrateDWRBulk()">Integrate ${(d.files||[]).length} DWRs</button>
+          <button class="btn-ghost btn-sm" onclick="document.getElementById('dwr-bulk-add').click()">+ Add more</button>
+          <button class="btn-danger btn-sm" onclick="App.dwrClear()">Clear</button>
+        </div>
+        <input type="file" id="dwr-bulk-add" accept="application/pdf" multiple class="hidden" onchange="App.onDWRBulk(event)"/>`;
+      return;
+    }
+    // SUMMARY: single file uploaded, not yet integrated
     c.innerHTML=`<div style="font-size:13px;color:var(--ink)">📄 <b>${E(d.name||"DWR Summary.pdf")}</b> ready.</div>
       <div class="row-flex" style="margin-top:10px">
         <button class="btn" onclick="App.integrateDWR()">Integrate</button>
         <button class="btn-ghost btn-sm" onclick="App.dwrReplace()">Choose a different file</button>
       </div>
       <input type="file" id="dwr-input" accept="application/pdf" class="hidden" onchange="App.onDWRFile(event)"/>`;
+  },
+  onDWRBulk(e){
+    const files=[...e.target.files].filter(f=>f.type==="application/pdf");
+    e.target.value="";
+    if(!files.length){alert("Please choose PDF files.");return;}
+    let pending=files.length;const loaded=[];
+    files.forEach((f,idx)=>{const r=new FileReader();r.onload=()=>{loaded[idx]={name:f.name,dataUrl:r.result};if(--pending===0){
+      mark("added DWR files");
+      const existing=(State.dwr&&State.dwr.bulk&&State.dwr.files)?State.dwr.files:[];
+      State.dwr={bulk:true,files:existing.concat(loaded.filter(Boolean)),groups:null,done:false,integrating:false};
+      save();App.renderDWR();
+    }};r.readAsDataURL(f);});
   },
   onDWRFile(e){const f=e.target.files[0];if(!f)return;
     if(f.type!=="application/pdf"){alert("Please choose a PDF file.");return;}
@@ -1505,6 +1568,74 @@ const App={
       alert("Could not integrate the DWR summary.\n\nReason: "+m+"\n\n"+
         (busy?"This looks like a temporary busy signal from the AI service. Waiting a minute and pressing Integrate again usually works."
              :"If this keeps happening, open "+WORKER_URL+"/health and confirm it lists /integrate-dwr."));
+    }
+  },
+  // ---- Bulk DWR integration: extract text from each file (real progress), combine,
+  // send to the worker in batches (so many/verbose DWRs never overflow one call),
+  // then merge the component groups. Text-only, images ignored, scope-done only. ----
+  async integrateDWRBulk(){
+    const d=State.dwr;if(!d||!d.bulk||!(d.files&&d.files.length)){toast("Add DWR files first");return;}
+    App._dwrStop();
+    const files=d.files;
+    // Phase 1: real progress - extract text from each file
+    d.integrating=true;d.done=false;d.countdown="";
+    const texts=[];
+    for(let i=0;i<files.length;i++){
+      d.phase="Reading DWR "+(i+1)+" of "+files.length+"...";save();App.renderDWR();
+      try{
+        const ex=await App._extractDwrText(files[i].dataUrl);
+        if(ex&&ex.text&&ex.text.trim())texts.push("=== DWR: "+files[i].name+" ===\n"+ex.text.trim());
+      }catch(e){ /* skip a file that cannot be read; continue with the rest */ }
+      // let the UI paint
+      await new Promise(r=>setTimeout(r,0));
+    }
+    if(!texts.length){
+      d.integrating=false;d.phase="";save();App.renderDWR();
+      alert("No readable text could be extracted from these DWRs.\n\nThey may be scanned images rather than text PDFs. Please use text-based DWRs.");
+      return;
+    }
+    // Phase 2: batch the combined text into chunks and send each; merge groups.
+    // Chunk by size so a big pile of DWRs is split into safe requests.
+    const MAXCHARS=200000; // per request budget
+    const chunks=[];let cur="",count=0;
+    for(const t of texts){
+      if(cur.length+t.length>MAXCHARS && cur){chunks.push(cur);cur="";count=0;}
+      cur+=(cur?"\n\n":"")+t;count++;
+      if(count>=15){chunks.push(cur);cur="";count=0;} // also cap ~15 DWRs per request
+    }
+    if(cur)chunks.push(cur);
+    // honest timer for the AI phase: pad, and never sit at 0 (switch to "finishing up")
+    let est=Math.max(15,chunks.length*20);
+    d.phase="";d.countdown=est+"s";save();App.renderDWR();
+    let low=false;
+    App._dwrTimer=setInterval(()=>{est--;if(est>5){if(State.dwr)State.dwr.countdown=est+"s";}else{low=true;if(State.dwr)State.dwr.countdown="finishing up...";}App.renderDWR();},1000);
+    try{
+      const allGroups=[];
+      for(let ci=0;ci<chunks.length;ci++){
+        const resp=await fetch(WORKER_URL+"/integrate-dwr",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:chunks[ci]})});
+        if(!resp.ok){let msg="Worker returned "+resp.status;try{const j=await resp.json();if(j&&j.error)msg=j.error;}catch(e){}throw new Error(msg);}
+        const data=await resp.json();
+        if(data.error)throw new Error(data.error);
+        if(Array.isArray(data.groups))allGroups.push(...data.groups);
+      }
+      App._dwrStop();
+      // merge groups with the same component; de-dup activities
+      const byComp=new Map();
+      allGroups.forEach(g=>{const key=(g.component||"").trim();if(!key)return;
+        if(!byComp.has(key))byComp.set(key,new Set());
+        (g.activities||[]).forEach(a=>{const t=(a||"").toString().trim();if(t)byComp.get(key).add(t);});});
+      const merged=[...byComp.entries()].map(([component,set])=>({component,activities:[...set]})).filter(g=>g.activities.length);
+      State.dwr.groups=merged;State.dwr.integrating=false;State.dwr.done=true;State.dwr.countdown="";State.dwr.phase="";
+      save();App.renderDWR();App.renderMaint();
+      const nA=merged.reduce((s,g)=>s+g.activities.length,0);
+      toast(nA?("Points integrated - "+nA+" work point(s) from "+files.length+" DWRs"):"Integrated - no distinct work points detected");
+    }catch(err){
+      App._dwrStop();
+      if(State.dwr){State.dwr.integrating=false;State.dwr.done=false;State.dwr.countdown="";State.dwr.phase="";}
+      save();App.renderDWR();
+      const m=err.message||"unknown error";
+      const busy=/50[23]|429|overload|UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(m);
+      alert("Could not integrate the DWRs.\n\nReason: "+m+"\n\n"+(busy?"This looks like a temporary busy signal from the AI service. Waiting a minute and pressing Integrate again usually works.":"If this keeps happening, open "+WORKER_URL+"/health and confirm it lists /integrate-dwr."));
     }
   },
   // ---- matching DWR groups to the maintenance library ----
@@ -1937,7 +2068,8 @@ const App={
     if(cover){let w=110,hh=w*cover.h/cover.w;if(hh>72){hh=72;w=hh*cover.w/cover.h;}ensure(hh+4);doc.addImage(cover.src,fmt(cover.src),(pageW-w)/2,y,w,hh);y+=hh+6;}
     h2("Project Details");
     const _cfg=engCfg();
-    const engTxt=((b.engine||"NIIGATA")+(b.model?(" "+b.model):"")).trim();
+    const engName=((b.engine||"NIIGATA").toUpperCase()==="OTHER"?(b.otherEngineName||"Other"):(b.engine||"NIIGATA"));
+    const engTxt=(engName+(b.model?(" "+b.model):"")).trim();
     const kv=[["Project Code",b.code],["Customer",b.customer]];
     if(_cfg.fields.contract)kv.push(["Contract No.",b.contract]);
     if(_cfg.fields.vessel)kv.push(["Vessel/Rig",b.vessel]);
@@ -2585,7 +2717,8 @@ ${text}`;
 
     // ---- Project Details ----
     kids.push(H("Project Details"));
-    const engTxt=((b.engine||"NIIGATA")+(b.model?(" "+b.model):"")).trim();
+    const engName=((b.engine||"NIIGATA").toUpperCase()==="OTHER"?(b.otherEngineName||"Other"):(b.engine||"NIIGATA"));
+    const engTxt=(engName+(b.model?(" "+b.model):"")).trim();
     const kv=[["Project Code",b.code],["Customer",b.customer]];
     if(cfg.fields.contract)kv.push(["Contract No.",b.contract]);
     if(cfg.fields.vessel)kv.push(["Vessel/Rig",b.vessel]);
