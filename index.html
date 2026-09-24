@@ -1518,7 +1518,7 @@ const App={
       const nG=(d.groups||[]).length;
       const nA=(d.groups||[]).reduce((s,g)=>s+g.activities.length,0);
       c.innerHTML=`<div style="font-size:13px;color:#7fd08a"><b>✓ Points integrated.</b></div>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">Found ${nA} work point(s) across ${nG} component group(s) from ${d.bulk?((d.files&&d.files.length)||0)+" DWR file(s)":"the DWR summary"}. Scroll down to the Maintenance Summary - matched items are highlighted in the picker, and selecting them pre-fills the DWR activities. Unmatched work is offered as ready-to-add tables there too.</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Found ${nA} work point(s) across ${nG} component group(s) from ${d.bulk?((d.files&&d.files.length)||0)+" DWR file(s)":"the DWR summary"}.${(d.excluded?" "+d.excluded+" meeting/discussion item"+(d.excluded===1?"":"s")+" were excluded.":"")} Scroll down to the Maintenance Summary - matched items are highlighted in the picker, and selecting them pre-fills the DWR activities. Unmatched work is offered as ready-to-add tables there too.</div>
       <div class="row-flex" style="margin-top:10px">
         <button class="btn-ghost btn-sm" onclick="App.dwrReplace()">Replace</button>
         <button class="btn-danger btn-sm" onclick="App.dwrClear()">Remove DWR data</button>
@@ -1606,10 +1606,12 @@ const App={
       if(data.error)throw new Error(data.error);
       App._dwrStop();
       const groups=Array.isArray(data.groups)?data.groups:[];
-      State.dwr.groups=groups;State.dwr.integrating=false;State.dwr.done=true;State.dwr.countdown="";State.dwr.phase="";State.dwr.mode=mode;
+      State.dwr.groups=groups;State.dwr.integrating=false;State.dwr.done=true;State.dwr.countdown="";State.dwr.phase="";State.dwr.mode=mode;State.dwr.excluded=(typeof data.excluded==="number"?data.excluded:0);
       save();App.renderDWR();App.renderMaint();
       const nA=groups.reduce((s,g)=>s+(g.activities?g.activities.length:0),0);
-      toast(nA?("Points integrated - "+nA+" work point(s) found"):"Integrated - no distinct work points detected");
+      const exc=State.dwr.excluded||0;
+      const excMsg=exc?(" ("+exc+" meeting/discussion item"+(exc===1?"":"s")+" excluded)"):"";
+      toast(nA?("Points integrated - "+nA+" work point(s)"+excMsg):("No work points found"+(exc?" - only "+exc+" meeting/discussion item(s)":"")));
     }catch(err){
       App._dwrStop();
       if(State.dwr){State.dwr.integrating=false;State.dwr.done=false;State.dwr.countdown="";State.dwr.phase="";}
@@ -1661,13 +1663,14 @@ const App={
     let low=false;
     App._dwrTimer=setInterval(()=>{est--;if(est>5){if(State.dwr)State.dwr.countdown=est+"s";}else{low=true;if(State.dwr)State.dwr.countdown="finishing up...";}App.renderDWR();},1000);
     try{
-      const allGroups=[];
+      const allGroups=[];let excludedTotal=0;
       for(let ci=0;ci<chunks.length;ci++){
         const resp=await fetch(WORKER_URL+"/integrate-dwr",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:chunks[ci]})});
         if(!resp.ok){let msg="Worker returned "+resp.status;try{const j=await resp.json();if(j&&j.error)msg=j.error;}catch(e){}throw new Error(msg);}
         const data=await resp.json();
         if(data.error)throw new Error(data.error);
         if(Array.isArray(data.groups))allGroups.push(...data.groups);
+        if(typeof data.excluded==="number")excludedTotal+=data.excluded;
       }
       App._dwrStop();
       // merge groups with the same component; de-dup activities by text, keep {text,scope}
@@ -1676,10 +1679,11 @@ const App={
         if(!byComp.has(key))byComp.set(key,new Map());
         (g.activities||[]).forEach(a=>{const act=App._dwrAct(a);const t=act.text.trim();if(t&&!byComp.get(key).has(t))byComp.get(key).set(t,act);});});
       const merged=[...byComp.entries()].map(([component,mp])=>({component,activities:[...mp.values()]})).filter(g=>g.activities.length);
-      State.dwr.groups=merged;State.dwr.integrating=false;State.dwr.done=true;State.dwr.countdown="";State.dwr.phase="";
+      State.dwr.groups=merged;State.dwr.integrating=false;State.dwr.done=true;State.dwr.countdown="";State.dwr.phase="";State.dwr.excluded=excludedTotal;
       save();App.renderDWR();App.renderMaint();
       const nA=merged.reduce((s,g)=>s+g.activities.length,0);
-      toast(nA?("Points integrated - "+nA+" work point(s) from "+files.length+" DWRs"):"Integrated - no distinct work points detected");
+      const excMsg=excludedTotal?(" ("+excludedTotal+" meeting/discussion item"+(excludedTotal===1?"":"s")+" excluded)"):"";
+      toast(nA?("Points integrated - "+nA+" work point(s) from "+files.length+" DWRs"+excMsg):("No work points found across "+files.length+" DWRs"+(excludedTotal?" - only "+excludedTotal+" meeting/discussion item(s)":"")));
     }catch(err){
       App._dwrStop();
       if(State.dwr){State.dwr.integrating=false;State.dwr.done=false;State.dwr.countdown="";State.dwr.phase="";}
